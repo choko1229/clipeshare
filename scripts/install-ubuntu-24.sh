@@ -244,6 +244,7 @@ if [[ -n "${APP_REPO}" && ! -d "${APP_DIR}/current/.git" ]]; then
   echo "==> Cloning application repository"
   sudo -u "${DEPLOY_USER}" git clone "${APP_REPO}" "${APP_DIR}/current"
   sudo -u "${DEPLOY_USER}" ln -sfn "${APP_DIR}/shared/.env.production" "${APP_DIR}/current/.env.production"
+  sudo -u "${DEPLOY_USER}" ln -sfn "${APP_DIR}/storage" "${APP_DIR}/current/storage"
 fi
 
 echo "==> Done"

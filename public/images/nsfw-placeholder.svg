@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#07080d"/>
+  <rect x="48" y="48" width="1184" height="624" rx="24" fill="#10131b" stroke="#f15d6a" stroke-width="8"/>
+  <text x="640" y="338" fill="#f7f7fb" font-family="Arial, sans-serif" font-size="72" font-weight="700" text-anchor="middle">NSFW</text>
+  <text x="640" y="410" fill="#a3a8b8" font-family="Arial, sans-serif" font-size="30" text-anchor="middle">Login and confirm display settings to view this post.</text>
+</svg>

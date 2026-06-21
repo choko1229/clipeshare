@@ -25,6 +25,7 @@
     "nodemailer": "latest",
     "react": "latest",
     "react-dom": "latest",
+    "sharp": "^0.35.2",
     "tailwind-merge": "latest",
     "zod": "latest"
   },

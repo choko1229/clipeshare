@@ -33,6 +33,7 @@ git reset --hard "origin/${BRANCH}"
 
 echo "==> Linking production environment"
 ln -sfn "${ENV_FILE}" "${CURRENT_DIR}/.env.production"
+ln -sfn "${APP_DIR}/storage" "${CURRENT_DIR}/storage"
 
 echo "==> Installing dependencies"
 npm ci

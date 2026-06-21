@@ -1,31 +1,37 @@
 import Link from "next/link";
-import { Camera, Clapperboard, Heart, MessageCircle, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PostCard } from "@/components/posts/post-card";
+import { prisma } from "@/lib/db/prisma";
+
+export const dynamic = "force-dynamic";
 
 const sortTabs = ["新着", "人気", "再生数", "いいね", "コメント", "週間", "月間"];
 
-const mockPosts = [
-  {
-    title: "1v4 clutch on sunset",
-    game: "Valorant",
-    type: "CLIP",
-    accent: "from-emerald-400 to-cyan-400",
-  },
-  {
-    title: "夜明けのスクリーンショット",
-    game: "Final Fantasy XIV",
-    type: "SCREENSHOT",
-    accent: "from-fuchsia-400 to-rose-400",
-  },
-  {
-    title: "ranked final zone",
-    game: "Apex Legends",
-    type: "CLIP",
-    accent: "from-amber-300 to-lime-300",
-  },
-];
+async function getTimelinePosts() {
+  try {
+    return await prisma.post.findMany({
+      where: {
+        status: "PUBLISHED",
+        visibility: "PUBLIC",
+        isNsfw: false,
+      },
+      include: {
+        game: true,
+      },
+      orderBy: {
+        publishedAt: "desc",
+      },
+      take: 24,
+    });
+  } catch {
+    return [];
+  }
+}
 
-export default function HomePage() {
+export default async function HomePage() {
+  const posts = await getTimelinePosts();
+
   return (
     <main>
       <section className="mx-auto grid max-w-6xl gap-8 px-4 py-8 lg:grid-cols-[1fr_320px]">
@@ -59,36 +65,31 @@ export default function HomePage() {
             ))}
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {mockPosts.map((post) => (
-              <article className="overflow-hidden rounded-md border border-border bg-card" key={post.title}>
-                <div className={`aspect-video bg-gradient-to-br ${post.accent} p-3`}>
-                  <div className="flex h-full items-start justify-between">
-                    <span className="rounded bg-black/40 px-2 py-1 text-xs font-bold text-white">{post.type}</span>
-                    {post.type === "CLIP" ? (
-                      <Clapperboard className="text-black/50" size={28} />
-                    ) : (
-                      <Camera className="text-black/50" size={28} />
-                    )}
-                  </div>
-                </div>
-                <div className="space-y-3 p-4">
-                  <div>
-                    <p className="text-xs font-medium uppercase text-primary">{post.game}</p>
-                    <h2 className="mt-1 line-clamp-2 text-base font-semibold">{post.title}</h2>
-                  </div>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <span className="inline-flex items-center gap-1">
-                      <Heart size={16} /> 0
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <MessageCircle size={16} /> 0
-                    </span>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
+          {posts.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {posts.map((post) => (
+                <PostCard
+                  commentCount={Number(post.commentCount)}
+                  gameName={post.game.name}
+                  isNsfw={post.isNsfw}
+                  key={post.id}
+                  likeCount={Number(post.likeCount)}
+                  publicId={post.publicId}
+                  thumbnailUrl={post.thumbnailUrl}
+                  title={post.title}
+                  type={post.type}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-md border border-border bg-card p-8 text-center">
+              <h2 className="text-lg font-semibold">まだ公開投稿はありません</h2>
+              <p className="mt-2 text-sm text-muted-foreground">最初のスクリーンショットを投稿できます。</p>
+              <Button asChild className="mt-5">
+                <Link href="/posts/new">投稿する</Link>
+              </Button>
+            </div>
+          )}
         </div>
 
         <aside className="space-y-4">
@@ -107,7 +108,7 @@ export default function HomePage() {
           <div className="rounded-md border border-border bg-card p-4">
             <h2 className="text-sm font-semibold">MVP進行中</h2>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              現在は基盤構築フェーズです。次に認証、DB、投稿機能を順番に実装します。
+              現在は画像投稿MVPです。次に動画アップロードとHLS変換を追加します。
             </p>
           </div>
         </aside>
