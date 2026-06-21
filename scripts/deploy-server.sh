@@ -24,6 +24,12 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   exit 1
 fi
 
+echo "==> Loading production environment"
+set -a
+# shellcheck disable=SC1090
+source "${ENV_FILE}"
+set +a
+
 cd "${CURRENT_DIR}"
 
 echo "==> Fetching latest ${BRANCH}"
