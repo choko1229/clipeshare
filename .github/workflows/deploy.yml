@@ -1,0 +1,36 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Prepare SSH key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          APP_NAME: ${{ vars.APP_NAME || 'clipeshare' }}
+          APP_DIR: ${{ vars.APP_DIR || '/var/www/clipeshare' }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          ssh "${VPS_USER}@${VPS_HOST}" \
+            "APP_NAME='${APP_NAME}' APP_DIR='${APP_DIR}' BRANCH='${BRANCH}' bash '${APP_DIR}/current/scripts/deploy-server.sh'"
