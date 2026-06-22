@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "prisma": "prisma",
     "admin:promote": "node scripts/promote-admin.mjs",
-    "worker": "node scripts/worker-placeholder.mjs"
+    "worker": "node scripts/video-worker.mjs"
   },
   "dependencies": {
     "@next-auth/prisma-adapter": "^1.0.7",
@@ -19,6 +19,7 @@
     "@radix-ui/react-slot": "latest",
     "class-variance-authority": "latest",
     "clsx": "latest",
+    "hls.js": "^1.6.16",
     "lucide-react": "latest",
     "nanoid": "latest",
     "next": "latest",

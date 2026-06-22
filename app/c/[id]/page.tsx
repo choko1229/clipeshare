@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import { Eye, Flag, Heart, MessageCircle, Trash2 } from "lucide-react";
 import { authOptions } from "@/auth";
 import { Button } from "@/components/ui/button";
+import { HlsPlayer } from "@/components/media/hls-player";
 import { prisma } from "@/lib/db/prisma";
 import { createComment, createReport, deleteComment, toggleLike } from "@/app/c/[id]/actions";
 
@@ -21,7 +22,9 @@ async function getPublicPost(publicId: string) {
   return prisma.post.findFirst({
     where: {
       publicId,
-      status: "PUBLISHED",
+      status: {
+        in: ["PUBLISHED", "PROCESSING", "FAILED"],
+      },
       visibility: "PUBLIC",
     },
     include: {
@@ -122,7 +125,9 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
       <div className="relative aspect-video overflow-hidden rounded-md border border-border bg-card">
-        {post.mediaUrl ? (
+        {post.type === "CLIP" && post.mediaUrl ? (
+          <HlsPlayer poster={post.thumbnailUrl} src={post.mediaUrl} title={post.title} />
+        ) : post.mediaUrl ? (
           <Image
             alt={post.title}
             className={post.isNsfw ? "object-contain blur-xl" : "object-contain"}
@@ -130,7 +135,20 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
             priority
             src={post.mediaUrl}
           />
-        ) : null}
+        ) : (
+          <div className="grid h-full place-items-center p-6 text-center">
+            <div>
+              <p className="text-lg font-semibold">
+                {post.status === "FAILED" ? "動画変換に失敗しました" : "動画を変換中です"}
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {post.status === "FAILED"
+                  ? "時間を置いても直らない場合は再投稿してください。"
+                  : "変換が完了すると、このページで再生できるようになります。"}
+              </p>
+            </div>
+          </div>
+        )}
         {post.isNsfw ? (
           <div className="absolute inset-0 grid place-items-center bg-background/70">
             <span className="rounded-md bg-card px-4 py-2 text-sm font-semibold">NSFW</span>

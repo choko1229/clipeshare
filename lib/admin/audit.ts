@@ -17,9 +17,15 @@ export async function writeAuditLog(input: AuditInput) {
       action: input.action,
       targetType: input.targetType,
       targetId: input.targetId,
-      beforeData: input.beforeData === undefined ? undefined : JSON.parse(JSON.stringify(input.beforeData)),
-      afterData: input.afterData === undefined ? undefined : JSON.parse(JSON.stringify(input.afterData)),
+      beforeData: input.beforeData === undefined ? undefined : toJson(input.beforeData),
+      afterData: input.afterData === undefined ? undefined : toJson(input.afterData),
       reason: input.reason ?? null,
     },
   });
+}
+
+function toJson(value: unknown) {
+  return JSON.parse(
+    JSON.stringify(value, (_key, nestedValue) => (typeof nestedValue === "bigint" ? nestedValue.toString() : nestedValue)),
+  );
 }
