@@ -152,12 +152,24 @@ model UserLink {
 }
 
 model Game {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  aliases   Json?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id           String    @id @default(cuid())
+  name         String
+  slug         String    @unique
+  aliases      Json?
+  summary      String?   @db.Text
+  coverUrl     String?   @db.Text
+  heroUrl      String?   @db.Text
+  officialUrl  String?   @db.Text
+  igdbId       Int?      @unique
+  steamAppId   Int?      @unique
+  rawgSlug     String?
+  genres       Json?
+  platforms    Json?
+  releaseDate  DateTime?
+  lastSyncedAt DateTime?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   posts Post[]
 }

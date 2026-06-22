@@ -1,0 +1,16 @@
+ALTER TABLE `Game`
+  ADD COLUMN `summary` TEXT NULL,
+  ADD COLUMN `coverUrl` TEXT NULL,
+  ADD COLUMN `heroUrl` TEXT NULL,
+  ADD COLUMN `officialUrl` TEXT NULL,
+  ADD COLUMN `igdbId` INTEGER NULL,
+  ADD COLUMN `steamAppId` INTEGER NULL,
+  ADD COLUMN `rawgSlug` VARCHAR(191) NULL,
+  ADD COLUMN `genres` JSON NULL,
+  ADD COLUMN `platforms` JSON NULL,
+  ADD COLUMN `releaseDate` DATETIME(3) NULL,
+  ADD COLUMN `lastSyncedAt` DATETIME(3) NULL,
+  ADD COLUMN `updatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3);
+
+CREATE UNIQUE INDEX `Game_igdbId_key` ON `Game`(`igdbId`);
+CREATE UNIQUE INDEX `Game_steamAppId_key` ON `Game`(`steamAppId`);

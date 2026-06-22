@@ -62,6 +62,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               <PostCard
                 commentCount={Number(post.commentCount)}
                 gameName={post.game.name}
+                gameSlug={post.game.slug}
                 isNsfw={post.isNsfw}
                 key={post.id}
                 likeCount={Number(post.likeCount)}

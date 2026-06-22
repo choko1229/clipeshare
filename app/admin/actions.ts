@@ -5,9 +5,58 @@ import { z } from "zod";
 import { requireAdmin, requireModerator } from "@/lib/admin/auth";
 import { writeAuditLog } from "@/lib/admin/audit";
 import { prisma } from "@/lib/db/prisma";
+import { fetchIgdbGameMetadata } from "@/lib/games/igdb";
 
 const idSchema = z.string().min(1);
 const reportStatusSchema = z.enum(["OPEN", "REVIEWING", "ACTION_TAKEN", "REJECTED", "CLOSED"]);
+const optionalUrlSchema = z
+  .string()
+  .trim()
+  .url()
+  .or(z.literal(""))
+  .transform((value) => value || null);
+
+function parseCsv(value: FormDataEntryValue | null) {
+  if (typeof value !== "string") {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .split(/[,\n]/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, 30),
+    ),
+  );
+}
+
+function parseOptionalInt(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    throw new Error("外部IDは正の整数で入力してください。");
+  }
+
+  return parsed;
+}
+
+function parseOptionalDate(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error("発売日は YYYY-MM-DD 形式で入力してください。");
+  }
+
+  return parsed;
+}
 
 export async function updateReportStatus(formData: FormData) {
   const admin = await requireModerator();
@@ -236,4 +285,105 @@ export async function banUser(formData: FormData) {
   });
 
   revalidatePath("/admin/users");
+}
+
+export async function updateGameMetadata(formData: FormData) {
+  const admin = await requireModerator();
+  const gameId = idSchema.parse(formData.get("gameId"));
+  const name = z.string().trim().min(1).max(120).parse(formData.get("name"));
+  const summary = z.string().trim().max(5000).optional().parse(formData.get("summary") || undefined) ?? null;
+  const coverUrl = optionalUrlSchema.parse(formData.get("coverUrl") ?? "");
+  const heroUrl = optionalUrlSchema.parse(formData.get("heroUrl") ?? "");
+  const officialUrl = optionalUrlSchema.parse(formData.get("officialUrl") ?? "");
+  const rawgSlug = z.string().trim().max(120).optional().parse(formData.get("rawgSlug") || undefined) ?? null;
+  const igdbId = parseOptionalInt(formData.get("igdbId"));
+  const steamAppId = parseOptionalInt(formData.get("steamAppId"));
+  const releaseDate = parseOptionalDate(formData.get("releaseDate"));
+  const genres = parseCsv(formData.get("genres"));
+  const platforms = parseCsv(formData.get("platforms"));
+  const isActive = formData.get("isActive") === "on";
+
+  const before = await prisma.game.findUnique({
+    where: { id: gameId },
+  });
+
+  if (!before) {
+    throw new Error("ゲームが見つかりません。");
+  }
+
+  const after = await prisma.game.update({
+    where: { id: gameId },
+    data: {
+      name,
+      summary,
+      coverUrl,
+      heroUrl,
+      officialUrl,
+      rawgSlug,
+      igdbId,
+      steamAppId,
+      releaseDate,
+      genres,
+      platforms,
+      isActive,
+    },
+  });
+
+  await writeAuditLog({
+    adminId: admin.id,
+    action: "game.update_metadata",
+    targetType: "game",
+    targetId: gameId,
+    beforeData: before,
+    afterData: after,
+  });
+
+  revalidatePath("/admin/games");
+  revalidatePath(`/games/${after.slug}`);
+}
+
+export async function syncGameFromIgdb(formData: FormData) {
+  const admin = await requireModerator();
+  const gameId = idSchema.parse(formData.get("gameId"));
+
+  const before = await prisma.game.findUnique({
+    where: { id: gameId },
+  });
+
+  if (!before) {
+    throw new Error("ゲームが見つかりません。");
+  }
+
+  const metadata = await fetchIgdbGameMetadata({
+    igdbId: before.igdbId,
+    name: before.name,
+  });
+
+  const after = await prisma.game.update({
+    where: { id: gameId },
+    data: {
+      name: metadata.name,
+      summary: metadata.summary,
+      coverUrl: metadata.coverUrl,
+      heroUrl: metadata.heroUrl,
+      officialUrl: metadata.officialUrl,
+      igdbId: metadata.igdbId,
+      genres: metadata.genres,
+      platforms: metadata.platforms,
+      releaseDate: metadata.releaseDate,
+      lastSyncedAt: new Date(),
+    },
+  });
+
+  await writeAuditLog({
+    adminId: admin.id,
+    action: "game.sync_igdb",
+    targetType: "game",
+    targetId: gameId,
+    beforeData: before,
+    afterData: after,
+  });
+
+  revalidatePath("/admin/games");
+  revalidatePath(`/games/${after.slug}`);
 }

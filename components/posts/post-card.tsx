@@ -6,6 +6,7 @@ type PostCardProps = {
   publicId: string;
   title: string;
   gameName: string;
+  gameSlug: string;
   type: "CLIP" | "SCREENSHOT";
   thumbnailUrl: string;
   likeCount: number;
@@ -17,6 +18,7 @@ export function PostCard({
   publicId,
   title,
   gameName,
+  gameSlug,
   type,
   thumbnailUrl,
   likeCount,
@@ -39,7 +41,9 @@ export function PostCard({
       </Link>
       <div className="space-y-3 p-4">
         <div>
-          <p className="text-xs font-medium uppercase text-primary">{gameName}</p>
+          <Link className="text-xs font-medium uppercase text-primary hover:text-primary/80" href={`/games/${gameSlug}`}>
+            {gameName}
+          </Link>
           <Link href={`/c/${publicId}`}>
             <h2 className="mt-1 line-clamp-2 text-base font-semibold hover:text-primary">{title}</h2>
           </Link>

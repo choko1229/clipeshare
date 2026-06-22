@@ -158,7 +158,9 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
 
       <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_300px]">
         <div>
-          <p className="text-sm font-medium text-primary">{post.game.name}</p>
+          <Link className="text-sm font-medium text-primary hover:text-primary/80" href={`/games/${post.game.slug}`}>
+            {post.game.name}
+          </Link>
           <h1 className="mt-2 text-3xl font-bold">{post.title}</h1>
           <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-muted-foreground">{post.description}</p>
 

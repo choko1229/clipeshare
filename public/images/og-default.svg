@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-label="Clipeshare">
+  <rect width="1280" height="720" fill="#09090b"/>
+  <rect x="64" y="64" width="1152" height="592" rx="18" fill="#18181b" stroke="#27272a" stroke-width="2"/>
+  <circle cx="180" cy="180" r="56" fill="#22c55e"/>
+  <path d="M160 168h40l28 24-28 24h-40z" fill="#09090b"/>
+  <text x="96" y="390" fill="#fafafa" font-family="Arial, sans-serif" font-size="76" font-weight="700">Clipeshare</text>
+  <text x="100" y="462" fill="#a1a1aa" font-family="Arial, sans-serif" font-size="34">Game clips and screenshots</text>
+</svg>

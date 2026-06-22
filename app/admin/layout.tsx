@@ -6,6 +6,7 @@ const adminNav = [
   { href: "/admin/reports", label: "通報" },
   { href: "/admin/posts", label: "投稿" },
   { href: "/admin/comments", label: "コメント" },
+  { href: "/admin/games", label: "ゲーム" },
   { href: "/admin/users", label: "ユーザー" },
   { href: "/admin/audit-logs", label: "操作ログ" },
 ];
