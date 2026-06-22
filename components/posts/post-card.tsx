@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Camera, Clapperboard, Heart, MessageCircle } from "lucide-react";
+import { Bookmark, Camera, Clapperboard, Heart, MessageCircle } from "lucide-react";
 
 type PostCardProps = {
   publicId: string;
@@ -11,6 +11,7 @@ type PostCardProps = {
   thumbnailUrl: string;
   likeCount: number;
   commentCount: number;
+  bookmarkCount: number;
   isNsfw: boolean;
 };
 
@@ -23,6 +24,7 @@ export function PostCard({
   thumbnailUrl,
   likeCount,
   commentCount,
+  bookmarkCount,
   isNsfw,
 }: PostCardProps) {
   return (
@@ -54,6 +56,9 @@ export function PostCard({
           </span>
           <span className="inline-flex items-center gap-1">
             <MessageCircle size={16} /> {commentCount}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <Bookmark size={16} /> {bookmarkCount}
           </span>
         </div>
       </div>

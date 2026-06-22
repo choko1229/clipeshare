@@ -94,6 +94,62 @@ export async function toggleLike(formData: FormData) {
   revalidatePath(`/c/${publicId}`);
 }
 
+export async function toggleBookmark(formData: FormData) {
+  const userId = await requireUserId();
+  const publicId = publicIdSchema.parse(formData.get("publicId"));
+  const post = await getPostByPublicId(publicId);
+
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.bookmark.findUnique({
+      where: {
+        userId_postId: {
+          userId,
+          postId: post.id,
+        },
+      },
+    });
+
+    if (existing) {
+      await tx.bookmark.delete({
+        where: {
+          userId_postId: {
+            userId,
+            postId: post.id,
+          },
+        },
+      });
+      await tx.post.update({
+        where: { id: post.id },
+        data: {
+          bookmarkCount: {
+            decrement: 1,
+          },
+        },
+      });
+      return;
+    }
+
+    await tx.bookmark.create({
+      data: {
+        userId,
+        postId: post.id,
+      },
+    });
+    await tx.post.update({
+      where: { id: post.id },
+      data: {
+        bookmarkCount: {
+          increment: 1,
+        },
+      },
+    });
+  });
+
+  revalidatePath("/");
+  revalidatePath("/bookmarks");
+  revalidatePath(`/c/${publicId}`);
+}
+
 export async function createComment(formData: FormData) {
   const userId = await requireUserId();
   const publicId = publicIdSchema.parse(formData.get("publicId"));

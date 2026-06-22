@@ -196,6 +196,7 @@ export default async function GamePage({ params }: GamePageProps) {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {game.posts.map((post) => (
               <PostCard
+                bookmarkCount={Number(post.bookmarkCount)}
                 commentCount={Number(post.commentCount)}
                 gameName={post.game.name}
                 gameSlug={post.game.slug}

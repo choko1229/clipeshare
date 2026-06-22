@@ -3,12 +3,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { Eye, Flag, Heart, MessageCircle, Trash2 } from "lucide-react";
+import { Bookmark, Eye, Flag, Heart, MessageCircle, Trash2 } from "lucide-react";
 import { authOptions } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { HlsPlayer } from "@/components/media/hls-player";
 import { prisma } from "@/lib/db/prisma";
-import { createComment, createReport, deleteComment, toggleLike } from "@/app/c/[id]/actions";
+import { createComment, createReport, deleteComment, toggleBookmark, toggleLike } from "@/app/c/[id]/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -109,6 +109,21 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
   const isLiked = session?.user?.id
     ? Boolean(
         await prisma.like.findUnique({
+          where: {
+            userId_postId: {
+              userId: session.user.id,
+              postId: post.id,
+            },
+          },
+          select: {
+            postId: true,
+          },
+        }),
+      )
+    : false;
+  const isBookmarked = session?.user?.id
+    ? Boolean(
+        await prisma.bookmark.findUnique({
           where: {
             userId_postId: {
               userId: session.user.id,
@@ -247,7 +262,7 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
                 )}
               </p>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-center text-sm">
+            <div className="grid grid-cols-4 gap-2 text-center text-sm">
               <div className="rounded-md bg-background p-3">
                 <Eye className="mx-auto mb-1" size={18} />
                 {Number(post.viewCount)}
@@ -260,19 +275,37 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
                 <MessageCircle className="mx-auto mb-1" size={18} />
                 {Number(post.commentCount)}
               </div>
+              <div className="rounded-md bg-background p-3">
+                <Bookmark className="mx-auto mb-1" size={18} />
+                {Number(post.bookmarkCount)}
+              </div>
             </div>
             {session?.user ? (
-              <form action={toggleLike}>
-                <input name="publicId" type="hidden" value={post.publicId} />
-                <Button className="w-full" type="submit" variant={isLiked ? "secondary" : "default"}>
-                  <Heart size={18} />
-                  {isLiked ? "いいね済み" : "いいね"}
-                </Button>
-              </form>
+              <div className="grid gap-2">
+                <form action={toggleLike}>
+                  <input name="publicId" type="hidden" value={post.publicId} />
+                  <Button className="w-full" type="submit" variant={isLiked ? "secondary" : "default"}>
+                    <Heart size={18} />
+                    {isLiked ? "いいね済み" : "いいね"}
+                  </Button>
+                </form>
+                <form action={toggleBookmark}>
+                  <input name="publicId" type="hidden" value={post.publicId} />
+                  <Button className="w-full" type="submit" variant={isBookmarked ? "secondary" : "outline"}>
+                    <Bookmark size={18} />
+                    {isBookmarked ? "保存済み" : "ブックマーク"}
+                  </Button>
+                </form>
+              </div>
             ) : (
-              <Button asChild className="w-full">
-                <Link href="/login">ログインしていいね</Link>
-              </Button>
+              <div className="grid gap-2">
+                <Button asChild className="w-full">
+                  <Link href="/login">ログインしていいね</Link>
+                </Button>
+                <Button asChild className="w-full" variant="outline">
+                  <Link href="/login">ログインして保存</Link>
+                </Button>
+              </div>
             )}
           </section>
 
