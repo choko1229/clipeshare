@@ -2,11 +2,14 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function GET(_request: Request, context: { params: Promise<unknown> }) {
   const params = await context.params;
   const segments = getPathSegments(params);
   const safeSegments = segments.filter((segment) => segment && segment !== ".." && !segment.includes("\\"));
-  const root = path.join(process.cwd(), "storage", "uploads", "processed");
+  const root = getMediaRoot();
   const filePath = path.resolve(root, ...safeSegments);
 
   if (!filePath.startsWith(root)) {
@@ -37,6 +40,16 @@ function getPathSegments(params: unknown) {
   }
 
   return [];
+}
+
+function getMediaRoot() {
+  const root = process.env.MEDIA_ROOT;
+
+  if (!root) {
+    throw new Error("MEDIA_ROOT is required for media file serving.");
+  }
+
+  return path.resolve(root);
 }
 
 function contentType(filePath: string) {
