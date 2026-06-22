@@ -7,6 +7,7 @@ import { authOptions } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { PostCard } from "@/components/posts/post-card";
 import { prisma } from "@/lib/db/prisma";
+import { toggleFollow } from "@/app/users/[username]/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,12 @@ async function getProfile(username: string) {
   return prisma.user.findUnique({
     where: { username },
     include: {
+      _count: {
+        select: {
+          followers: true,
+          following: true,
+        },
+      },
       posts: {
         where: {
           status: "PUBLISHED",
@@ -77,6 +84,22 @@ export default async function UserProfilePage({ params }: UserPageProps) {
   }
 
   const isOwner = session?.user?.id === user.id;
+  const isFollowing =
+    session?.user?.id && !isOwner
+      ? Boolean(
+          await prisma.follow.findUnique({
+            where: {
+              followerId_followingId: {
+                followerId: session.user.id,
+                followingId: user.id,
+              },
+            },
+            select: {
+              followingId: true,
+            },
+          }),
+        )
+      : false;
   const totalLikes = user.posts.reduce((sum, post) => sum + Number(post.likeCount), 0);
   const topGames = Array.from(new Set(user.posts.map((post) => post.game.name))).slice(0, 5);
 
@@ -103,12 +126,23 @@ export default async function UserProfilePage({ params }: UserPageProps) {
               <Button asChild variant="outline">
                 <Link href="/settings/profile">プロフィール編集</Link>
               </Button>
-            ) : null}
+            ) : session?.user ? (
+              <form action={toggleFollow}>
+                <input name="username" type="hidden" value={user.username ?? ""} />
+                <Button type="submit" variant={isFollowing ? "secondary" : "default"}>
+                  {isFollowing ? "フォロー中" : "フォロー"}
+                </Button>
+              </form>
+            ) : (
+              <Button asChild>
+                <Link href="/login">ログインしてフォロー</Link>
+              </Button>
+            )}
           </div>
 
           {user.bio ? <p className="mt-4 max-w-2xl whitespace-pre-wrap text-sm leading-7 text-muted-foreground">{user.bio}</p> : null}
 
-          <div className="mt-5 grid max-w-xl grid-cols-3 gap-3 text-center text-sm">
+          <div className="mt-5 grid max-w-3xl grid-cols-2 gap-3 text-center text-sm sm:grid-cols-5">
             <div className="rounded-md border border-border bg-card p-3">
               <p className="text-xl font-bold">{user.posts.length}</p>
               <p className="text-muted-foreground">投稿</p>
@@ -120,6 +154,14 @@ export default async function UserProfilePage({ params }: UserPageProps) {
             <div className="rounded-md border border-border bg-card p-3">
               <p className="text-xl font-bold">{topGames.length}</p>
               <p className="text-muted-foreground">ゲーム</p>
+            </div>
+            <div className="rounded-md border border-border bg-card p-3">
+              <p className="text-xl font-bold">{user._count.followers}</p>
+              <p className="text-muted-foreground">フォロワー</p>
+            </div>
+            <div className="rounded-md border border-border bg-card p-3">
+              <p className="text-xl font-bold">{user._count.following}</p>
+              <p className="text-muted-foreground">フォロー中</p>
             </div>
           </div>
 

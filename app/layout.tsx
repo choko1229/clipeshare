@@ -75,6 +75,9 @@ export default async function RootLayout({
                     <Button asChild variant="ghost">
                       <Link href="/bookmarks">保存</Link>
                     </Button>
+                    <Button asChild variant="ghost">
+                      <Link href="/following">フォロー中</Link>
+                    </Button>
                     {session.user.role && ["MODERATOR", "ADMIN", "OWNER"].includes(session.user.role) ? (
                       <Button asChild variant="ghost">
                         <Link href="/admin">管理</Link>
