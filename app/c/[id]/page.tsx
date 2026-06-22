@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { Bookmark, Eye, Flag, Heart, MessageCircle, Trash2 } from "lucide-react";
+import { Bookmark, Eye, Flag, Heart, MessageCircle, Pencil, Trash2 } from "lucide-react";
 import { authOptions } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { HlsPlayer } from "@/components/media/hls-player";
@@ -118,6 +118,7 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
   });
 
   const displayViewCount = Number(post.viewCount) + 1;
+  const isOwner = session?.user?.id === post.userId;
   const isLiked = session?.user?.id
     ? Boolean(
         await prisma.like.findUnique({
@@ -294,6 +295,14 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
             </div>
             {session?.user ? (
               <div className="grid gap-2">
+                {isOwner ? (
+                  <Button asChild variant="outline">
+                    <Link href={`/c/${post.publicId}/edit`}>
+                      <Pencil size={18} />
+                      投稿を編集
+                    </Link>
+                  </Button>
+                ) : null}
                 <form action={toggleLike}>
                   <input name="publicId" type="hidden" value={post.publicId} />
                   <Button className="w-full" type="submit" variant={isLiked ? "secondary" : "default"}>
