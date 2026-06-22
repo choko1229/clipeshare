@@ -9,11 +9,13 @@ declare module "next-auth" {
       image?: string | null;
       role?: string;
       username?: string | null;
+      displayName?: string | null;
     };
   }
 
   interface User {
     role?: string;
     username?: string | null;
+    displayName?: string | null;
   }
 }

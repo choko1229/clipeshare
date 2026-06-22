@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import "./globals.css";
 import { Button } from "@/components/ui/button";
+import { LogoutButton } from "@/components/auth/logout-button";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -65,9 +66,17 @@ export default async function RootLayout({
                   <Link href="/search">検索</Link>
                 </Button>
                 {session?.user ? (
-                  <Button asChild>
-                    <Link href="/posts/new">投稿</Link>
-                  </Button>
+                  <>
+                    {session.user.username ? (
+                      <Button asChild variant="ghost">
+                        <Link href={`/users/${session.user.username}`}>プロフィール</Link>
+                      </Button>
+                    ) : null}
+                    <Button asChild>
+                      <Link href="/posts/new">投稿</Link>
+                    </Button>
+                    <LogoutButton />
+                  </>
                 ) : (
                   <Button asChild>
                     <Link href="/login">ログイン</Link>

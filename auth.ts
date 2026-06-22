@@ -3,6 +3,7 @@ import DiscordProvider from "next-auth/providers/discord";
 import EmailProvider from "next-auth/providers/email";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/db/prisma";
+import { generateUniqueUsername } from "@/lib/users/username";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -34,11 +35,33 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login",
   },
   callbacks: {
-    session({ session, user }) {
+    async session({ session, user }) {
+      let username = user.username;
+      let displayName = user.displayName ?? user.name ?? null;
+
+      if (!username) {
+        username = await generateUniqueUsername(user.name ?? user.email ?? user.id);
+        const updatedUser = await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            username,
+            displayName,
+            avatarUrl: user.image,
+          },
+          select: {
+            username: true,
+            displayName: true,
+          },
+        });
+        username = updatedUser.username;
+        displayName = updatedUser.displayName;
+      }
+
       if (session.user) {
         session.user.id = user.id;
         session.user.role = user.role;
-        session.user.username = user.username;
+        session.user.username = username;
+        session.user.displayName = displayName;
       }
       return session;
     },
