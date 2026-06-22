@@ -72,6 +72,11 @@ export default async function RootLayout({
                         <Link href={`/users/${session.user.username}`}>プロフィール</Link>
                       </Button>
                     ) : null}
+                    {session.user.role && ["MODERATOR", "ADMIN", "OWNER"].includes(session.user.role) ? (
+                      <Button asChild variant="ghost">
+                        <Link href="/admin">管理</Link>
+                      </Button>
+                    ) : null}
                     <Button asChild>
                       <Link href="/posts/new">投稿</Link>
                     </Button>

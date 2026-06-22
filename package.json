@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "prisma": "prisma",
+    "admin:promote": "node scripts/promote-admin.mjs",
     "worker": "node scripts/worker-placeholder.mjs"
   },
   "dependencies": {
