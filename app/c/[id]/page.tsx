@@ -106,6 +106,18 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
     notFound();
   }
 
+  await prisma.post.update({
+    where: {
+      id: post.id,
+    },
+    data: {
+      viewCount: {
+        increment: 1,
+      },
+    },
+  });
+
+  const displayViewCount = Number(post.viewCount) + 1;
   const isLiked = session?.user?.id
     ? Boolean(
         await prisma.like.findUnique({
@@ -265,7 +277,7 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
             <div className="grid grid-cols-4 gap-2 text-center text-sm">
               <div className="rounded-md bg-background p-3">
                 <Eye className="mx-auto mb-1" size={18} />
-                {Number(post.viewCount)}
+                {displayViewCount}
               </div>
               <div className="rounded-md bg-background p-3">
                 <Heart className="mx-auto mb-1" size={18} />

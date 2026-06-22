@@ -1,27 +1,115 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
+import type { Prisma } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { PostCard } from "@/components/posts/post-card";
 import { prisma } from "@/lib/db/prisma";
 
 export const dynamic = "force-dynamic";
 
-const sortTabs = ["新着", "人気", "再生数", "いいね", "コメント", "週間", "月間"];
+const sortTabs = [
+  { key: "new", label: "新着" },
+  { key: "popular", label: "人気" },
+  { key: "views", label: "再生数" },
+  { key: "likes", label: "いいね" },
+  { key: "comments", label: "コメント" },
+  { key: "week", label: "週間" },
+  { key: "month", label: "月間" },
+] as const;
 
-async function getTimelinePosts() {
+type TimelineSort = (typeof sortTabs)[number]["key"];
+
+type HomePageProps = {
+  searchParams: Promise<{
+    sort?: string;
+  }>;
+};
+
+function parseTimelineSort(value: string | undefined): TimelineSort {
+  return sortTabs.some((tab) => tab.key === value) ? (value as TimelineSort) : "new";
+}
+
+function getSortStartDate(sort: TimelineSort) {
+  const now = new Date();
+
+  if (sort === "week") {
+    return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  }
+
+  if (sort === "month") {
+    return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  }
+
+  return null;
+}
+
+function getOrderBy(sort: TimelineSort): Prisma.PostOrderByWithRelationInput[] {
+  if (sort === "popular" || sort === "week" || sort === "month") {
+    return [
+      { likeCount: "desc" },
+      { commentCount: "desc" },
+      { bookmarkCount: "desc" },
+      { viewCount: "desc" },
+      { publishedAt: "desc" },
+    ];
+  }
+
+  if (sort === "views") {
+    return [{ viewCount: "desc" }, { publishedAt: "desc" }];
+  }
+
+  if (sort === "likes") {
+    return [{ likeCount: "desc" }, { publishedAt: "desc" }];
+  }
+
+  if (sort === "comments") {
+    return [{ commentCount: "desc" }, { publishedAt: "desc" }];
+  }
+
+  return [{ publishedAt: "desc" }];
+}
+
+function getSortDescription(sort: TimelineSort) {
+  switch (sort) {
+    case "popular":
+      return "いいね、コメント、保存、再生数を見て総合的に並べています。";
+    case "views":
+      return "再生数・表示数が多い投稿から表示しています。";
+    case "likes":
+      return "いいね数が多い投稿から表示しています。";
+    case "comments":
+      return "コメント数が多い投稿から表示しています。";
+    case "week":
+      return "直近7日間の投稿を人気順で表示しています。";
+    case "month":
+      return "直近30日間の投稿を人気順で表示しています。";
+    case "new":
+    default:
+      return "公開されたばかりの投稿から表示しています。";
+  }
+}
+
+async function getTimelinePosts(sort: TimelineSort) {
+  const startDate = getSortStartDate(sort);
+
   try {
     return await prisma.post.findMany({
       where: {
         status: "PUBLISHED",
         visibility: "PUBLIC",
         isNsfw: false,
+        ...(startDate
+          ? {
+              publishedAt: {
+                gte: startDate,
+              },
+            }
+          : {}),
       },
       include: {
         game: true,
       },
-      orderBy: {
-        publishedAt: "desc",
-      },
+      orderBy: getOrderBy(sort),
       take: 24,
     });
   } catch {
@@ -29,8 +117,11 @@ async function getTimelinePosts() {
   }
 }
 
-export default async function HomePage() {
-  const posts = await getTimelinePosts();
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const { sort: sortParam } = await searchParams;
+  const activeSort = parseTimelineSort(sortParam);
+  const posts = await getTimelinePosts(activeSort);
+  const activeSortLabel = sortTabs.find((tab) => tab.key === activeSort)?.label ?? "新着";
 
   return (
     <main>
@@ -48,21 +139,26 @@ export default async function HomePage() {
             </Button>
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {sortTabs.map((tab, index) => (
-              <button
+          <div>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {sortTabs.map((tab) => (
+                <Link
                 className={[
                   "h-10 shrink-0 rounded-md border px-4 text-sm font-medium transition",
-                  index === 0
+                  activeSort === tab.key
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-border bg-muted text-muted-foreground hover:text-foreground",
                 ].join(" ")}
-                key={tab}
-                type="button"
+                href={tab.key === "new" ? "/" : `/?sort=${tab.key}`}
+                key={tab.key}
               >
-                {tab}
-              </button>
-            ))}
+                {tab.label}
+              </Link>
+              ))}
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {activeSortLabel}: {getSortDescription(activeSort)}
+            </p>
           </div>
 
           {posts.length > 0 ? (
