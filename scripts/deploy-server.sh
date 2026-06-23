@@ -39,7 +39,9 @@ git reset --hard "origin/${BRANCH}"
 
 echo "==> Linking production environment"
 ln -sfn "${ENV_FILE}" "${CURRENT_DIR}/.env.production"
-ln -sfn "${APP_DIR}/storage" "${CURRENT_DIR}/storage"
+if [[ -L "${CURRENT_DIR}/storage" ]]; then
+  rm "${CURRENT_DIR}/storage"
+fi
 
 echo "==> Installing dependencies"
 npm ci --include=dev
@@ -56,6 +58,9 @@ fi
 
 echo "==> Building application"
 npm run build
+
+echo "==> Linking shared storage"
+ln -sfn "${APP_DIR}/storage" "${CURRENT_DIR}/storage"
 
 echo "==> Restarting services"
 sudo systemctl restart "${APP_NAME}.service"
