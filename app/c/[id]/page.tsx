@@ -7,6 +7,7 @@ import { Bookmark, Eye, Flag, Heart, MessageCircle, Pencil, Trash2 } from "lucid
 import { authOptions } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { HlsPlayer } from "@/components/media/hls-player";
+import { NsfwGate } from "@/components/media/nsfw-gate";
 import { prisma } from "@/lib/db/prisma";
 import { createComment, createReport, deleteComment, toggleBookmark, toggleLike } from "@/app/c/[id]/actions";
 
@@ -65,6 +66,7 @@ async function getVisiblePost(publicId: string, viewerId?: string) {
       status: {
         in: ["PUBLISHED", "PROCESSING", "PRIVATE", "FAILED"],
       },
+      ...(viewerId ? {} : { isNsfw: false }),
       OR: [
         {
           visibility: "PUBLIC",
@@ -113,8 +115,8 @@ export async function generateMetadata({ params }: ClipPageProps): Promise<Metad
       };
     }
 
-    const title = post.title;
-    const description = post.description.slice(0, 160);
+    const title = post.isNsfw ? "NSFWコンテンツ" : post.title;
+    const description = post.isNsfw ? "この投稿はログイン後に表示できます。" : post.description.slice(0, 160);
     const image = post.isNsfw ? "/images/nsfw-placeholder.svg" : post.thumbnailUrl;
 
     return {
@@ -206,35 +208,26 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
       <div className="relative aspect-video overflow-hidden rounded-md border border-border bg-card">
-        {post.type === "CLIP" && post.mediaUrl ? (
-          <HlsPlayer poster={post.thumbnailUrl} src={post.mediaUrl} title={post.title} />
-        ) : post.mediaUrl ? (
-          <Image
-            alt={post.title}
-            className={post.isNsfw ? "object-contain blur-xl" : "object-contain"}
-            fill
-            priority
-            src={post.mediaUrl}
-          />
-        ) : (
-          <div className="grid h-full place-items-center p-6 text-center">
-            <div>
-              <p className="text-lg font-semibold">
-                {post.status === "FAILED" ? "動画変換に失敗しました" : "動画を変換中です"}
-              </p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {post.status === "FAILED"
-                  ? "時間を置いても直らない場合は再投稿してください。"
-                  : "変換が完了すると、このページで再生できるようになります。"}
-              </p>
+        <NsfwGate isNsfw={post.isNsfw}>
+          {post.type === "CLIP" && post.mediaUrl ? (
+            <HlsPlayer poster={post.thumbnailUrl} src={post.mediaUrl} title={post.title} />
+          ) : post.mediaUrl ? (
+            <Image alt={post.title} className="object-contain" fill priority src={post.mediaUrl} />
+          ) : (
+            <div className="grid h-full place-items-center p-6 text-center">
+              <div>
+                <p className="text-lg font-semibold">
+                  {post.status === "FAILED" ? "動画変換に失敗しました" : "動画を変換中です"}
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {post.status === "FAILED"
+                    ? "時間を置いても直らない場合は再投稿してください。"
+                    : "変換が完了すると、このページで再生できるようになります。"}
+                </p>
+              </div>
             </div>
-          </div>
-        )}
-        {post.isNsfw ? (
-          <div className="absolute inset-0 grid place-items-center bg-background/70">
-            <span className="rounded-md bg-card px-4 py-2 text-sm font-semibold">NSFW</span>
-          </div>
-        ) : null}
+          )}
+        </NsfwGate>
       </div>
 
       <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_300px]">
