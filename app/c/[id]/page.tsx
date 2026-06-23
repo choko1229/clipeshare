@@ -18,6 +18,14 @@ type ClipPageProps = {
   }>;
 };
 
+function getCustomText(value: unknown) {
+  if (typeof value === "object" && value !== null && "note" in value && typeof (value as { note: unknown }).note === "string") {
+    return (value as { note: string }).note;
+  }
+
+  return "";
+}
+
 async function getPublicPost(publicId: string) {
   return prisma.post.findFirst({
     where: {
@@ -26,6 +34,50 @@ async function getPublicPost(publicId: string) {
         in: ["PUBLISHED", "PROCESSING", "FAILED"],
       },
       visibility: "PUBLIC",
+    },
+    include: {
+      game: true,
+      tags: {
+        include: {
+          tag: true,
+        },
+      },
+      user: true,
+      comments: {
+        where: {
+          status: "PUBLISHED",
+        },
+        include: {
+          user: true,
+        },
+        orderBy: {
+          createdAt: "asc",
+        },
+      },
+    },
+  });
+}
+
+async function getVisiblePost(publicId: string, viewerId?: string) {
+  return prisma.post.findFirst({
+    where: {
+      publicId,
+      status: {
+        in: ["PUBLISHED", "PROCESSING", "PRIVATE", "FAILED"],
+      },
+      OR: [
+        {
+          visibility: "PUBLIC",
+        },
+        ...(viewerId
+          ? [
+              {
+                userId: viewerId,
+                visibility: "PRIVATE" as const,
+              },
+            ]
+          : []),
+      ],
     },
     include: {
       game: true,
@@ -100,7 +152,7 @@ export async function generateMetadata({ params }: ClipPageProps): Promise<Metad
 export default async function ClipDetailPage({ params }: ClipPageProps) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
-  const post = await getPublicPost(id);
+  const post = await getVisiblePost(id, session?.user?.id);
 
   if (!post) {
     notFound();
@@ -119,6 +171,7 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
 
   const displayViewCount = Number(post.viewCount) + 1;
   const isOwner = session?.user?.id === post.userId;
+  const customText = getCustomText(post.customFields);
   const isLiked = session?.user?.id
     ? Boolean(
         await prisma.like.findUnique({
@@ -189,6 +242,10 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
           <Link className="text-sm font-medium text-primary hover:text-primary/80" href={`/games/${post.game.slug}`}>
             {post.game.name}
           </Link>
+          {post.visibility === "PRIVATE" ? (
+            <span className="ml-2 rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">非公開</span>
+          ) : null}
+          {post.isNsfw ? <span className="ml-2 rounded-md bg-destructive px-2 py-1 text-xs">NSFW</span> : null}
           <h1 className="mt-2 text-3xl font-bold">{post.title}</h1>
           <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-muted-foreground">{post.description}</p>
 
@@ -199,6 +256,29 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
                   #{tag.name}
                 </span>
               ))}
+            </div>
+          ) : null}
+
+          {post.rankName || post.discordServerName || customText ? (
+            <div className="mt-5 grid gap-3 rounded-md border border-border bg-card p-4 text-sm sm:grid-cols-2">
+              {post.rankName ? (
+                <div>
+                  <p className="text-xs text-muted-foreground">ランク帯</p>
+                  <p className="mt-1 font-medium">{post.rankName}</p>
+                </div>
+              ) : null}
+              {post.discordServerName ? (
+                <div>
+                  <p className="text-xs text-muted-foreground">Discordサーバー</p>
+                  <p className="mt-1 font-medium">{post.discordServerName}</p>
+                </div>
+              ) : null}
+              {customText ? (
+                <div className="sm:col-span-2">
+                  <p className="text-xs text-muted-foreground">カスタム項目</p>
+                  <p className="mt-1 whitespace-pre-wrap leading-6">{customText}</p>
+                </div>
+              ) : null}
             </div>
           ) : null}
 

@@ -1,16 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import "./globals.css";
 import { Button } from "@/components/ui/button";
 import { LogoutButton } from "@/components/auth/logout-button";
-
-const inter = Inter({
-  subsets: ["latin"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
@@ -51,7 +45,7 @@ export default async function RootLayout({
 
   return (
     <html lang="ja">
-      <body className={inter.className}>
+      <body>
         <div className="min-h-dvh bg-background text-foreground">
           <header className="sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur">
             <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">

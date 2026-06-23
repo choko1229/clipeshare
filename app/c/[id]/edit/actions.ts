@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { nanoid } from "nanoid";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { parseTags, slugify } from "@/lib/posts/slug";
@@ -15,6 +16,11 @@ const updatePostSchema = z.object({
   description: z.string().trim().min(1).max(4000),
   gameName: z.string().trim().min(1).max(120),
   tags: z.string().trim().max(300).optional(),
+  visibility: z.enum(["PUBLIC", "PRIVATE"]),
+  isNsfw: z.boolean(),
+  rankName: z.string().trim().max(80).optional(),
+  discordServerName: z.string().trim().max(120).optional(),
+  customText: z.string().trim().max(1000).optional(),
 });
 
 export async function updatePost(formData: FormData) {
@@ -30,6 +36,11 @@ export async function updatePost(formData: FormData) {
     description: formData.get("description"),
     gameName: formData.get("gameName"),
     tags: formData.get("tags") ?? "",
+    visibility: formData.get("visibility") === "PRIVATE" ? "PRIVATE" : "PUBLIC",
+    isNsfw: formData.get("isNsfw") === "on",
+    rankName: formData.get("rankName") || undefined,
+    discordServerName: formData.get("discordServerName") || undefined,
+    customText: formData.get("customText") || undefined,
   });
 
   const post = await prisma.post.findFirst({
@@ -43,6 +54,8 @@ export async function updatePost(formData: FormData) {
     select: {
       id: true,
       publicId: true,
+      status: true,
+      publishedAt: true,
       game: {
         select: {
           slug: true,
@@ -62,6 +75,10 @@ export async function updatePost(formData: FormData) {
 
   const gameSlug = slugify(parsed.gameName) || nanoid(8);
   const tagNames = parseTags(parsed.tags ?? "");
+  const nextStatus =
+    parsed.visibility === "PRIVATE" ? "PRIVATE" : post.status === "PROCESSING" || post.status === "FAILED" ? post.status : "PUBLISHED";
+  const nextPublishedAt =
+    parsed.visibility === "PRIVATE" ? null : nextStatus === "PUBLISHED" && !post.publishedAt ? new Date() : post.publishedAt;
 
   await prisma.$transaction(async (tx) => {
     const game = await tx.game.upsert({
@@ -85,6 +102,13 @@ export async function updatePost(formData: FormData) {
         title: parsed.title,
         description: parsed.description,
         gameId: game.id,
+        visibility: parsed.visibility,
+        status: nextStatus,
+        publishedAt: nextPublishedAt,
+        isNsfw: parsed.isNsfw,
+        rankName: parsed.rankName || null,
+        discordServerName: parsed.discordServerName || null,
+        customFields: parsed.customText ? { note: parsed.customText } : Prisma.JsonNull,
       },
     });
 

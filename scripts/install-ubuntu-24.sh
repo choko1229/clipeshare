@@ -195,6 +195,12 @@ server {
 
     client_max_body_size 512m;
 
+    location /_next/static/ {
+        alias ${APP_DIR}/current/.next/static/;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files \$uri =404;
+    }
+
     location /media/ {
         alias ${MEDIA_DIR}/;
         add_header Cache-Control "public, max-age=31536000, immutable";

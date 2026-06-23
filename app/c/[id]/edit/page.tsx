@@ -14,6 +14,14 @@ type EditPostPageProps = {
   }>;
 };
 
+function getCustomText(value: unknown) {
+  if (typeof value === "object" && value !== null && "note" in value && typeof (value as { note: unknown }).note === "string") {
+    return (value as { note: string }).note;
+  }
+
+  return "";
+}
+
 export default async function EditPostPage({ params }: EditPostPageProps) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
@@ -50,6 +58,7 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
   }
 
   const tagText = post.tags.map(({ tag }) => tag.name).join(" ");
+  const customText = getCustomText(post.customFields);
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
@@ -119,6 +128,65 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
                 placeholder="ace clutch screenshot"
               />
             </div>
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium" htmlFor="rankName">
+                ランク帯
+              </label>
+              <input
+                className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-ring transition focus:ring-2"
+                defaultValue={post.rankName ?? ""}
+                id="rankName"
+                maxLength={80}
+                name="rankName"
+                placeholder="Diamond / Master など"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium" htmlFor="discordServerName">
+                Discordサーバー名
+              </label>
+              <input
+                className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-ring transition focus:ring-2"
+                defaultValue={post.discordServerName ?? ""}
+                id="discordServerName"
+                maxLength={120}
+                name="discordServerName"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium" htmlFor="customText">
+              カスタム項目
+            </label>
+            <textarea
+              className="mt-2 min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-ring transition focus:ring-2"
+              defaultValue={customText}
+              id="customText"
+              maxLength={1000}
+              name="customText"
+              placeholder="補足情報を自由に入力"
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex items-center gap-3 rounded-md border border-border bg-background p-3 text-sm">
+              <input
+                className="size-4 accent-primary"
+                defaultChecked={post.visibility === "PRIVATE"}
+                name="visibility"
+                type="checkbox"
+                value="PRIVATE"
+              />
+              非公開にする
+            </label>
+            <label className="flex items-center gap-3 rounded-md border border-border bg-background p-3 text-sm">
+              <input className="size-4 accent-primary" defaultChecked={post.isNsfw} name="isNsfw" type="checkbox" />
+              NSFWとして表示
+            </label>
           </div>
 
           <div className="flex flex-wrap gap-3">
