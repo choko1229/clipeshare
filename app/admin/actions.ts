@@ -6,6 +6,7 @@ import { requireAdmin, requireModerator } from "@/lib/admin/auth";
 import { writeAuditLog } from "@/lib/admin/audit";
 import { prisma } from "@/lib/db/prisma";
 import { fetchIgdbGameMetadata } from "@/lib/games/igdb";
+import { slugify } from "@/lib/posts/slug";
 
 const idSchema = z.string().min(1);
 const reportStatusSchema = z.enum(["OPEN", "REVIEWING", "ACTION_TAKEN", "REJECTED", "CLOSED"]);
@@ -386,4 +387,139 @@ export async function syncGameFromIgdb(formData: FormData) {
 
   revalidatePath("/admin/games");
   revalidatePath(`/games/${after.slug}`);
+}
+
+export async function updateTag(formData: FormData) {
+  const admin = await requireModerator();
+  const tagId = idSchema.parse(formData.get("tagId"));
+  const name = z.string().trim().min(1).max(80).parse(formData.get("name"));
+  const isActive = formData.get("isActive") === "on";
+  const slug = slugify(name);
+
+  if (!slug) {
+    throw new Error("タグ名が不正です。");
+  }
+
+  const before = await prisma.tag.findUnique({
+    where: { id: tagId },
+  });
+
+  if (!before) {
+    throw new Error("タグが見つかりません。");
+  }
+
+  const existing = await prisma.tag.findUnique({
+    where: { slug },
+  });
+
+  if (existing && existing.id !== tagId) {
+    throw new Error("同じスラッグのタグが既にあります。統合を使ってください。");
+  }
+
+  const after = await prisma.tag.update({
+    where: { id: tagId },
+    data: {
+      name,
+      slug,
+      isActive,
+    },
+  });
+
+  await writeAuditLog({
+    adminId: admin.id,
+    action: "tag.update",
+    targetType: "tag",
+    targetId: tagId,
+    beforeData: before,
+    afterData: after,
+  });
+
+  revalidatePath("/admin/tags");
+  revalidatePath("/");
+  revalidatePath("/search");
+}
+
+export async function mergeTag(formData: FormData) {
+  const admin = await requireModerator();
+  const sourceTagId = idSchema.parse(formData.get("sourceTagId"));
+  const targetTagId = idSchema.parse(formData.get("targetTagId"));
+
+  if (sourceTagId === targetTagId) {
+    throw new Error("同じタグには統合できません。");
+  }
+
+  const [source, target] = await Promise.all([
+    prisma.tag.findUnique({
+      where: { id: sourceTagId },
+      include: {
+        posts: true,
+      },
+    }),
+    prisma.tag.findUnique({
+      where: { id: targetTagId },
+      include: {
+        posts: true,
+      },
+    }),
+  ]);
+
+  if (!source || !target) {
+    throw new Error("統合するタグが見つかりません。");
+  }
+
+  const targetPostIds = new Set(target.posts.map((postTag) => postTag.postId));
+
+  await prisma.$transaction(async (tx) => {
+    for (const postTag of source.posts) {
+      if (targetPostIds.has(postTag.postId)) {
+        await tx.postTag.delete({
+          where: {
+            postId_tagId: {
+              postId: postTag.postId,
+              tagId: source.id,
+            },
+          },
+        });
+        continue;
+      }
+
+      await tx.postTag.update({
+        where: {
+          postId_tagId: {
+            postId: postTag.postId,
+            tagId: source.id,
+          },
+        },
+        data: {
+          tagId: target.id,
+        },
+      });
+    }
+
+    await tx.tag.update({
+      where: { id: source.id },
+      data: {
+        isActive: false,
+      },
+    });
+  });
+
+  await writeAuditLog({
+    adminId: admin.id,
+    action: "tag.merge",
+    targetType: "tag",
+    targetId: source.id,
+    beforeData: source,
+    afterData: {
+      sourceTagId: source.id,
+      sourceName: source.name,
+      targetTagId: target.id,
+      targetName: target.name,
+      movedPostCount: source.posts.length,
+    },
+  });
+
+  revalidatePath("/admin/tags");
+  revalidatePath("/");
+  revalidatePath("/search");
 }
