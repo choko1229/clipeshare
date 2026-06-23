@@ -175,6 +175,9 @@ export async function createComment(formData: FormData) {
     });
   });
 
+  revalidatePath("/");
+  revalidatePath("/admin");
+  revalidatePath("/admin/comments");
   revalidatePath(`/c/${publicId}`);
 }
 
@@ -219,6 +222,9 @@ export async function deleteComment(formData: FormData) {
     });
   });
 
+  revalidatePath("/");
+  revalidatePath("/admin");
+  revalidatePath("/admin/comments");
   revalidatePath(`/c/${publicId}`);
 }
 
@@ -240,5 +246,49 @@ export async function createReport(formData: FormData) {
     },
   });
 
+  revalidatePath("/admin");
+  revalidatePath("/admin/reports");
+  revalidatePath(`/c/${publicId}`);
+}
+
+export async function createCommentReport(formData: FormData) {
+  const userId = await requireUserId();
+  const publicId = publicIdSchema.parse(formData.get("publicId"));
+  const commentId = z.string().min(1).parse(formData.get("commentId"));
+  const reason = z.enum(["spam", "harassment", "nsfw_missing", "illegal", "other"]).parse(formData.get("reason"));
+  const detail = z.string().trim().max(1000).optional().parse(formData.get("detail") || undefined);
+
+  const comment = await prisma.comment.findFirst({
+    where: {
+      id: commentId,
+      status: "PUBLISHED",
+      post: {
+        publicId,
+        status: "PUBLISHED",
+        visibility: "PUBLIC",
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!comment) {
+    throw new Error("コメントが見つかりません。");
+  }
+
+  await prisma.report.create({
+    data: {
+      reporterId: userId,
+      targetType: "COMMENT",
+      targetId: comment.id,
+      reason,
+      detail,
+      status: "OPEN",
+    },
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/reports");
   revalidatePath(`/c/${publicId}`);
 }

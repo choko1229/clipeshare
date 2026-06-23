@@ -249,6 +249,8 @@ export async function deleteCommentByAdmin(formData: FormData) {
     reason,
   });
 
+  revalidatePath("/");
+  revalidatePath("/admin");
   revalidatePath("/admin/comments");
   revalidatePath(`/c/${before.post.publicId}`);
 }

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { HlsPlayer } from "@/components/media/hls-player";
 import { NsfwGate } from "@/components/media/nsfw-gate";
 import { prisma } from "@/lib/db/prisma";
-import { createComment, createReport, deleteComment, toggleBookmark, toggleLike } from "@/app/c/[id]/actions";
+import { createComment, createCommentReport, createReport, deleteComment, toggleBookmark, toggleLike } from "@/app/c/[id]/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -298,7 +298,7 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
             <div className="mt-6 space-y-4">
               {post.comments.length > 0 ? (
                 post.comments.map((comment) => (
-                  <article className="rounded-md border border-border bg-background p-4" key={comment.id}>
+                  <article className="rounded-md border border-border bg-background p-4" id={`comment-${comment.id}`} key={comment.id}>
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <p className="text-sm font-semibold">
@@ -323,6 +323,33 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
                         </form>
                       ) : null}
                     </div>
+                    {session?.user && session.user.id !== comment.userId ? (
+                      <form action={createCommentReport} className="mt-4 grid gap-2 border-t border-border pt-3 sm:grid-cols-[160px_1fr_auto]">
+                        <input name="publicId" type="hidden" value={post.publicId} />
+                        <input name="commentId" type="hidden" value={comment.id} />
+                        <select
+                          className="h-9 rounded-md border border-input bg-background px-3 text-xs outline-none ring-ring transition focus:ring-2"
+                          name="reason"
+                          required
+                        >
+                          <option value="spam">スパム</option>
+                          <option value="harassment">嫌がらせ</option>
+                          <option value="nsfw_missing">NSFW未設定</option>
+                          <option value="illegal">犯罪系コンテンツ</option>
+                          <option value="other">その他</option>
+                        </select>
+                        <input
+                          className="h-9 rounded-md border border-input bg-background px-3 text-xs outline-none ring-ring transition focus:ring-2"
+                          maxLength={1000}
+                          name="detail"
+                          placeholder="通報メモ 任意"
+                        />
+                        <Button className="h-9 px-3 text-xs" type="submit" variant="outline">
+                          <Flag size={14} />
+                          通報
+                        </Button>
+                      </form>
+                    ) : null}
                   </article>
                 ))
               ) : (
