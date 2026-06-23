@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { assertNotBlockedByModerationRules, moderationReportDetail } from "@/lib/moderation/rules";
 
 const publicIdSchema = z.string().min(1).max(64);
 
@@ -154,10 +155,11 @@ export async function createComment(formData: FormData) {
   const userId = await requireUserId();
   const publicId = publicIdSchema.parse(formData.get("publicId"));
   const body = z.string().trim().min(1).max(1000).parse(formData.get("body"));
+  const moderation = await assertNotBlockedByModerationRules(body);
   const post = await getPostByPublicId(publicId);
 
   await prisma.$transaction(async (tx) => {
-    await tx.comment.create({
+    const comment = await tx.comment.create({
       data: {
         postId: post.id,
         userId,
@@ -173,11 +175,25 @@ export async function createComment(formData: FormData) {
         },
       },
     });
+
+    if (moderation.reportable.length > 0) {
+      await tx.report.create({
+        data: {
+          reporterId: userId,
+          targetType: "COMMENT",
+          targetId: comment.id,
+          reason: "moderation_rule",
+          detail: moderationReportDetail(moderation.reportable),
+          status: "OPEN",
+        },
+      });
+    }
   });
 
   revalidatePath("/");
   revalidatePath("/admin");
   revalidatePath("/admin/comments");
+  revalidatePath("/admin/reports");
   revalidatePath(`/c/${publicId}`);
 }
 

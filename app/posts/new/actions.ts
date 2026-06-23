@@ -9,6 +9,7 @@ import { prisma } from "@/lib/db/prisma";
 import { inferGameName } from "@/lib/games/infer-game";
 import { storeScreenshotImage } from "@/lib/media/images";
 import { storeOriginalVideo } from "@/lib/media/videos";
+import { assertNotBlockedByModerationRules, moderationReportDetail } from "@/lib/moderation/rules";
 import { splitPostBody } from "@/lib/posts/post-body";
 import { parseTags, slugify } from "@/lib/posts/slug";
 
@@ -44,6 +45,7 @@ export async function createPost(formData: FormData) {
   }
 
   const { title, description } = splitPostBody(parsed.bodyText);
+  const moderation = await assertNotBlockedByModerationRules(`${parsed.bodyText}\n${parsed.tags ?? ""}`);
   const gameName = await resolveGameName({
     inputGameName: parsed.gameName,
     bodyText: parsed.bodyText,
@@ -74,6 +76,7 @@ export async function createPost(formData: FormData) {
       width: storedImage.width,
       height: storedImage.height,
     });
+    await createAutoReportForPost(userId, post.id, moderation.reportable);
     redirect(`/c/${post.publicId}`);
   }
 
@@ -105,7 +108,26 @@ export async function createPost(formData: FormData) {
     },
   });
 
+  await createAutoReportForPost(userId, post.id, moderation.reportable);
+
   redirect(`/c/${post.publicId}`);
+}
+
+async function createAutoReportForPost(userId: string, postId: string, matches: { type: string; pattern: string }[]) {
+  if (matches.length === 0) {
+    return;
+  }
+
+  await prisma.report.create({
+    data: {
+      reporterId: userId,
+      targetType: "POST",
+      targetId: postId,
+      reason: "moderation_rule",
+      detail: moderationReportDetail(matches.map((match) => ({ ...match, ruleId: "", action: "report" }))),
+      status: "OPEN",
+    },
+  });
 }
 
 type ResolveGameNameInput = {

@@ -8,6 +8,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { assertNotBlockedByModerationRules, moderationReportDetail } from "@/lib/moderation/rules";
 import { splitPostBody } from "@/lib/posts/post-body";
 import { parseTags, slugify } from "@/lib/posts/slug";
 
@@ -74,6 +75,7 @@ export async function updatePost(formData: FormData) {
 
   const gameSlug = slugify(parsed.gameName) || nanoid(8);
   const { title, description } = splitPostBody(parsed.bodyText);
+  const moderation = await assertNotBlockedByModerationRules(`${parsed.bodyText}\n${parsed.tags ?? ""}`);
   const tagNames = parseTags(parsed.tags ?? "");
   const nextStatus =
     parsed.visibility === "PRIVATE" ? "PRIVATE" : post.status === "PROCESSING" || post.status === "FAILED" ? post.status : "PUBLISHED";
@@ -146,7 +148,22 @@ export async function updatePost(formData: FormData) {
     }
   });
 
+  if (moderation.reportable.length > 0) {
+    await prisma.report.create({
+      data: {
+        reporterId: session.user.id,
+        targetType: "POST",
+        targetId: post.id,
+        reason: "moderation_rule",
+        detail: moderationReportDetail(moderation.reportable),
+        status: "OPEN",
+      },
+    });
+  }
+
   revalidatePath("/");
+  revalidatePath("/admin");
+  revalidatePath("/admin/reports");
   revalidatePath("/search");
   revalidatePath(`/c/${post.publicId}`);
   revalidatePath(`/c/${post.publicId}/edit`);

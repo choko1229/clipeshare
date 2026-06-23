@@ -11,6 +11,8 @@ import { slugify } from "@/lib/posts/slug";
 const idSchema = z.string().min(1);
 const reportStatusSchema = z.enum(["OPEN", "REVIEWING", "ACTION_TAKEN", "REJECTED", "CLOSED"]);
 const reportActionSchema = z.enum(["HIDE_POST", "DELETE_COMMENT", "BAN_TARGET_USER"]);
+const moderationRuleTypeSchema = z.enum(["ng_word", "blocked_url", "blocked_pattern"]);
+const moderationRuleActionSchema = z.enum(["block", "report"]);
 const optionalUrlSchema = z
   .string()
   .trim()
@@ -802,4 +804,68 @@ export async function mergeTag(formData: FormData) {
   revalidatePath("/admin/tags");
   revalidatePath("/");
   revalidatePath("/search");
+}
+
+export async function createModerationRule(formData: FormData) {
+  const admin = await requireModerator();
+  const type = moderationRuleTypeSchema.parse(formData.get("type"));
+  const action = moderationRuleActionSchema.parse(formData.get("action"));
+  const pattern = z.string().trim().min(1).max(191).parse(formData.get("pattern"));
+
+  const created = await prisma.moderationRule.create({
+    data: {
+      type,
+      action,
+      pattern,
+      isActive: true,
+    },
+  });
+
+  await writeAuditLog({
+    adminId: admin.id,
+    action: "moderation_rule.create",
+    targetType: "moderation_rule",
+    targetId: created.id,
+    afterData: created,
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/moderation");
+}
+
+export async function toggleModerationRule(formData: FormData) {
+  const admin = await requireModerator();
+  const ruleId = idSchema.parse(formData.get("ruleId"));
+  const isActive = formData.get("isActive") === "true";
+
+  const before = await prisma.moderationRule.findUnique({
+    where: {
+      id: ruleId,
+    },
+  });
+
+  if (!before) {
+    throw new Error("モデレーションルールが見つかりません。");
+  }
+
+  const after = await prisma.moderationRule.update({
+    where: {
+      id: ruleId,
+    },
+    data: {
+      isActive,
+    },
+  });
+
+  await writeAuditLog({
+    adminId: admin.id,
+    action: isActive ? "moderation_rule.enable" : "moderation_rule.disable",
+    targetType: "moderation_rule",
+    targetId: ruleId,
+    beforeData: before,
+    afterData: after,
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/moderation");
 }
