@@ -389,6 +389,84 @@ export async function syncGameFromIgdb(formData: FormData) {
   revalidatePath(`/games/${after.slug}`);
 }
 
+export async function mergeGame(formData: FormData) {
+  const admin = await requireModerator();
+  const sourceGameId = idSchema.parse(formData.get("sourceGameId"));
+  const targetGameId = idSchema.parse(formData.get("targetGameId"));
+
+  if (sourceGameId === targetGameId) {
+    throw new Error("同じゲームには統合できません。");
+  }
+
+  const [source, target] = await Promise.all([
+    prisma.game.findUnique({
+      where: { id: sourceGameId },
+      include: {
+        _count: {
+          select: {
+            posts: true,
+          },
+        },
+      },
+    }),
+    prisma.game.findUnique({
+      where: { id: targetGameId },
+      include: {
+        _count: {
+          select: {
+            posts: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  if (!source || !target) {
+    throw new Error("統合するゲームが見つかりません。");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.post.updateMany({
+      where: {
+        gameId: source.id,
+      },
+      data: {
+        gameId: target.id,
+      },
+    });
+
+    await tx.game.update({
+      where: {
+        id: source.id,
+      },
+      data: {
+        isActive: false,
+      },
+    });
+  });
+
+  await writeAuditLog({
+    adminId: admin.id,
+    action: "game.merge",
+    targetType: "game",
+    targetId: source.id,
+    beforeData: source,
+    afterData: {
+      sourceGameId: source.id,
+      sourceName: source.name,
+      targetGameId: target.id,
+      targetName: target.name,
+      movedPostCount: source._count.posts,
+    },
+  });
+
+  revalidatePath("/admin/games");
+  revalidatePath("/");
+  revalidatePath("/search");
+  revalidatePath(`/games/${source.slug}`);
+  revalidatePath(`/games/${target.slug}`);
+}
+
 export async function updateTag(formData: FormData) {
   const admin = await requireModerator();
   const tagId = idSchema.parse(formData.get("tagId"));

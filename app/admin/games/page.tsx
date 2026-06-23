@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { syncGameFromIgdb, updateGameMetadata } from "@/app/admin/actions";
+import { mergeGame, syncGameFromIgdb, updateGameMetadata } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/db/prisma";
 
@@ -25,6 +25,7 @@ export default async function AdminGamesPage() {
     orderBy: [{ posts: { _count: "desc" } }, { name: "asc" }],
     take: 100,
   });
+  const mergeTargets = games.filter((game) => game.isActive);
 
   return (
     <section className="rounded-md border border-border bg-card">
@@ -187,6 +188,29 @@ export default async function AdminGamesPage() {
                   <input name="gameId" type="hidden" value={game.id} />
                   <Button type="submit" variant="outline">
                     IGDB同期
+                  </Button>
+                </form>
+                <form action={mergeGame} className="grid gap-3 md:grid-cols-[1fr_auto]">
+                  <input name="sourceGameId" type="hidden" value={game.id} />
+                  <select
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    defaultValue=""
+                    name="targetGameId"
+                    required
+                  >
+                    <option disabled value="">
+                      統合先ゲームを選択
+                    </option>
+                    {mergeTargets
+                      .filter((target) => target.id !== game.id)
+                      .map((target) => (
+                        <option key={target.id} value={target.id}>
+                          {target.name} / {target._count.posts} posts
+                        </option>
+                      ))}
+                  </select>
+                  <Button type="submit" variant="outline">
+                    統合
                   </Button>
                 </form>
               </article>
