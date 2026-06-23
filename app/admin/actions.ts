@@ -10,6 +10,7 @@ import { slugify } from "@/lib/posts/slug";
 
 const idSchema = z.string().min(1);
 const reportStatusSchema = z.enum(["OPEN", "REVIEWING", "ACTION_TAKEN", "REJECTED", "CLOSED"]);
+const reportActionSchema = z.enum(["HIDE_POST", "DELETE_COMMENT", "BAN_TARGET_USER"]);
 const optionalUrlSchema = z
   .string()
   .trim()
@@ -94,6 +95,205 @@ export async function updateReportStatus(formData: FormData) {
 
   revalidatePath("/admin");
   revalidatePath("/admin/reports");
+}
+
+export async function takeReportAction(formData: FormData) {
+  const action = reportActionSchema.parse(formData.get("action"));
+  const admin = action === "BAN_TARGET_USER" ? await requireAdmin() : await requireModerator();
+  const reportId = idSchema.parse(formData.get("reportId"));
+  const reason = z.string().trim().min(1).max(1000).parse(formData.get("reason"));
+
+  const report = await prisma.report.findUnique({
+    where: { id: reportId },
+  });
+
+  if (!report) {
+    throw new Error("通報が見つかりません。");
+  }
+
+  if (action === "HIDE_POST") {
+    if (report.targetType !== "POST") {
+      throw new Error("投稿通報だけ非公開化できます。");
+    }
+
+    const beforePost = await prisma.post.findUnique({
+      where: { id: report.targetId },
+    });
+
+    if (!beforePost) {
+      throw new Error("対象投稿が見つかりません。");
+    }
+
+    const afterPost = await prisma.$transaction(async (tx) => {
+      const updatedPost = await tx.post.update({
+        where: { id: beforePost.id },
+        data: { status: "HIDDEN" },
+      });
+      await tx.report.update({
+        where: { id: report.id },
+        data: {
+          status: "ACTION_TAKEN",
+          handledByAdminId: admin.id,
+          handledAt: new Date(),
+        },
+      });
+      return updatedPost;
+    });
+
+    await writeAuditLog({
+      adminId: admin.id,
+      action: "report.action.hide_post",
+      targetType: "report",
+      targetId: report.id,
+      beforeData: { report, post: beforePost },
+      afterData: { post: afterPost, reportStatus: "ACTION_TAKEN" },
+      reason,
+    });
+
+    revalidatePath("/");
+    revalidatePath("/admin");
+    revalidatePath("/admin/posts");
+    revalidatePath("/admin/reports");
+    revalidatePath(`/c/${beforePost.publicId}`);
+    return;
+  }
+
+  if (action === "DELETE_COMMENT") {
+    if (report.targetType !== "COMMENT") {
+      throw new Error("コメント通報だけ削除できます。");
+    }
+
+    const beforeComment = await prisma.comment.findUnique({
+      where: { id: report.targetId },
+      include: {
+        post: true,
+      },
+    });
+
+    if (!beforeComment) {
+      throw new Error("対象コメントが見つかりません。");
+    }
+
+    const afterComment = await prisma.$transaction(async (tx) => {
+      const updatedComment =
+        beforeComment.status === "DELETED"
+          ? beforeComment
+          : await tx.comment.update({
+              where: { id: beforeComment.id },
+              data: {
+                status: "DELETED",
+                deletedByAdminId: admin.id,
+              },
+            });
+
+      if (beforeComment.status !== "DELETED") {
+        await tx.post.update({
+          where: { id: beforeComment.postId },
+          data: {
+            commentCount: {
+              decrement: 1,
+            },
+          },
+        });
+      }
+
+      await tx.report.update({
+        where: { id: report.id },
+        data: {
+          status: "ACTION_TAKEN",
+          handledByAdminId: admin.id,
+          handledAt: new Date(),
+        },
+      });
+
+      return updatedComment;
+    });
+
+    await writeAuditLog({
+      adminId: admin.id,
+      action: "report.action.delete_comment",
+      targetType: "report",
+      targetId: report.id,
+      beforeData: { report, comment: beforeComment },
+      afterData: { comment: afterComment, reportStatus: "ACTION_TAKEN" },
+      reason,
+    });
+
+    revalidatePath("/");
+    revalidatePath("/admin");
+    revalidatePath("/admin/comments");
+    revalidatePath("/admin/reports");
+    revalidatePath(`/c/${beforeComment.post.publicId}`);
+    return;
+  }
+
+  let targetUserId: string | null = null;
+
+  if (report.targetType === "USER") {
+    targetUserId = report.targetId;
+  }
+
+  if (report.targetType === "POST") {
+    const post = await prisma.post.findUnique({
+      where: { id: report.targetId },
+      select: { userId: true },
+    });
+    targetUserId = post?.userId ?? null;
+  }
+
+  if (report.targetType === "COMMENT") {
+    const comment = await prisma.comment.findUnique({
+      where: { id: report.targetId },
+      select: { userId: true },
+    });
+    targetUserId = comment?.userId ?? null;
+  }
+
+  if (!targetUserId) {
+    throw new Error("BAN対象ユーザーが見つかりません。");
+  }
+
+  const beforeUser = await prisma.user.findUnique({
+    where: { id: targetUserId },
+  });
+
+  if (!beforeUser) {
+    throw new Error("BAN対象ユーザーが見つかりません。");
+  }
+
+  const afterUser = await prisma.$transaction(async (tx) => {
+    const updatedUser = await tx.user.update({
+      where: { id: beforeUser.id },
+      data: {
+        isBanned: true,
+        banReason: reason,
+        bannedAt: new Date(),
+      },
+    });
+    await tx.report.update({
+      where: { id: report.id },
+      data: {
+        status: "ACTION_TAKEN",
+        handledByAdminId: admin.id,
+        handledAt: new Date(),
+      },
+    });
+    return updatedUser;
+  });
+
+  await writeAuditLog({
+    adminId: admin.id,
+    action: "report.action.ban_target_user",
+    targetType: "report",
+    targetId: report.id,
+    beforeData: { report, user: beforeUser },
+    afterData: { user: afterUser, reportStatus: "ACTION_TAKEN" },
+    reason,
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/reports");
+  revalidatePath("/admin/users");
 }
 
 export async function hidePost(formData: FormData) {
