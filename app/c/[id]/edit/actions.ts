@@ -8,12 +8,12 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { splitPostBody } from "@/lib/posts/post-body";
 import { parseTags, slugify } from "@/lib/posts/slug";
 
 const updatePostSchema = z.object({
   publicId: z.string().min(1).max(64),
-  title: z.string().trim().min(1).max(120),
-  description: z.string().trim().min(1).max(4000),
+  bodyText: z.string().min(1).max(4200),
   gameName: z.string().trim().min(1).max(120),
   tags: z.string().trim().max(300).optional(),
   visibility: z.enum(["PUBLIC", "PRIVATE"]),
@@ -32,8 +32,7 @@ export async function updatePost(formData: FormData) {
 
   const parsed = updatePostSchema.parse({
     publicId: formData.get("publicId"),
-    title: formData.get("title"),
-    description: formData.get("description"),
+    bodyText: formData.get("bodyText"),
     gameName: formData.get("gameName"),
     tags: formData.get("tags") ?? "",
     visibility: formData.get("visibility") === "PRIVATE" ? "PRIVATE" : "PUBLIC",
@@ -74,6 +73,7 @@ export async function updatePost(formData: FormData) {
   }
 
   const gameSlug = slugify(parsed.gameName) || nanoid(8);
+  const { title, description } = splitPostBody(parsed.bodyText);
   const tagNames = parseTags(parsed.tags ?? "");
   const nextStatus =
     parsed.visibility === "PRIVATE" ? "PRIVATE" : post.status === "PROCESSING" || post.status === "FAILED" ? post.status : "PUBLISHED";
@@ -99,8 +99,8 @@ export async function updatePost(formData: FormData) {
         id: post.id,
       },
       data: {
-        title: parsed.title,
-        description: parsed.description,
+        title,
+        description,
         gameId: game.id,
         visibility: parsed.visibility,
         status: nextStatus,

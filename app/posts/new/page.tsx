@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { createPost } from "@/app/posts/new/actions";
 import { Button } from "@/components/ui/button";
+import { prisma } from "@/lib/db/prisma";
 
 export default async function NewPostPage() {
   const session = await getServerSession(authOptions);
@@ -10,6 +11,18 @@ export default async function NewPostPage() {
   if (!session?.user) {
     redirect("/login");
   }
+
+  const gameSuggestions = await prisma.game.findMany({
+    where: {
+      isActive: true,
+    },
+    select: {
+      id: true,
+      name: true,
+    },
+    orderBy: [{ posts: { _count: "desc" } }, { name: "asc" }],
+    take: 80,
+  });
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
@@ -52,29 +65,18 @@ export default async function NewPostPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium" htmlFor="title">
-              タイトル
-            </label>
-            <input
-              className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-ring transition focus:ring-2"
-              id="title"
-              maxLength={120}
-              name="title"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium" htmlFor="description">
-              説明文
+            <label className="block text-sm font-medium" htmlFor="bodyText">
+              本文
             </label>
             <textarea
-              className="mt-2 min-h-28 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-ring transition focus:ring-2"
-              id="description"
-              maxLength={4000}
-              name="description"
+              className="mt-2 min-h-36 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-ring transition focus:ring-2"
+              id="bodyText"
+              maxLength={4200}
+              name="bodyText"
+              placeholder={"1行目がタイトル\n2行目以降が説明文"}
               required
             />
+            <p className="mt-2 text-xs text-muted-foreground">1行目をタイトル、2行目以降を説明文として保存します。</p>
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2">
@@ -84,11 +86,18 @@ export default async function NewPostPage() {
               </label>
               <input
                 className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-ring transition focus:ring-2"
+                autoComplete="off"
+                list="game-suggestions"
                 id="gameName"
                 maxLength={120}
                 name="gameName"
-                required
+                placeholder="空欄の場合は本文・タグ・ファイル名から推定"
               />
+              <datalist id="game-suggestions">
+                {gameSuggestions.map((game) => (
+                  <option key={game.id} value={game.name} />
+                ))}
+              </datalist>
             </div>
             <div>
               <label className="block text-sm font-medium" htmlFor="tags">

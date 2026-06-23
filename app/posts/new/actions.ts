@@ -6,14 +6,15 @@ import { nanoid } from "nanoid";
 import { z } from "zod";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { inferGameName } from "@/lib/games/infer-game";
 import { storeScreenshotImage } from "@/lib/media/images";
 import { storeOriginalVideo } from "@/lib/media/videos";
+import { splitPostBody } from "@/lib/posts/post-body";
 import { parseTags, slugify } from "@/lib/posts/slug";
 
 const createPostSchema = z.object({
-  title: z.string().trim().min(1).max(120),
-  description: z.string().trim().min(1).max(4000),
-  gameName: z.string().trim().min(1).max(120),
+  bodyText: z.string().min(1).max(4200),
+  gameName: z.string().trim().max(120).optional(),
   tags: z.string().trim().max(300).optional(),
   postType: z.enum(["SCREENSHOT", "CLIP"]),
   visibility: z.enum(["PUBLIC", "PRIVATE"]).default("PUBLIC"),
@@ -29,8 +30,7 @@ export async function createPost(formData: FormData) {
   }
 
   const parsed = createPostSchema.parse({
-    title: formData.get("title"),
-    description: formData.get("description"),
+    bodyText: formData.get("bodyText"),
     gameName: formData.get("gameName"),
     tags: formData.get("tags") ?? "",
     postType: formData.get("postType") === "CLIP" ? "CLIP" : "SCREENSHOT",
@@ -43,8 +43,15 @@ export async function createPost(formData: FormData) {
     throw new Error("メディアファイルを選択してください。");
   }
 
+  const { title, description } = splitPostBody(parsed.bodyText);
+  const gameName = await resolveGameName({
+    inputGameName: parsed.gameName,
+    bodyText: parsed.bodyText,
+    tags: parsed.tags ?? "",
+    fileName: media.name,
+  });
   const publicId = nanoid(12);
-  const gameSlug = slugify(parsed.gameName) || nanoid(8);
+  const gameSlug = slugify(gameName) || nanoid(8);
   const tagNames = parseTags(parsed.tags ?? "");
 
   if (parsed.postType === "SCREENSHOT") {
@@ -52,12 +59,12 @@ export async function createPost(formData: FormData) {
     const post = await createBasePost({
       publicId,
       userId,
-      gameName: parsed.gameName,
+      gameName,
       gameSlug,
       tagNames,
       type: "SCREENSHOT",
-      title: parsed.title,
-      description: parsed.description,
+      title,
+      description,
       visibility: parsed.visibility,
       isNsfw: parsed.isNsfw,
       thumbnailUrl: storedImage.thumbnailUrl,
@@ -74,12 +81,12 @@ export async function createPost(formData: FormData) {
   const post = await createBasePost({
     publicId,
     userId,
-    gameName: parsed.gameName,
+    gameName,
     gameSlug,
     tagNames,
     type: "CLIP",
-    title: parsed.title,
-    description: parsed.description,
+    title,
+    description,
     visibility: parsed.visibility,
     isNsfw: parsed.isNsfw,
     thumbnailUrl: "/images/processing-placeholder.svg",
@@ -99,6 +106,38 @@ export async function createPost(formData: FormData) {
   });
 
   redirect(`/c/${post.publicId}`);
+}
+
+type ResolveGameNameInput = {
+  inputGameName?: string;
+  bodyText: string;
+  tags: string;
+  fileName: string;
+};
+
+async function resolveGameName(input: ResolveGameNameInput) {
+  if (input.inputGameName?.trim()) {
+    return input.inputGameName.trim();
+  }
+
+  const games = await prisma.game.findMany({
+    where: {
+      isActive: true,
+    },
+    select: {
+      name: true,
+      slug: true,
+      aliases: true,
+    },
+    take: 200,
+  });
+  const inferred = inferGameName(`${input.bodyText}\n${input.tags}\n${input.fileName}`, games);
+
+  if (!inferred) {
+    throw new Error("ゲーム名を入力してください。既存ゲーム名が本文、タグ、ファイル名から推定できませんでした。");
+  }
+
+  return inferred;
 }
 
 type CreateBasePostInput = {

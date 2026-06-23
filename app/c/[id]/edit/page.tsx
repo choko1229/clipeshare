@@ -5,6 +5,7 @@ import { authOptions } from "@/auth";
 import { updatePost } from "@/app/c/[id]/edit/actions";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/db/prisma";
+import { joinPostBody } from "@/lib/posts/post-body";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,18 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
 
   const tagText = post.tags.map(({ tag }) => tag.name).join(" ");
   const customText = getCustomText(post.customFields);
+  const bodyText = joinPostBody(post.title, post.description);
+  const gameSuggestions = await prisma.game.findMany({
+    where: {
+      isActive: true,
+    },
+    select: {
+      id: true,
+      name: true,
+    },
+    orderBy: [{ posts: { _count: "desc" } }, { name: "asc" }],
+    take: 80,
+  });
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
@@ -74,31 +87,18 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
           <input name="publicId" type="hidden" value={post.publicId} />
 
           <div>
-            <label className="block text-sm font-medium" htmlFor="title">
-              タイトル
-            </label>
-            <input
-              className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-ring transition focus:ring-2"
-              defaultValue={post.title}
-              id="title"
-              maxLength={120}
-              name="title"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium" htmlFor="description">
-              説明文
+            <label className="block text-sm font-medium" htmlFor="bodyText">
+              本文
             </label>
             <textarea
               className="mt-2 min-h-36 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-ring transition focus:ring-2"
-              defaultValue={post.description}
-              id="description"
-              maxLength={4000}
-              name="description"
+              defaultValue={bodyText}
+              id="bodyText"
+              maxLength={4200}
+              name="bodyText"
               required
             />
+            <p className="mt-2 text-xs text-muted-foreground">1行目をタイトル、2行目以降を説明文として保存します。</p>
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2">
@@ -108,12 +108,19 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
               </label>
               <input
                 className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-ring transition focus:ring-2"
+                autoComplete="off"
                 defaultValue={post.game.name}
                 id="gameName"
+                list="game-suggestions"
                 maxLength={120}
                 name="gameName"
                 required
               />
+              <datalist id="game-suggestions">
+                {gameSuggestions.map((game) => (
+                  <option key={game.id} value={game.name} />
+                ))}
+              </datalist>
             </div>
             <div>
               <label className="block text-sm font-medium" htmlFor="tags">
