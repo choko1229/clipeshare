@@ -1,10 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import { authOptions } from "@/auth";
+import { requireActiveUser } from "@/lib/auth/active-user";
 import { prisma } from "@/lib/db/prisma";
 import { inferGameName } from "@/lib/games/infer-game";
 import { storeScreenshotImage } from "@/lib/media/images";
@@ -23,12 +22,8 @@ const createPostSchema = z.object({
 });
 
 export async function createPost(formData: FormData) {
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id;
-
-  if (!userId) {
-    redirect("/login");
-  }
+  const user = await requireActiveUser();
+  const userId = user.id;
 
   const parsed = createPostSchema.parse({
     bodyText: formData.get("bodyText"),

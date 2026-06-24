@@ -1,24 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/auth";
+import { requireActiveUser } from "@/lib/auth/active-user";
 import { prisma } from "@/lib/db/prisma";
 import { assertNotBlockedByModerationRules, moderationReportDetail } from "@/lib/moderation/rules";
 
 const publicIdSchema = z.string().min(1).max(64);
-
-async function requireUserId() {
-  const session = await getServerSession(authOptions);
-
-  if (!session?.user?.id) {
-    redirect("/login");
-  }
-
-  return session.user.id;
-}
 
 async function getPostByPublicId(publicId: string) {
   const post = await prisma.post.findFirst({
@@ -41,7 +29,8 @@ async function getPostByPublicId(publicId: string) {
 }
 
 export async function toggleLike(formData: FormData) {
-  const userId = await requireUserId();
+  const user = await requireActiveUser();
+  const userId = user.id;
   const publicId = publicIdSchema.parse(formData.get("publicId"));
   const post = await getPostByPublicId(publicId);
 
@@ -96,7 +85,8 @@ export async function toggleLike(formData: FormData) {
 }
 
 export async function toggleBookmark(formData: FormData) {
-  const userId = await requireUserId();
+  const user = await requireActiveUser();
+  const userId = user.id;
   const publicId = publicIdSchema.parse(formData.get("publicId"));
   const post = await getPostByPublicId(publicId);
 
@@ -152,7 +142,8 @@ export async function toggleBookmark(formData: FormData) {
 }
 
 export async function createComment(formData: FormData) {
-  const userId = await requireUserId();
+  const user = await requireActiveUser();
+  const userId = user.id;
   const publicId = publicIdSchema.parse(formData.get("publicId"));
   const body = z.string().trim().min(1).max(1000).parse(formData.get("body"));
   const moderation = await assertNotBlockedByModerationRules(body);
@@ -198,7 +189,8 @@ export async function createComment(formData: FormData) {
 }
 
 export async function deleteComment(formData: FormData) {
-  const userId = await requireUserId();
+  const user = await requireActiveUser();
+  const userId = user.id;
   const publicId = publicIdSchema.parse(formData.get("publicId"));
   const commentId = z.string().min(1).parse(formData.get("commentId"));
 
@@ -245,7 +237,8 @@ export async function deleteComment(formData: FormData) {
 }
 
 export async function createReport(formData: FormData) {
-  const userId = await requireUserId();
+  const user = await requireActiveUser();
+  const userId = user.id;
   const publicId = publicIdSchema.parse(formData.get("publicId"));
   const reason = z.enum(["spam", "harassment", "nsfw_missing", "illegal", "other"]).parse(formData.get("reason"));
   const detail = z.string().trim().max(1000).optional().parse(formData.get("detail") || undefined);
@@ -268,7 +261,8 @@ export async function createReport(formData: FormData) {
 }
 
 export async function createCommentReport(formData: FormData) {
-  const userId = await requireUserId();
+  const user = await requireActiveUser();
+  const userId = user.id;
   const publicId = publicIdSchema.parse(formData.get("publicId"));
   const commentId = z.string().min(1).parse(formData.get("commentId"));
   const reason = z.enum(["spam", "harassment", "nsfw_missing", "illegal", "other"]).parse(formData.get("reason"));

@@ -2,9 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/auth";
+import { requireActiveUser } from "@/lib/auth/active-user";
 import { prisma } from "@/lib/db/prisma";
 import { isValidUsername, normalizeUsername } from "@/lib/users/username";
 
@@ -15,11 +14,7 @@ const profileSchema = z.object({
 });
 
 export async function updateProfile(formData: FormData) {
-  const session = await getServerSession(authOptions);
-
-  if (!session?.user?.id) {
-    redirect("/login");
-  }
+  const user = await requireActiveUser();
 
   const parsed = profileSchema.parse({
     username: formData.get("username"),
@@ -36,7 +31,7 @@ export async function updateProfile(formData: FormData) {
     where: {
       username,
       NOT: {
-        id: session.user.id,
+        id: user.id,
       },
     },
     select: {
@@ -49,7 +44,7 @@ export async function updateProfile(formData: FormData) {
   }
 
   await prisma.user.update({
-    where: { id: session.user.id },
+    where: { id: user.id },
     data: {
       username,
       displayName: parsed.displayName,

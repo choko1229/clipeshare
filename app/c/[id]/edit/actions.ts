@@ -2,11 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
-import { authOptions } from "@/auth";
+import { requireActiveUser } from "@/lib/auth/active-user";
 import { prisma } from "@/lib/db/prisma";
 import { assertNotBlockedByModerationRules, moderationReportDetail } from "@/lib/moderation/rules";
 import { splitPostBody } from "@/lib/posts/post-body";
@@ -25,11 +24,7 @@ const updatePostSchema = z.object({
 });
 
 export async function updatePost(formData: FormData) {
-  const session = await getServerSession(authOptions);
-
-  if (!session?.user?.id) {
-    redirect("/login");
-  }
+  const user = await requireActiveUser();
 
   const parsed = updatePostSchema.parse({
     publicId: formData.get("publicId"),
@@ -46,7 +41,7 @@ export async function updatePost(formData: FormData) {
   const post = await prisma.post.findFirst({
     where: {
       publicId: parsed.publicId,
-      userId: session.user.id,
+      userId: user.id,
       status: {
         notIn: ["HIDDEN", "DELETED"],
       },
@@ -151,7 +146,7 @@ export async function updatePost(formData: FormData) {
   if (moderation.reportable.length > 0) {
     await prisma.report.create({
       data: {
-        reporterId: session.user.id,
+        reporterId: user.id,
         targetType: "POST",
         targetId: post.id,
         reason: "moderation_rule",
