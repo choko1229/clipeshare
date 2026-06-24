@@ -78,7 +78,7 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
       <div className="mb-6">
         <h1 className="text-3xl font-bold">投稿編集</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          タイトル、説明文、ゲーム名、タグを編集できます。メディア差し替えは別フェーズで追加します。
+          本文、ゲーム名、タグ、公開設定、追加情報を編集できます。メディア差し替えは次の実装フェーズで追加します。
         </p>
       </div>
 

@@ -68,7 +68,7 @@ export default async function AdminReportsPage() {
     <section className="rounded-md border border-border bg-card">
       <div className="border-b border-border p-4">
         <h2 className="text-lg font-semibold">通報管理</h2>
-        <p className="mt-1 text-sm text-muted-foreground">通報内容を確認し、投稿非公開・コメント削除・対象ユーザーBANまで同じ画面で対応します。</p>
+        <p className="mt-1 text-sm text-muted-foreground">通報内容を確認し、投稿非公開化、コメント削除、対象ユーザーBANまで同じ画面で対応できます。</p>
       </div>
       <div className="divide-y divide-border">
         {reports.length > 0 ? (

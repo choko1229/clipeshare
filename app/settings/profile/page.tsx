@@ -58,7 +58,7 @@ export default async function ProfileSettingsPage() {
               name="avatar"
               type="file"
             />
-            <p className="mt-2 text-xs text-muted-foreground">jpg / png / webp、2MBまで。</p>
+            <p className="mt-2 text-xs text-muted-foreground">jpg / png / webp、5MBまで。</p>
           </div>
 
           <div>

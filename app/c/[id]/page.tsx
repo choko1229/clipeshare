@@ -257,7 +257,7 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
                 </p>
                 <p className="mt-2 text-sm text-muted-foreground">
                   {post.status === "FAILED"
-                    ? "時間を置いても直らない場合は再投稿してください。"
+                    ? "時間を置いても変わらない場合は、再投稿してください。"
                     : "変換が完了すると、このページで再生できるようになります。"}
                 </p>
               </div>
