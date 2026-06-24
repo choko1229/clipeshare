@@ -196,6 +196,7 @@ model Post {
   visibility          Visibility @default(PUBLIC)
   thumbnailUrl        String     @db.Text
   mediaUrl            String?    @db.Text
+  shareVideoUrl       String?    @db.Text
   originalFilePath    String?    @db.Text
   hlsPath             String?    @db.Text
   durationSeconds     Int?

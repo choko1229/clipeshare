@@ -54,10 +54,12 @@ async function processJob(job) {
     }
 
     const hlsDir = path.join(processedRoot, "hls", job.post.publicId);
+    const shareVideoDir = path.join(processedRoot, "videos");
     const thumbnailDir = path.join(processedRoot, "thumbnails");
-    await Promise.all([mkdir(hlsDir, { recursive: true }), mkdir(thumbnailDir, { recursive: true })]);
+    await Promise.all([mkdir(hlsDir, { recursive: true }), mkdir(shareVideoDir, { recursive: true }), mkdir(thumbnailDir, { recursive: true })]);
 
     const thumbnailPath = path.join(thumbnailDir, `${job.post.publicId}.webp`);
+    const shareVideoPath = path.join(shareVideoDir, `${job.post.publicId}.mp4`);
     const playlistPath = path.join(hlsDir, "master.m3u8");
     const segmentPattern = path.join(hlsDir, "segment_%03d.ts");
 
@@ -103,6 +105,31 @@ async function processJob(job) {
       playlistPath,
     ]);
 
+    await run("ffmpeg", [
+      "-y",
+      "-i",
+      job.inputPath,
+      "-vf",
+      "scale='min(1280,iw)':-2",
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast",
+      "-crf",
+      "24",
+      "-profile:v",
+      "main",
+      "-pix_fmt",
+      "yuv420p",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "128k",
+      "-movflags",
+      "+faststart",
+      shareVideoPath,
+    ]);
+
     await prisma.$transaction(async (tx) => {
       await tx.post.update({
         where: { id: job.postId },
@@ -110,6 +137,7 @@ async function processJob(job) {
           status: job.post.visibility === "PUBLIC" ? "PUBLISHED" : "PRIVATE",
           thumbnailUrl: `/media/thumbnails/${job.post.publicId}.webp`,
           mediaUrl: `/media/hls/${job.post.publicId}/master.m3u8`,
+          shareVideoUrl: `/media/videos/${job.post.publicId}.mp4`,
           hlsPath: playlistPath,
           durationSeconds: Math.round(metadata.durationSeconds),
           width: metadata.width,

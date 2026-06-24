@@ -5,15 +5,16 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 type SharePanelProps = {
+  embedUrl?: string;
   title: string;
   url: string;
 };
 
-export function SharePanel({ title, url }: SharePanelProps) {
+export function SharePanel({ embedUrl, title, url }: SharePanelProps) {
   const [copied, setCopied] = useState<string | null>(null);
   const embedCode = useMemo(
-    () => `<iframe src="${url}" title="${escapeHtml(title)}" width="640" height="480" loading="lazy" allowfullscreen></iframe>`,
-    [title, url],
+    () => `<iframe src="${embedUrl ?? url}" title="${escapeHtml(title)}" width="640" height="360" loading="lazy" allowfullscreen></iframe>`,
+    [embedUrl, title, url],
   );
   const xShareUrl = `https://twitter.com/intent/tweet?${new URLSearchParams({ text: title, url }).toString()}`;
 

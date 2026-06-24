@@ -60,6 +60,10 @@ async function getPublicPost(publicId: string) {
   });
 }
 
+function absoluteUrl(pathOrUrl: string) {
+  return new URL(pathOrUrl, process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").toString();
+}
+
 async function getVisiblePost(publicId: string, viewerId?: string) {
   return prisma.post.findFirst({
     where: {
@@ -118,7 +122,10 @@ export async function generateMetadata({ params }: ClipPageProps): Promise<Metad
 
     const title = post.isNsfw ? "NSFWコンテンツ" : post.title;
     const description = post.isNsfw ? "この投稿はログイン後に表示できます。" : post.description.slice(0, 160);
-    const image = post.isNsfw ? "/images/nsfw-placeholder.svg" : post.thumbnailUrl;
+    const image = absoluteUrl(post.isNsfw ? "/images/nsfw-placeholder.svg" : post.thumbnailUrl);
+    const pageUrl = absoluteUrl(`/c/${post.publicId}`);
+    const playerUrl = absoluteUrl(`/embed/c/${post.publicId}`);
+    const shareVideoUrl = !post.isNsfw && post.type === "CLIP" && post.shareVideoUrl ? absoluteUrl(post.shareVideoUrl) : null;
 
     return {
       title,
@@ -127,7 +134,7 @@ export async function generateMetadata({ params }: ClipPageProps): Promise<Metad
         title,
         description,
         type: "article",
-        url: `/c/${post.publicId}`,
+        url: pageUrl,
         images: [
           {
             url: image,
@@ -136,6 +143,17 @@ export async function generateMetadata({ params }: ClipPageProps): Promise<Metad
             alt: title,
           },
         ],
+        videos: shareVideoUrl
+          ? [
+              {
+                url: shareVideoUrl,
+                secureUrl: shareVideoUrl,
+                type: "video/mp4",
+                width: post.width ?? 1280,
+                height: post.height ?? 720,
+              },
+            ]
+          : undefined,
       },
       twitter: {
         card: "summary_large_image",
@@ -143,6 +161,21 @@ export async function generateMetadata({ params }: ClipPageProps): Promise<Metad
         description,
         images: [image],
       },
+      other:
+        !post.isNsfw && post.type === "CLIP"
+          ? {
+              "twitter:card": "player",
+              "twitter:player": playerUrl,
+              "twitter:player:width": "1280",
+              "twitter:player:height": "720",
+              ...(shareVideoUrl
+                ? {
+                    "twitter:player:stream": shareVideoUrl,
+                    "twitter:player:stream:content_type": "video/mp4",
+                  }
+                : {}),
+            }
+          : undefined,
     };
   } catch {
     return {
@@ -175,7 +208,8 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
   const displayViewCount = Number(post.viewCount) + 1;
   const isOwner = session?.user?.id === post.userId;
   const customText = getCustomText(post.customFields);
-  const shareUrl = new URL(`/c/${post.publicId}`, process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").toString();
+  const shareUrl = absoluteUrl(`/c/${post.publicId}`);
+  const embedUrl = absoluteUrl(`/embed/c/${post.publicId}`);
   const isLiked = session?.user?.id
     ? Boolean(
         await prisma.like.findUnique({
@@ -363,13 +397,13 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
           </section>
 
           <div className="mt-6 lg:hidden">
-            <SharePanel title={post.title} url={shareUrl} />
+            <SharePanel embedUrl={embedUrl} title={post.title} url={shareUrl} />
           </div>
         </div>
 
         <aside className="space-y-4">
           <div className="hidden lg:block">
-            <SharePanel title={post.title} url={shareUrl} />
+            <SharePanel embedUrl={embedUrl} title={post.title} url={shareUrl} />
           </div>
 
           <section className="space-y-4 rounded-md border border-border bg-card p-4">
