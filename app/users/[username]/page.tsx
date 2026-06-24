@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
+import { ExternalLink } from "lucide-react";
 import { authOptions } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { PostCard } from "@/components/posts/post-card";
@@ -40,6 +41,11 @@ async function getProfile(username: string) {
           publishedAt: "desc",
         },
         take: 24,
+      },
+      links: {
+        orderBy: {
+          sortOrder: "asc",
+        },
       },
     },
   });
@@ -142,6 +148,23 @@ export default async function UserProfilePage({ params }: UserPageProps) {
 
           {user.bio ? <p className="mt-4 max-w-2xl whitespace-pre-wrap text-sm leading-7 text-muted-foreground">{user.bio}</p> : null}
 
+          {user.links.length > 0 ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {user.links.map((link) => (
+                <a
+                  className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
+                  href={link.url}
+                  key={link.id}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {link.label || linkTypeLabel(link.type)}
+                  <ExternalLink size={14} />
+                </a>
+              ))}
+            </div>
+          ) : null}
+
           <div className="mt-5 grid max-w-3xl grid-cols-2 gap-3 text-center text-sm sm:grid-cols-5">
             <div className="rounded-md border border-border bg-card p-3">
               <p className="text-xl font-bold">{user.posts.length}</p>
@@ -205,4 +228,19 @@ export default async function UserProfilePage({ params }: UserPageProps) {
       </section>
     </main>
   );
+}
+
+function linkTypeLabel(type: string) {
+  switch (type) {
+    case "x":
+      return "X";
+    case "discord":
+      return "Discord";
+    case "youtube":
+      return "YouTube";
+    case "twitch":
+      return "Twitch";
+    default:
+      return "Website";
+  }
 }

@@ -8,6 +8,7 @@ import { authOptions } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { HlsPlayer } from "@/components/media/hls-player";
 import { NsfwGate } from "@/components/media/nsfw-gate";
+import { SharePanel } from "@/components/share/share-panel";
 import { prisma } from "@/lib/db/prisma";
 import { createComment, createCommentReport, createReport, deleteComment, toggleBookmark, toggleLike } from "@/app/c/[id]/actions";
 
@@ -174,6 +175,7 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
   const displayViewCount = Number(post.viewCount) + 1;
   const isOwner = session?.user?.id === post.userId;
   const customText = getCustomText(post.customFields);
+  const shareUrl = new URL(`/c/${post.publicId}`, process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").toString();
   const isLiked = session?.user?.id
     ? Boolean(
         await prisma.like.findUnique({
@@ -359,9 +361,17 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
               )}
             </div>
           </section>
+
+          <div className="mt-6 lg:hidden">
+            <SharePanel title={post.title} url={shareUrl} />
+          </div>
         </div>
 
         <aside className="space-y-4">
+          <div className="hidden lg:block">
+            <SharePanel title={post.title} url={shareUrl} />
+          </div>
+
           <section className="space-y-4 rounded-md border border-border bg-card p-4">
             <div>
               <p className="text-xs text-muted-foreground">投稿者</p>

@@ -5,6 +5,14 @@ import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/db/prisma";
 import { updateProfile } from "@/app/settings/profile/actions";
 
+const linkTypes = [
+  { value: "x", label: "X" },
+  { value: "discord", label: "Discord" },
+  { value: "youtube", label: "YouTube" },
+  { value: "twitch", label: "Twitch" },
+  { value: "website", label: "Website" },
+];
+
 export default async function ProfileSettingsPage() {
   const session = await getServerSession(authOptions);
 
@@ -14,18 +22,21 @@ export default async function ProfileSettingsPage() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: {
-      username: true,
-      displayName: true,
-      name: true,
-      email: true,
-      bio: true,
+    include: {
+      links: {
+        orderBy: {
+          sortOrder: "asc",
+        },
+        take: 5,
+      },
     },
   });
 
   if (!user) {
     redirect("/login");
   }
+
+  const linkRows = Array.from({ length: 5 }, (_, index) => user.links[index] ?? null);
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
@@ -36,6 +47,20 @@ export default async function ProfileSettingsPage() {
 
       <section className="rounded-md border border-border bg-card p-5">
         <form action={updateProfile} className="space-y-5">
+          <div>
+            <label className="block text-sm font-medium" htmlFor="avatar">
+              アイコン
+            </label>
+            <input
+              accept="image/jpeg,image/png,image/webp"
+              className="mt-2 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              id="avatar"
+              name="avatar"
+              type="file"
+            />
+            <p className="mt-2 text-xs text-muted-foreground">jpg / png / webp、2MBまで。</p>
+          </div>
+
           <div>
             <label className="block text-sm font-medium" htmlFor="username">
               ユーザーID
@@ -77,6 +102,38 @@ export default async function ProfileSettingsPage() {
               maxLength={500}
               name="bio"
             />
+          </div>
+
+          <div>
+            <h2 className="text-sm font-medium">SNSリンク</h2>
+            <div className="mt-2 space-y-3">
+              {linkRows.map((link, index) => (
+                <div className="grid gap-2 sm:grid-cols-[130px_1fr]" key={link?.id ?? index}>
+                  <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" defaultValue={link?.type ?? "website"} name="linkType">
+                    {linkTypes.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    defaultValue={link?.url ?? ""}
+                    maxLength={500}
+                    name="linkUrl"
+                    placeholder="https://..."
+                    type="url"
+                  />
+                  <input
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm sm:col-span-2"
+                    defaultValue={link?.label ?? ""}
+                    maxLength={80}
+                    name="linkLabel"
+                    placeholder="表示名 任意"
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
           <Button type="submit">保存</Button>
