@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 const root = process.cwd();
 const processedRoot = path.join(root, "storage", "uploads", "processed");
 const pollMs = Number(process.env.WORKER_POLL_MS ?? 5000);
-const maxVideoSeconds = Number(process.env.MAX_VIDEO_SECONDS ?? 180);
+const fallbackMaxVideoSeconds = Number(process.env.MAX_VIDEO_SECONDS ?? 180);
 
 let isProcessing = false;
 
@@ -23,7 +23,17 @@ async function tick() {
   try {
     const job = await prisma.uploadJob.findFirst({
       where: { status: "QUEUED" },
-      include: { post: true },
+      include: {
+        post: {
+          include: {
+            user: {
+              include: {
+                accountLevel: true,
+              },
+            },
+          },
+        },
+      },
       orderBy: { createdAt: "asc" },
     });
 
@@ -48,6 +58,7 @@ async function processJob(job) {
   });
 
   try {
+    const maxVideoSeconds = await resolveMaxVideoSeconds(job);
     const metadata = await probeVideo(job.inputPath);
     if (metadata.durationSeconds > maxVideoSeconds) {
       throw new Error(`Video duration ${metadata.durationSeconds}s exceeds ${maxVideoSeconds}s.`);
@@ -174,6 +185,19 @@ async function processJob(job) {
       });
     });
   }
+}
+
+async function resolveMaxVideoSeconds(job) {
+  if (job.post.user.accountLevel?.maxVideoSeconds) {
+    return job.post.user.accountLevel.maxVideoSeconds;
+  }
+
+  const defaultLevel = await prisma.accountLevel.findFirst({
+    where: { isDefault: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return defaultLevel?.maxVideoSeconds ?? fallbackMaxVideoSeconds;
 }
 
 async function probeVideo(inputPath) {

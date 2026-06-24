@@ -16,14 +16,17 @@ export type StoredVideo = {
   size: number;
 };
 
-export async function storeOriginalVideo(file: File, publicId: string): Promise<StoredVideo> {
+type StoreOriginalVideoOptions = {
+  maxVideoSizeBytes: number;
+};
+
+export async function storeOriginalVideo(file: File, publicId: string, options: StoreOriginalVideoOptions): Promise<StoredVideo> {
   if (!allowedVideoTypes.has(file.type)) {
     throw new Error("対応していない動画形式です。mp4, mov, webm, mkv, aviを選択してください。");
   }
 
-  const maxVideoSizeBytes = 300_000_000;
-  if (file.size > maxVideoSizeBytes) {
-    throw new Error("動画サイズが上限を超えています。");
+  if (file.size > options.maxVideoSizeBytes) {
+    throw new Error("動画サイズがアカウントの上限を超えています。");
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());

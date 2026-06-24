@@ -17,14 +17,17 @@ export type StoredImage = {
   size: number;
 };
 
-export async function storeScreenshotImage(file: File, publicId: string): Promise<StoredImage> {
+type StoreScreenshotImageOptions = {
+  maxImageSizeBytes: number;
+};
+
+export async function storeScreenshotImage(file: File, publicId: string, options: StoreScreenshotImageOptions): Promise<StoredImage> {
   if (!allowedImageTypes.has(file.type)) {
     throw new Error("対応していない画像形式です。jpg, png, webpを選択してください。");
   }
 
-  const maxImageSizeBytes = 50_000_000;
-  if (file.size > maxImageSizeBytes) {
-    throw new Error("画像サイズが上限を超えています。");
+  if (file.size > options.maxImageSizeBytes) {
+    throw new Error("画像サイズがアカウントの上限を超えています。");
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());

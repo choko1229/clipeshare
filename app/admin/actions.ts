@@ -13,6 +13,7 @@ const reportStatusSchema = z.enum(["OPEN", "REVIEWING", "ACTION_TAKEN", "REJECTE
 const reportActionSchema = z.enum(["HIDE_POST", "DELETE_COMMENT", "BAN_TARGET_USER"]);
 const moderationRuleTypeSchema = z.enum(["ng_word", "blocked_url", "blocked_pattern"]);
 const moderationRuleActionSchema = z.enum(["block", "report"]);
+const userRoleSchema = z.enum(["USER", "MODERATOR", "ADMIN", "OWNER"]);
 const optionalUrlSchema = z
   .string()
   .trim()
@@ -47,6 +48,36 @@ function parseOptionalInt(value: FormDataEntryValue | null) {
   }
 
   return parsed;
+}
+
+function parsePositiveIntField(value: FormDataEntryValue | null, label: string) {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`${label}を入力してください。`);
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    throw new Error(`${label}は1以上の整数で入力してください。`);
+  }
+
+  return parsed;
+}
+
+function parseOptionalPositiveIntField(value: FormDataEntryValue | null, label: string) {
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    throw new Error(`${label}は1以上の整数で入力してください。`);
+  }
+
+  return parsed;
+}
+
+function megabytesToBytes(value: number) {
+  return BigInt(value) * 1_000_000n;
 }
 
 function parseOptionalDate(value: FormDataEntryValue | null) {
@@ -489,6 +520,231 @@ export async function banUser(formData: FormData) {
     reason,
   });
 
+  revalidatePath("/admin/users");
+}
+
+export async function updateUserRole(formData: FormData) {
+  const admin = await requireAdmin();
+  const userId = idSchema.parse(formData.get("userId"));
+  const role = userRoleSchema.parse(formData.get("role"));
+  const reason = z.string().trim().max(1000).optional().parse(formData.get("reason") || undefined);
+
+  if (userId === admin.id) {
+    throw new Error("自分自身の権限は管理画面から変更できません。");
+  }
+
+  const before = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!before) {
+    throw new Error("ユーザーが見つかりません。");
+  }
+
+  if ((role === "OWNER" || before.role === "OWNER") && admin.role !== "OWNER") {
+    throw new Error("OWNERの付与または変更はOWNERのみ実行できます。");
+  }
+
+  const after = await prisma.user.update({
+    where: { id: userId },
+    data: { role },
+  });
+
+  await writeAuditLog({
+    adminId: admin.id,
+    action: "user.update_role",
+    targetType: "user",
+    targetId: userId,
+    beforeData: before,
+    afterData: after,
+    reason,
+  });
+
+  revalidatePath("/admin/users");
+  revalidatePath("/admin/admins");
+}
+
+export async function promoteAdmin(formData: FormData) {
+  await requireAdmin();
+  const identifier = z.string().trim().min(1).max(191).parse(formData.get("identifier"));
+  const role = userRoleSchema.parse(formData.get("role"));
+  const reason = z.string().trim().max(1000).optional().parse(formData.get("reason") || undefined);
+
+  const user = await prisma.user.findFirst({
+    where: {
+      OR: [{ email: identifier }, { username: identifier.replace(/^@/, "") }],
+    },
+  });
+
+  if (!user) {
+    throw new Error("対象ユーザーが見つかりません。メールアドレスまたはユーザー名を確認してください。");
+  }
+
+  const nextFormData = new FormData();
+  nextFormData.set("userId", user.id);
+  nextFormData.set("role", role);
+  if (reason) {
+    nextFormData.set("reason", reason);
+  }
+
+  await updateUserRole(nextFormData);
+}
+
+export async function updateUserAccountLevel(formData: FormData) {
+  const admin = await requireAdmin();
+  const userId = idSchema.parse(formData.get("userId"));
+  const accountLevelId = z.string().trim().optional().parse(formData.get("accountLevelId") || undefined) ?? null;
+  const reason = z.string().trim().max(1000).optional().parse(formData.get("reason") || undefined);
+
+  const before = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!before) {
+    throw new Error("ユーザーが見つかりません。");
+  }
+
+  if (accountLevelId) {
+    const level = await prisma.accountLevel.findUnique({
+      where: { id: accountLevelId },
+    });
+
+    if (!level) {
+      throw new Error("アカウントレベルが見つかりません。");
+    }
+  }
+
+  const after = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      accountLevelId,
+    },
+  });
+
+  await writeAuditLog({
+    adminId: admin.id,
+    action: "user.update_account_level",
+    targetType: "user",
+    targetId: userId,
+    beforeData: before,
+    afterData: after,
+    reason,
+  });
+
+  revalidatePath("/admin/users");
+  revalidatePath("/admin/account-levels");
+}
+
+export async function createAccountLevel(formData: FormData) {
+  const admin = await requireAdmin();
+  const name = z.string().trim().min(1).max(80).parse(formData.get("name"));
+  const maxVideoSeconds = parsePositiveIntField(formData.get("maxVideoSeconds"), "最大動画時間");
+  const maxVideoSizeMb = parsePositiveIntField(formData.get("maxVideoSizeMb"), "最大動画サイズ");
+  const maxImageSizeMb = parsePositiveIntField(formData.get("maxImageSizeMb"), "最大画像サイズ");
+  const dailyUploadLimit = parseOptionalPositiveIntField(formData.get("dailyUploadLimit"), "1日の投稿数上限");
+  const isDefault = formData.get("isDefault") === "on";
+
+  const created = await prisma.$transaction(async (tx) => {
+    if (isDefault) {
+      await tx.accountLevel.updateMany({
+        where: { isDefault: true },
+        data: { isDefault: false },
+      });
+    }
+
+    return tx.accountLevel.create({
+      data: {
+        name,
+        maxVideoSeconds,
+        maxVideoSizeBytes: megabytesToBytes(maxVideoSizeMb),
+        maxImageSizeBytes: megabytesToBytes(maxImageSizeMb),
+        dailyUploadLimit,
+        isDefault,
+      },
+    });
+  });
+
+  await writeAuditLog({
+    adminId: admin.id,
+    action: "account_level.create",
+    targetType: "account_level",
+    targetId: created.id,
+    afterData: created,
+  });
+
+  revalidatePath("/admin/account-levels");
+  revalidatePath("/admin/users");
+}
+
+export async function updateAccountLevel(formData: FormData) {
+  const admin = await requireAdmin();
+  const accountLevelId = idSchema.parse(formData.get("accountLevelId"));
+  const name = z.string().trim().min(1).max(80).parse(formData.get("name"));
+  const maxVideoSeconds = parsePositiveIntField(formData.get("maxVideoSeconds"), "最大動画時間");
+  const maxVideoSizeMb = parsePositiveIntField(formData.get("maxVideoSizeMb"), "最大動画サイズ");
+  const maxImageSizeMb = parsePositiveIntField(formData.get("maxImageSizeMb"), "最大画像サイズ");
+  const dailyUploadLimit = parseOptionalPositiveIntField(formData.get("dailyUploadLimit"), "1日の投稿数上限");
+  const isDefault = formData.get("isDefault") === "on";
+
+  const before = await prisma.accountLevel.findUnique({
+    where: { id: accountLevelId },
+  });
+
+  if (!before) {
+    throw new Error("アカウントレベルが見つかりません。");
+  }
+
+  if (!isDefault && before.isDefault) {
+    const otherDefaultCount = await prisma.accountLevel.count({
+      where: {
+        id: {
+          not: accountLevelId,
+        },
+        isDefault: true,
+      },
+    });
+
+    if (otherDefaultCount === 0) {
+      throw new Error("デフォルトのアカウントレベルは最低1つ必要です。");
+    }
+  }
+
+  const after = await prisma.$transaction(async (tx) => {
+    if (isDefault) {
+      await tx.accountLevel.updateMany({
+        where: {
+          isDefault: true,
+          id: {
+            not: accountLevelId,
+          },
+        },
+        data: { isDefault: false },
+      });
+    }
+
+    return tx.accountLevel.update({
+      where: { id: accountLevelId },
+      data: {
+        name,
+        maxVideoSeconds,
+        maxVideoSizeBytes: megabytesToBytes(maxVideoSizeMb),
+        maxImageSizeBytes: megabytesToBytes(maxImageSizeMb),
+        dailyUploadLimit,
+        isDefault,
+      },
+    });
+  });
+
+  await writeAuditLog({
+    adminId: admin.id,
+    action: "account_level.update",
+    targetType: "account_level",
+    targetId: accountLevelId,
+    beforeData: before,
+    afterData: after,
+  });
+
+  revalidatePath("/admin/account-levels");
   revalidatePath("/admin/users");
 }
 

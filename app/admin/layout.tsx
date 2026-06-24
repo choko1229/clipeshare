@@ -10,6 +10,8 @@ const adminNav = [
   { href: "/admin/tags", label: "タグ" },
   { href: "/admin/games", label: "ゲーム" },
   { href: "/admin/users", label: "ユーザー" },
+  { href: "/admin/admins", label: "管理者" },
+  { href: "/admin/account-levels", label: "アカウントレベル" },
   { href: "/admin/audit-logs", label: "操作ログ" },
 ];
 

@@ -11,6 +11,7 @@ import { storeOriginalVideo } from "@/lib/media/videos";
 import { assertNotBlockedByModerationRules, moderationReportDetail } from "@/lib/moderation/rules";
 import { splitPostBody } from "@/lib/posts/post-body";
 import { parseTags, slugify } from "@/lib/posts/slug";
+import { assertDailyUploadLimit, getUploadLimitsForUser } from "@/lib/uploads/account-limits";
 
 const createPostSchema = z.object({
   bodyText: z.string().min(1).max(4200),
@@ -39,6 +40,9 @@ export async function createPost(formData: FormData) {
     throw new Error("メディアファイルを選択してください。");
   }
 
+  const uploadLimits = await getUploadLimitsForUser(userId);
+  await assertDailyUploadLimit(userId, uploadLimits);
+
   const { title, description } = splitPostBody(parsed.bodyText);
   const moderation = await assertNotBlockedByModerationRules(`${parsed.bodyText}\n${parsed.tags ?? ""}`);
   const gameName = await resolveGameName({
@@ -52,7 +56,9 @@ export async function createPost(formData: FormData) {
   const tagNames = parseTags(parsed.tags ?? "");
 
   if (parsed.postType === "SCREENSHOT") {
-    const storedImage = await storeScreenshotImage(media, publicId);
+    const storedImage = await storeScreenshotImage(media, publicId, {
+      maxImageSizeBytes: uploadLimits.maxImageSizeBytes,
+    });
     const post = await createBasePost({
       publicId,
       userId,
@@ -75,7 +81,9 @@ export async function createPost(formData: FormData) {
     redirect(`/c/${post.publicId}`);
   }
 
-  const storedVideo = await storeOriginalVideo(media, publicId);
+  const storedVideo = await storeOriginalVideo(media, publicId, {
+    maxVideoSizeBytes: uploadLimits.maxVideoSizeBytes,
+  });
   const post = await createBasePost({
     publicId,
     userId,
@@ -151,7 +159,7 @@ async function resolveGameName(input: ResolveGameNameInput) {
   const inferred = inferGameName(`${input.bodyText}\n${input.tags}\n${input.fileName}`, games);
 
   if (!inferred) {
-    throw new Error("ゲーム名を入力してください。既存ゲーム名が本文、タグ、ファイル名から推定できませんでした。");
+    throw new Error("ゲーム名を入力してください。既存ゲーム名を本文、タグ、ファイル名から推定できませんでした。");
   }
 
   return inferred;
