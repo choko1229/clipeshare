@@ -1,21 +1,23 @@
 "use client";
 
-import { Check, Code2, Copy, MessageCircle, Share2 } from "lucide-react";
+import { Check, Code2, Copy, Download, FileText, MessageCircle, Share2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 type SharePanelProps = {
   embedUrl?: string;
+  shareVideoUrl?: string;
   title: string;
   url: string;
 };
 
-export function SharePanel({ embedUrl, title, url }: SharePanelProps) {
+export function SharePanel({ embedUrl, shareVideoUrl, title, url }: SharePanelProps) {
   const [copied, setCopied] = useState<string | null>(null);
   const embedCode = useMemo(
     () => `<iframe src="${embedUrl ?? url}" title="${escapeHtml(title)}" width="640" height="360" loading="lazy" allowfullscreen></iframe>`,
     [embedUrl, title, url],
   );
+  const xPostText = `${title}\n${url}`;
   const xShareUrl = `https://twitter.com/intent/tweet?${new URLSearchParams({ text: title, url }).toString()}`;
 
   async function copy(value: string, key: string) {
@@ -38,6 +40,18 @@ export function SharePanel({ embedUrl, title, url }: SharePanelProps) {
             Xで共有
           </a>
         </Button>
+        <Button className="w-full" type="button" variant="outline" onClick={() => copy(xPostText, "x-post")}>
+          {copied === "x-post" ? <Check size={18} /> : <FileText size={18} />}
+          X投稿文コピー
+        </Button>
+        {shareVideoUrl ? (
+          <Button asChild className="w-full" variant="outline">
+            <a download href={shareVideoUrl}>
+              <Download size={18} />
+              X用MP4ダウンロード
+            </a>
+          </Button>
+        ) : null}
         <Button className="w-full" type="button" variant="outline" onClick={() => copy(url, "discord")}>
           {copied === "discord" ? <Check size={18} /> : <MessageCircle size={18} />}
           Discord用URLコピー

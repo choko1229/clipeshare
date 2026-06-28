@@ -216,6 +216,10 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
   const customText = getCustomText(post.customFields);
   const shareUrl = absoluteUrl(`/c/${post.publicId}`);
   const embedUrl = absoluteUrl(`/embed/c/${post.publicId}`);
+  const xShareVideoUrl =
+    post.status === "PUBLISHED" && post.visibility === "PUBLIC" && !post.isNsfw && post.type === "CLIP" && post.shareVideoUrl
+      ? absoluteUrl(post.shareVideoUrl)
+      : undefined;
   const isLiked = session?.user?.id
     ? Boolean(
         await prisma.like.findUnique({
@@ -403,13 +407,13 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
           </section>
 
           <div className="mt-6 lg:hidden">
-            <SharePanel embedUrl={embedUrl} title={post.title} url={shareUrl} />
+            <SharePanel embedUrl={embedUrl} shareVideoUrl={xShareVideoUrl} title={post.title} url={shareUrl} />
           </div>
         </div>
 
         <aside className="space-y-4">
           <div className="hidden lg:block">
-            <SharePanel embedUrl={embedUrl} title={post.title} url={shareUrl} />
+            <SharePanel embedUrl={embedUrl} shareVideoUrl={xShareVideoUrl} title={post.title} url={shareUrl} />
           </div>
 
           <section className="space-y-4 rounded-md border border-border bg-card p-4">
