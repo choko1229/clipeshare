@@ -64,6 +64,9 @@ function absoluteUrl(pathOrUrl: string) {
   return new URL(pathOrUrl, process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").toString();
 }
 
+const EMBED_VIDEO_WIDTH = 1280;
+const EMBED_VIDEO_HEIGHT = 720;
+
 async function getVisiblePost(publicId: string, viewerId?: string) {
   return prisma.post.findFirst({
     where: {
@@ -125,7 +128,8 @@ export async function generateMetadata({ params }: ClipPageProps): Promise<Metad
     const image = absoluteUrl(post.isNsfw ? "/images/nsfw-placeholder.svg" : post.thumbnailUrl);
     const pageUrl = absoluteUrl(`/c/${post.publicId}`);
     const playerUrl = absoluteUrl(`/embed/c/${post.publicId}`);
-    const shareVideoUrl = !post.isNsfw && post.type === "CLIP" && post.shareVideoUrl ? absoluteUrl(post.shareVideoUrl) : null;
+    const canEmbedVideo = post.status === "PUBLISHED" && !post.isNsfw && post.type === "CLIP" && Boolean(post.shareVideoUrl);
+    const shareVideoUrl = canEmbedVideo && post.shareVideoUrl ? absoluteUrl(post.shareVideoUrl) : undefined;
 
     return {
       title,
@@ -149,8 +153,8 @@ export async function generateMetadata({ params }: ClipPageProps): Promise<Metad
                 url: shareVideoUrl,
                 secureUrl: shareVideoUrl,
                 type: "video/mp4",
-                width: post.width ?? 1280,
-                height: post.height ?? 720,
+                width: EMBED_VIDEO_WIDTH,
+                height: EMBED_VIDEO_HEIGHT,
               },
             ]
           : undefined,
@@ -162,18 +166,20 @@ export async function generateMetadata({ params }: ClipPageProps): Promise<Metad
         images: [image],
       },
       other:
-        !post.isNsfw && post.type === "CLIP"
+        shareVideoUrl
           ? {
               "twitter:card": "player",
               "twitter:player": playerUrl,
-              "twitter:player:width": "1280",
-              "twitter:player:height": "720",
-              ...(shareVideoUrl
-                ? {
-                    "twitter:player:stream": shareVideoUrl,
-                    "twitter:player:stream:content_type": "video/mp4",
-                  }
-                : {}),
+              "twitter:player:width": String(EMBED_VIDEO_WIDTH),
+              "twitter:player:height": String(EMBED_VIDEO_HEIGHT),
+              "twitter:player:stream": shareVideoUrl,
+              "twitter:player:stream:content_type": "video/mp4",
+              "og:video": shareVideoUrl,
+              "og:video:url": shareVideoUrl,
+              "og:video:secure_url": shareVideoUrl,
+              "og:video:type": "video/mp4",
+              "og:video:width": String(EMBED_VIDEO_WIDTH),
+              "og:video:height": String(EMBED_VIDEO_HEIGHT),
             }
           : undefined,
     };
