@@ -10,14 +10,13 @@ import { storeScreenshotImage } from "@/lib/media/images";
 import { storeOriginalVideo } from "@/lib/media/videos";
 import { assertNotBlockedByModerationRules, moderationReportDetail } from "@/lib/moderation/rules";
 import { splitPostBody } from "@/lib/posts/post-body";
-import { parseTags, slugify } from "@/lib/posts/slug";
+import { extractHashTags, slugify } from "@/lib/posts/slug";
 import { assertDailyUploadLimit, getUploadLimitsForUser } from "@/lib/uploads/account-limits";
+import { detectMediaKind } from "@/lib/uploads/file-kind";
 
 const createPostSchema = z.object({
   bodyText: z.string().min(1).max(4200),
   gameName: z.string().trim().max(120).optional(),
-  tags: z.string().trim().max(300).optional(),
-  postType: z.enum(["SCREENSHOT", "CLIP"]),
   visibility: z.enum(["PUBLIC", "PRIVATE"]).default("PUBLIC"),
   isNsfw: z.boolean().default(false),
 });
@@ -29,8 +28,6 @@ export async function createPost(formData: FormData) {
   const parsed = createPostSchema.parse({
     bodyText: formData.get("bodyText"),
     gameName: formData.get("gameName"),
-    tags: formData.get("tags") ?? "",
-    postType: formData.get("postType") === "CLIP" ? "CLIP" : "SCREENSHOT",
     visibility: formData.get("visibility") === "PRIVATE" ? "PRIVATE" : "PUBLIC",
     isNsfw: formData.get("isNsfw") === "on",
   });
@@ -40,22 +37,27 @@ export async function createPost(formData: FormData) {
     throw new Error("メディアファイルを選択してください。");
   }
 
+  const postType = detectMediaKind(media);
+  if (!postType) {
+    throw new Error("対応している画像または動画ファイルを選択してください。");
+  }
+
   const uploadLimits = await getUploadLimitsForUser(userId);
   await assertDailyUploadLimit(userId, uploadLimits);
 
   const { title, description } = splitPostBody(parsed.bodyText);
-  const moderation = await assertNotBlockedByModerationRules(`${parsed.bodyText}\n${parsed.tags ?? ""}`);
+  const moderation = await assertNotBlockedByModerationRules(parsed.bodyText);
   const gameName = await resolveGameName({
     inputGameName: parsed.gameName,
     bodyText: parsed.bodyText,
-    tags: parsed.tags ?? "",
+    tags: "",
     fileName: media.name,
   });
   const publicId = nanoid(12);
   const gameSlug = slugify(gameName) || nanoid(8);
-  const tagNames = parseTags(parsed.tags ?? "");
+  const tagNames = extractHashTags(parsed.bodyText);
 
-  if (parsed.postType === "SCREENSHOT") {
+  if (postType === "SCREENSHOT") {
     const storedImage = await storeScreenshotImage(media, publicId, {
       maxImageSizeBytes: uploadLimits.maxImageSizeBytes,
     });

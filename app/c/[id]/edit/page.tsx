@@ -6,6 +6,7 @@ import { updatePost } from "@/app/c/[id]/edit/actions";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/db/prisma";
 import { joinPostBody } from "@/lib/posts/post-body";
+import { appendMissingHashTags } from "@/lib/posts/slug";
 
 export const dynamic = "force-dynamic";
 
@@ -58,9 +59,9 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
     notFound();
   }
 
-  const tagText = post.tags.map(({ tag }) => tag.name).join(" ");
+  const tagNames = post.tags.map(({ tag }) => tag.name);
   const customText = getCustomText(post.customFields);
-  const bodyText = joinPostBody(post.title, post.description);
+  const bodyText = appendMissingHashTags(joinPostBody(post.title, post.description), tagNames);
   const gameSuggestions = await prisma.game.findMany({
     where: {
       isActive: true,
@@ -98,44 +99,47 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
               name="bodyText"
               required
             />
-            <p className="mt-2 text-xs text-muted-foreground">1行目をタイトル、2行目以降を説明文として保存します。</p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              1行目をタイトル、2行目以降を説明文として保存します。本文内の #タグ を最大10個までタグとして保存します。
+            </p>
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium" htmlFor="gameName">
-                ゲーム名
-              </label>
-              <input
-                className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-ring transition focus:ring-2"
-                autoComplete="off"
-                defaultValue={post.game.name}
-                id="gameName"
-                list="game-suggestions"
-                maxLength={120}
-                name="gameName"
-                required
-              />
-              <datalist id="game-suggestions">
-                {gameSuggestions.map((game) => (
-                  <option key={game.id} value={game.name} />
-                ))}
-              </datalist>
-            </div>
-            <div>
-              <label className="block text-sm font-medium" htmlFor="tags">
-                タグ
-              </label>
-              <input
-                className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-ring transition focus:ring-2"
-                defaultValue={tagText}
-                id="tags"
-                maxLength={300}
-                name="tags"
-                placeholder="ace clutch screenshot"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium" htmlFor="gameName">
+              ゲーム名
+            </label>
+            <input
+              className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-ring transition focus:ring-2"
+              autoComplete="off"
+              defaultValue={post.game.name}
+              id="gameName"
+              list="game-suggestions"
+              maxLength={120}
+              name="gameName"
+              required
+            />
+            <datalist id="game-suggestions">
+              {gameSuggestions.map((game) => (
+                <option key={game.id} value={game.name} />
+              ))}
+            </datalist>
           </div>
+
+          {post.type === "CLIP" ? (
+            <div>
+              <label className="block text-sm font-medium" htmlFor="thumbnail">
+                動画サムネイル
+              </label>
+              <input
+                accept="image/jpeg,image/png,image/webp"
+                className="mt-2 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-foreground"
+                id="thumbnail"
+                name="thumbnail"
+                type="file"
+              />
+              <p className="mt-2 text-xs text-muted-foreground">選択した画像を1280x720のWebPサムネイルへ変換します。</p>
+            </div>
+          ) : null}
 
           <div className="grid gap-5 sm:grid-cols-2">
             <div>

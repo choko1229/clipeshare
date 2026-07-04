@@ -21,7 +21,7 @@ type StoreOriginalVideoOptions = {
 };
 
 export async function storeOriginalVideo(file: File, publicId: string, options: StoreOriginalVideoOptions): Promise<StoredVideo> {
-  if (!allowedVideoTypes.has(file.type)) {
+  if (!isAllowedVideo(file)) {
     throw new Error("対応していない動画形式です。mp4, mov, webm, mkv, aviを選択してください。");
   }
 
@@ -34,7 +34,7 @@ export async function storeOriginalVideo(file: File, publicId: string, options: 
   const originalDir = path.join(mediaPaths.originalRoot, "videos");
   await mkdir(originalDir, { recursive: true });
 
-  const originalPath = path.join(originalDir, `${publicId}-${contentHash}.${extensionFromMime(file.type)}`);
+  const originalPath = path.join(originalDir, `${publicId}-${contentHash}.${extensionFromFile(file)}`);
   await writeFile(originalPath, bytes, { flag: "wx" });
 
   return {
@@ -43,8 +43,14 @@ export async function storeOriginalVideo(file: File, publicId: string, options: 
   };
 }
 
-function extensionFromMime(mime: string) {
-  switch (mime) {
+function isAllowedVideo(file: File) {
+  return allowedVideoTypes.has(file.type) || ["mp4", "mov", "webm", "mkv", "avi"].includes(extensionFromName(file.name));
+}
+
+function extensionFromFile(file: File) {
+  const extension = extensionFromName(file.name);
+
+  switch (file.type) {
     case "video/mp4":
       return "mp4";
     case "video/quicktime":
@@ -56,6 +62,10 @@ function extensionFromMime(mime: string) {
     case "video/x-msvideo":
       return "avi";
     default:
-      return "bin";
+      return extension || "bin";
   }
+}
+
+function extensionFromName(name: string) {
+  return name.split(".").pop()?.toLowerCase() ?? "";
 }

@@ -223,6 +223,7 @@ model Post {
   likes      Like[]
   bookmarks  Bookmark[]
   uploadJobs UploadJob[]
+  retentionFiles MediaRetentionFile[]
 
   @@index([status, visibility, publishedAt])
   @@index([gameId, publishedAt])
@@ -331,6 +332,22 @@ model UploadJob {
   createdAt    DateTime        @default(now())
 
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+
+model MediaRetentionFile {
+  id          String    @id @default(cuid())
+  postId      String?
+  path        String    @db.Text
+  reason      String
+  deleteAfter DateTime
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  post Post? @relation(fields: [postId], references: [id], onDelete: SetNull)
+
+  @@index([deleteAfter, deletedAt])
+  @@index([postId])
+  @@index([reason])
 }
 
 model ModerationRule {

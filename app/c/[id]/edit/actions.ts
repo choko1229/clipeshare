@@ -7,15 +7,17 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { requireActiveUser } from "@/lib/auth/active-user";
 import { prisma } from "@/lib/db/prisma";
+import { storeThumbnailImage } from "@/lib/media/images";
+import { daysFromNow, getReplacedFileRetentionDays, mediaUrlToProcessedPath, scheduleMediaRetention } from "@/lib/media/retention";
 import { assertNotBlockedByModerationRules, moderationReportDetail } from "@/lib/moderation/rules";
 import { splitPostBody } from "@/lib/posts/post-body";
-import { parseTags, slugify } from "@/lib/posts/slug";
+import { extractHashTags, slugify } from "@/lib/posts/slug";
+import { getUploadLimitsForUser } from "@/lib/uploads/account-limits";
 
 const updatePostSchema = z.object({
   publicId: z.string().min(1).max(64),
   bodyText: z.string().min(1).max(4200),
   gameName: z.string().trim().min(1).max(120),
-  tags: z.string().trim().max(300).optional(),
   visibility: z.enum(["PUBLIC", "PRIVATE"]),
   isNsfw: z.boolean(),
   rankName: z.string().trim().max(80).optional(),
@@ -30,7 +32,6 @@ export async function updatePost(formData: FormData) {
     publicId: formData.get("publicId"),
     bodyText: formData.get("bodyText"),
     gameName: formData.get("gameName"),
-    tags: formData.get("tags") ?? "",
     visibility: formData.get("visibility") === "PRIVATE" ? "PRIVATE" : "PUBLIC",
     isNsfw: formData.get("isNsfw") === "on",
     rankName: formData.get("rankName") || undefined,
@@ -49,8 +50,10 @@ export async function updatePost(formData: FormData) {
     select: {
       id: true,
       publicId: true,
+      type: true,
       status: true,
       publishedAt: true,
+      thumbnailUrl: true,
       game: {
         select: {
           slug: true,
@@ -70,8 +73,17 @@ export async function updatePost(formData: FormData) {
 
   const gameSlug = slugify(parsed.gameName) || nanoid(8);
   const { title, description } = splitPostBody(parsed.bodyText);
-  const moderation = await assertNotBlockedByModerationRules(`${parsed.bodyText}\n${parsed.tags ?? ""}`);
-  const tagNames = parseTags(parsed.tags ?? "");
+  const moderation = await assertNotBlockedByModerationRules(parsed.bodyText);
+  const tagNames = extractHashTags(parsed.bodyText);
+  const thumbnailFile = formData.get("thumbnail");
+  const uploadLimits =
+    thumbnailFile instanceof File && thumbnailFile.size > 0 && post.type === "CLIP" ? await getUploadLimitsForUser(user.id) : null;
+  const storedThumbnail =
+    thumbnailFile instanceof File && thumbnailFile.size > 0 && post.type === "CLIP"
+      ? await storeThumbnailImage(thumbnailFile, post.publicId, {
+          maxImageSizeBytes: uploadLimits?.maxImageSizeBytes ?? 0,
+        })
+      : null;
   const nextStatus =
     parsed.visibility === "PRIVATE" ? "PRIVATE" : post.status === "PROCESSING" || post.status === "FAILED" ? post.status : "PUBLISHED";
   const nextPublishedAt =
@@ -103,6 +115,7 @@ export async function updatePost(formData: FormData) {
         status: nextStatus,
         publishedAt: nextPublishedAt,
         isNsfw: parsed.isNsfw,
+        ...(storedThumbnail ? { thumbnailUrl: storedThumbnail.thumbnailUrl } : {}),
         rankName: parsed.rankName || null,
         discordServerName: parsed.discordServerName || null,
         customFields: parsed.customText ? { note: parsed.customText } : Prisma.JsonNull,
@@ -142,6 +155,16 @@ export async function updatePost(formData: FormData) {
       });
     }
   });
+
+  if (storedThumbnail) {
+    const retentionDays = await getReplacedFileRetentionDays();
+    await scheduleMediaRetention({
+      postId: post.id,
+      path: mediaUrlToProcessedPath(post.thumbnailUrl),
+      reason: "REPLACED_FILE",
+      deleteAfter: daysFromNow(retentionDays),
+    });
+  }
 
   if (moderation.reportable.length > 0) {
     await prisma.report.create({

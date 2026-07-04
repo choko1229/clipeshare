@@ -28,11 +28,23 @@ async function main() {
 
   await prisma.storageSetting.upsert({
     where: { key: "original_video_retention_days" },
-    update: {},
+    update: {
+      value: "30",
+    },
     create: {
       key: "original_video_retention_days",
-      value: "45",
+      value: "30",
       description: "Original video retention period after HLS conversion.",
+    },
+  });
+
+  await prisma.storageSetting.upsert({
+    where: { key: "replaced_file_retention_days" },
+    update: {},
+    create: {
+      key: "replaced_file_retention_days",
+      value: "45",
+      description: "Replaced media retention period in days.",
     },
   });
 }

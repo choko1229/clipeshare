@@ -6,6 +6,7 @@ import { requireAdmin, requireModerator } from "@/lib/admin/auth";
 import { writeAuditLog } from "@/lib/admin/audit";
 import { prisma } from "@/lib/db/prisma";
 import { fetchIgdbGameMetadata } from "@/lib/games/igdb";
+import { storageSettingKeys } from "@/lib/media/retention";
 import { slugify } from "@/lib/posts/slug";
 
 const idSchema = z.string().min(1);
@@ -746,6 +747,56 @@ export async function updateAccountLevel(formData: FormData) {
 
   revalidatePath("/admin/account-levels");
   revalidatePath("/admin/users");
+}
+
+export async function updateStorageRetentionSettings(formData: FormData) {
+  const admin = await requireAdmin();
+  const deletedFileRetentionDays = parsePositiveIntField(formData.get("deletedFileRetentionDays"), "削除済みファイル保持日数");
+  const replacedFileRetentionDays = parsePositiveIntField(formData.get("replacedFileRetentionDays"), "差し替え済みファイル保持日数");
+
+  const before = await prisma.storageSetting.findMany({
+    where: {
+      key: {
+        in: [storageSettingKeys.deletedFileRetentionDays, storageSettingKeys.replacedFileRetentionDays],
+      },
+    },
+  });
+
+  const after = await prisma.$transaction(async (tx) => {
+    const deletedSetting = await tx.storageSetting.upsert({
+      where: { key: storageSettingKeys.deletedFileRetentionDays },
+      update: { value: String(deletedFileRetentionDays), updatedByAdminId: admin.id },
+      create: {
+        key: storageSettingKeys.deletedFileRetentionDays,
+        value: String(deletedFileRetentionDays),
+        description: "Deleted media retention period in days.",
+        updatedByAdminId: admin.id,
+      },
+    });
+    const replacedSetting = await tx.storageSetting.upsert({
+      where: { key: storageSettingKeys.replacedFileRetentionDays },
+      update: { value: String(replacedFileRetentionDays), updatedByAdminId: admin.id },
+      create: {
+        key: storageSettingKeys.replacedFileRetentionDays,
+        value: String(replacedFileRetentionDays),
+        description: "Replaced media retention period in days.",
+        updatedByAdminId: admin.id,
+      },
+    });
+
+    return [deletedSetting, replacedSetting];
+  });
+
+  await writeAuditLog({
+    adminId: admin.id,
+    action: "storage_retention.update",
+    targetType: "storage_setting",
+    targetId: "media_retention",
+    beforeData: before,
+    afterData: after,
+  });
+
+  revalidatePath("/admin/account-levels");
 }
 
 export async function updateGameMetadata(formData: FormData) {

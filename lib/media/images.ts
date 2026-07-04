@@ -17,12 +17,18 @@ export type StoredImage = {
   size: number;
 };
 
+export type StoredThumbnailImage = {
+  thumbnailPath: string;
+  thumbnailUrl: string;
+  size: number;
+};
+
 type StoreScreenshotImageOptions = {
   maxImageSizeBytes: number;
 };
 
 export async function storeScreenshotImage(file: File, publicId: string, options: StoreScreenshotImageOptions): Promise<StoredImage> {
-  if (!allowedImageTypes.has(file.type)) {
+  if (!isAllowedImage(file)) {
     throw new Error("対応していない画像形式です。jpg, png, webpを選択してください。");
   }
 
@@ -32,7 +38,7 @@ export async function storeScreenshotImage(file: File, publicId: string, options
 
   const bytes = Buffer.from(await file.arrayBuffer());
   const contentHash = crypto.createHash("sha256").update(bytes).digest("hex").slice(0, 16);
-  const extension = extensionFromMime(file.type);
+  const extension = extensionFromFile(file);
 
   const originalDir = path.join(mediaPaths.originalRoot, "images");
   const processedDir = path.join(mediaPaths.processedRoot, "images");
@@ -83,8 +89,49 @@ export async function storeScreenshotImage(file: File, publicId: string, options
   };
 }
 
-function extensionFromMime(mime: string) {
-  switch (mime) {
+export async function storeThumbnailImage(file: File, publicId: string, options: StoreScreenshotImageOptions): Promise<StoredThumbnailImage> {
+  if (!isAllowedImage(file)) {
+    throw new Error("対応していない画像形式です。jpg, png, webpを選択してください。");
+  }
+
+  if (file.size > options.maxImageSizeBytes) {
+    throw new Error("サムネイル画像サイズがアカウントの上限を超えています。");
+  }
+
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const contentHash = crypto.createHash("sha256").update(bytes).digest("hex").slice(0, 16);
+  const thumbnailDir = path.join(mediaPaths.processedRoot, "thumbnails");
+  await mkdir(thumbnailDir, { recursive: true });
+
+  const fileName = `${publicId}-manual-${contentHash}.webp`;
+  const thumbnailPath = path.join(thumbnailDir, fileName);
+
+  await sharp(bytes, { failOn: "none" })
+    .rotate()
+    .resize({
+      width: 1280,
+      height: 720,
+      fit: "cover",
+      position: "attention",
+    })
+    .webp({ quality: 82 })
+    .toFile(thumbnailPath);
+
+  return {
+    thumbnailPath,
+    thumbnailUrl: `/media/thumbnails/${fileName}`,
+    size: file.size,
+  };
+}
+
+function isAllowedImage(file: File) {
+  return allowedImageTypes.has(file.type) || ["jpg", "jpeg", "png", "webp"].includes(extensionFromName(file.name));
+}
+
+function extensionFromFile(file: File) {
+  const extension = extensionFromName(file.name);
+
+  switch (file.type) {
     case "image/jpeg":
       return "jpg";
     case "image/png":
@@ -92,6 +139,10 @@ function extensionFromMime(mime: string) {
     case "image/webp":
       return "webp";
     default:
-      return "bin";
+      return extension === "jpeg" ? "jpg" : extension || "bin";
   }
+}
+
+function extensionFromName(name: string) {
+  return name.split(".").pop()?.toLowerCase() ?? "";
 }

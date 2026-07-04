@@ -9,6 +9,7 @@ const root = process.cwd();
 const processedRoot = path.join(root, "storage", "uploads", "processed");
 const pollMs = Number(process.env.WORKER_POLL_MS ?? 5000);
 const fallbackMaxVideoSeconds = Number(process.env.MAX_VIDEO_SECONDS ?? 180);
+const originalVideoRetentionDays = 30;
 
 let isProcessing = false;
 
@@ -170,6 +171,14 @@ async function processJob(job) {
           finishedAt: new Date(),
         },
       });
+      await tx.mediaRetentionFile.create({
+        data: {
+          postId: job.postId,
+          path: job.inputPath,
+          reason: "ORIGINAL_VIDEO",
+          deleteAfter: daysFromNow(originalVideoRetentionDays),
+        },
+      });
     });
 
     console.log(`Completed upload job ${job.id}`);
@@ -191,6 +200,10 @@ async function processJob(job) {
       });
     });
   }
+}
+
+function daysFromNow(days) {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 }
 
 async function resolveMaxVideoSeconds(job) {

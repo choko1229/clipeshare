@@ -1,6 +1,7 @@
-import { createAccountLevel, updateAccountLevel } from "@/app/admin/actions";
+import { createAccountLevel, updateAccountLevel, updateStorageRetentionSettings } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/db/prisma";
+import { DEFAULT_DELETED_FILE_RETENTION_DAYS, DEFAULT_REPLACED_FILE_RETENTION_DAYS, storageSettingKeys } from "@/lib/media/retention";
 
 export const dynamic = "force-dynamic";
 
@@ -9,19 +10,67 @@ function bytesToMb(bytes: bigint) {
 }
 
 export default async function AdminAccountLevelsPage() {
-  const accountLevels = await prisma.accountLevel.findMany({
-    include: {
-      _count: {
-        select: {
-          users: true,
+  const [accountLevels, storageSettings] = await Promise.all([
+    prisma.accountLevel.findMany({
+      include: {
+        _count: {
+          select: {
+            users: true,
+          },
         },
       },
-    },
-    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-  });
+      orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+    }),
+    prisma.storageSetting.findMany({
+      where: {
+        key: {
+          in: [storageSettingKeys.deletedFileRetentionDays, storageSettingKeys.replacedFileRetentionDays],
+        },
+      },
+    }),
+  ]);
+  const settingMap = new Map(storageSettings.map((setting) => [setting.key, setting.value]));
+  const deletedFileRetentionDays = settingMap.get(storageSettingKeys.deletedFileRetentionDays) ?? String(DEFAULT_DELETED_FILE_RETENTION_DAYS);
+  const replacedFileRetentionDays = settingMap.get(storageSettingKeys.replacedFileRetentionDays) ?? String(DEFAULT_REPLACED_FILE_RETENTION_DAYS);
 
   return (
     <div className="space-y-6">
+      <section className="rounded-md border border-border bg-card">
+        <div className="border-b border-border p-4">
+          <h2 className="text-lg font-semibold">ストレージ保持設定</h2>
+          <p className="mt-1 text-sm text-muted-foreground">元動画は変換後30日固定です。削除済み/差し替え済みファイルの保持日数はここで変更できます。</p>
+        </div>
+        <form action={updateStorageRetentionSettings} className="grid gap-3 p-4 md:grid-cols-[1fr_1fr_auto]">
+          <label className="grid gap-2 text-sm">
+            削除済みファイル保持日数
+            <input
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              defaultValue={deletedFileRetentionDays}
+              min="1"
+              name="deletedFileRetentionDays"
+              required
+              type="number"
+            />
+          </label>
+          <label className="grid gap-2 text-sm">
+            差し替え済みファイル保持日数
+            <input
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              defaultValue={replacedFileRetentionDays}
+              min="1"
+              name="replacedFileRetentionDays"
+              required
+              type="number"
+            />
+          </label>
+          <div className="flex items-end">
+            <Button type="submit" variant="outline">
+              保存
+            </Button>
+          </div>
+        </form>
+      </section>
+
       <section className="rounded-md border border-border bg-card">
         <div className="border-b border-border p-4">
           <h2 className="text-lg font-semibold">アカウントレベル追加</h2>
