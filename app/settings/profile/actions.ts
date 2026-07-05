@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireActiveUser } from "@/lib/auth/active-user";
 import { prisma } from "@/lib/db/prisma";
-import { storeAvatarImage } from "@/lib/media/avatars";
+import { storeAvatarImage, storeProfileBackgroundImage, storeProfileHeaderImage } from "@/lib/media/avatars";
 import { inferSocialLinkType } from "@/lib/users/social-links";
 import { isValidUsername, normalizeUsername } from "@/lib/users/username";
 
@@ -13,6 +13,8 @@ const profileSchema = z.object({
   username: z.string().trim().min(3).max(30),
   displayName: z.string().trim().min(1).max(60),
   bio: z.string().trim().max(500).optional(),
+  profileAccentColor: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/).optional().or(z.literal("")),
+  profileButtonColor: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/).optional().or(z.literal("")),
 });
 
 const linkSchema = z.object({
@@ -28,6 +30,8 @@ export async function updateProfile(formData: FormData) {
     username: formData.get("username"),
     displayName: formData.get("displayName"),
     bio: formData.get("bio") ?? "",
+    profileAccentColor: formData.get("profileAccentColor") ?? "",
+    profileButtonColor: formData.get("profileButtonColor") ?? "",
   });
 
   const username = normalizeUsername(parsed.username);
@@ -52,7 +56,13 @@ export async function updateProfile(formData: FormData) {
   }
 
   const avatar = formData.get("avatar");
+  const profileHeader = formData.get("profileHeader");
+  const profileBackground = formData.get("profileBackground");
   const avatarUrl = avatar instanceof File && avatar.size > 0 ? await storeAvatarImage(avatar, user.id) : undefined;
+  const profileHeaderUrl =
+    profileHeader instanceof File && profileHeader.size > 0 ? await storeProfileHeaderImage(profileHeader, user.id) : undefined;
+  const profileBackgroundUrl =
+    profileBackground instanceof File && profileBackground.size > 0 ? await storeProfileBackgroundImage(profileBackground, user.id) : undefined;
   const links = parseLinks(formData);
 
   await prisma.$transaction(async (tx) => {
@@ -62,7 +72,11 @@ export async function updateProfile(formData: FormData) {
         username,
         displayName: parsed.displayName,
         bio: parsed.bio ?? "",
+        profileAccentColor: parsed.profileAccentColor || null,
+        profileButtonColor: parsed.profileButtonColor || null,
         ...(avatarUrl ? { avatarUrl } : {}),
+        ...(profileHeaderUrl ? { profileHeaderUrl } : {}),
+        ...(profileBackgroundUrl ? { profileBackgroundUrl } : {}),
       },
     });
 

@@ -31,7 +31,7 @@ export default async function ProfileSettingsPage() {
   const linkRows = Array.from({ length: 5 }, (_, index) => user.links[index] ?? null);
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
+    <main className="px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6">
         <h1 className="text-3xl font-bold">プロフィール編集</h1>
         <p className="mt-2 text-sm text-muted-foreground">公開プロフィールに表示する情報を設定します。</p>
@@ -40,7 +40,7 @@ export default async function ProfileSettingsPage() {
         </Button>
       </div>
 
-      <section className="rounded-md border border-border bg-card p-5">
+      <section className="max-w-3xl rounded-md border border-border bg-card p-5">
         <form action={updateProfile} className="space-y-5">
           <div>
             <label className="block text-sm font-medium" htmlFor="avatar">
@@ -54,6 +54,59 @@ export default async function ProfileSettingsPage() {
               type="file"
             />
             <p className="mt-2 text-xs text-muted-foreground">jpg / png / webp、5MBまで。</p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium" htmlFor="profileHeader">
+                ヘッダー画像
+              </label>
+              <input
+                accept="image/jpeg,image/png,image/webp"
+                className="mt-2 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                id="profileHeader"
+                name="profileHeader"
+                type="file"
+              />
+              <p className="mt-2 text-xs text-muted-foreground">3:1で表示します。jpg / png / webp、5MBまで。</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium" htmlFor="profileBackground">
+                背景画像
+              </label>
+              <input
+                accept="image/jpeg,image/png,image/webp"
+                className="mt-2 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                id="profileBackground"
+                name="profileBackground"
+                type="file"
+              />
+              <p className="mt-2 text-xs text-muted-foreground">プロフィール画面の背景に使います。5MBまで。</p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block text-sm font-medium" htmlFor="profileAccentColor">
+              アクセント色
+              <input
+                className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-ring transition focus:ring-2"
+                defaultValue={user.profileAccentColor ?? "#7c5cff"}
+                id="profileAccentColor"
+                name="profileAccentColor"
+                type="color"
+              />
+            </label>
+            <label className="block text-sm font-medium" htmlFor="profileButtonColor">
+              ボタン色
+              <input
+                className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-ring transition focus:ring-2"
+                defaultValue={user.profileButtonColor ?? "#7c5cff"}
+                id="profileButtonColor"
+                name="profileButtonColor"
+                type="color"
+              />
+            </label>
           </div>
 
           <div>

@@ -108,7 +108,7 @@ export function TimelineFeed({ initialPosts, initialHasMore, initialNextOffset, 
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+        <div className="grid justify-center gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),360px))]">
           {posts.map((post) => (
             <PostCard
               bookmarkCount={post.bookmarkCount}

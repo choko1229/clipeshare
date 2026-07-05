@@ -69,6 +69,10 @@ model User {
   emailVerified   DateTime?
   image           String?   @db.Text
   avatarUrl       String?   @db.Text
+  profileHeaderUrl String?  @db.Text
+  profileBackgroundUrl String? @db.Text
+  profileAccentColor String?
+  profileButtonColor String?
   bio             String?   @db.Text
   themePreference ThemePreference @default(SYSTEM)
   role            UserRole  @default(USER)

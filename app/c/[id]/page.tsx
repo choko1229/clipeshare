@@ -315,32 +315,33 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
     : false;
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
-      <div className="relative aspect-video overflow-hidden rounded-md border border-border bg-card">
-        <NsfwGate access={nsfwAccess} isNsfw={post.isNsfw}>
-          {post.type === "CLIP" && post.mediaUrl ? (
-            <HlsPlayer poster={post.thumbnailUrl} src={post.mediaUrl} title={post.title} />
-          ) : carouselImages.length > 0 ? (
-            <ImageCarousel images={carouselImages} />
-          ) : (
-            <div className="grid h-full place-items-center p-6 text-center">
-              <div>
-                <p className="text-lg font-semibold">
-                  {post.status === "FAILED" ? "動画変換に失敗しました" : "動画を変換中です"}
-                </p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {post.status === "FAILED"
-                    ? "時間を置いても変わらない場合は、再投稿してください。"
-                    : "変換が完了すると、このページで再生できるようになります。"}
-                </p>
-              </div>
-            </div>
-          )}
-        </NsfwGate>
-      </div>
+    <main className="px-4 py-8 sm:px-6 lg:px-8">
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,7fr)_minmax(360px,4fr)]">
+        <div className="min-w-0">
+          <div className="relative aspect-video overflow-hidden rounded-md border border-border bg-card">
+            <NsfwGate access={nsfwAccess} isNsfw={post.isNsfw}>
+              {post.type === "CLIP" && post.mediaUrl ? (
+                <HlsPlayer poster={post.thumbnailUrl} src={post.mediaUrl} title={post.title} />
+              ) : carouselImages.length > 0 ? (
+                <ImageCarousel images={carouselImages} />
+              ) : (
+                <div className="grid h-full place-items-center p-6 text-center">
+                  <div>
+                    <p className="text-lg font-semibold">
+                      {post.status === "FAILED" ? "動画変換に失敗しました" : "動画を変換中です"}
+                    </p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {post.status === "FAILED"
+                        ? "時間を置いても変わらない場合は、再投稿してください。"
+                        : "変換が完了すると、このページで再生できるようになります。"}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </NsfwGate>
+          </div>
 
-      <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_300px]">
-        <div>
+          <div className="mt-6">
           <Link className="text-sm font-medium text-primary hover:text-primary/80" href={`/games/${post.game.slug}`}>
             {post.game.name}
           </Link>
@@ -473,8 +474,9 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
             <SharePanel embedUrl={embedUrl} shareVideoUrl={xShareVideoUrl} title={post.title} url={shareUrl} />
           </div>
         </div>
+        </div>
 
-        <aside className="space-y-4">
+        <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
           <div className="hidden lg:block">
             <SharePanel embedUrl={embedUrl} shareVideoUrl={xShareVideoUrl} title={post.title} url={shareUrl} />
           </div>

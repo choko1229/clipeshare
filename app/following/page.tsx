@@ -41,14 +41,14 @@ export default async function FollowingPage() {
   });
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8">
+    <main className="px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6">
         <h1 className="text-3xl font-bold">フォロー中</h1>
         <p className="mt-2 text-sm text-muted-foreground">フォローしているユーザーの公開投稿を新着順で表示します。</p>
       </div>
 
       {posts.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid justify-center gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),360px))]">
           {posts.map((post) => (
             <PostCard
               bookmarkCount={Number(post.bookmarkCount)}

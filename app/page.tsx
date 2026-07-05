@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
-import { Grid2X2, List, Search, Sparkles, TrendingUp, UserRound } from "lucide-react";
+import { Grid2X2, List, Sparkles, TrendingUp, UserRound } from "lucide-react";
 import type React from "react";
 import { authOptions } from "@/auth";
 import { InlinePostComposer } from "@/components/posts/inline-post-composer";
@@ -268,12 +268,13 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           </section>
         </div>
 
-        <aside className="hidden space-y-4 xl:block">
+        <aside className="hidden xl:block">
+          <div className="sticky top-24 space-y-4">
           <ProfilePanel user={currentUser} />
           <TrendPanel title="トレンドゲーム" icon={<TrendingUp size={18} />} items={trends.games} emptyText="直近3日のゲーム投稿はまだありません。" />
           <TrendPanel title="トレンドタグ" icon={<HashIcon />} items={trends.tags} emptyText="直近3日のタグ投稿はまだありません。" />
           <RecommendedUsers users={recommendedUsers} />
-          <SearchTips />
+          </div>
         </aside>
       </div>
     </main>
@@ -417,31 +418,6 @@ function RecommendedUsers({
       ) : (
         <p className="mt-3 text-sm text-muted-foreground">おすすめできる公開ユーザーはまだありません。</p>
       )}
-    </section>
-  );
-}
-
-function SearchTips() {
-  return (
-    <section className="rounded-md border border-border bg-card p-4">
-      <div className="flex items-center gap-2 text-sm font-bold">
-        <Search size={18} />
-        検索演算子
-      </div>
-      <div className="mt-4 space-y-2 text-sm text-muted-foreground">
-        <p>
-          <code>game:Valorant</code>
-        </p>
-        <p>
-          <code>tag:ace</code>
-        </p>
-        <p>
-          <code>from:username</code>
-        </p>
-        <p>
-          <code>type:clip</code>
-        </p>
-      </div>
     </section>
   );
 }
