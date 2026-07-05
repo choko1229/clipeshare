@@ -342,25 +342,29 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
           </div>
 
           <div className="mt-6">
-          <Link className="text-sm font-medium text-primary hover:text-primary/80" href={`/games/${post.game.slug}`}>
-            {post.game.name}
-          </Link>
-          {post.visibility === "PRIVATE" ? (
-            <span className="ml-2 rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">非公開</span>
-          ) : null}
-          {post.isNsfw ? <span className="ml-2 rounded-md bg-destructive px-2 py-1 text-xs">NSFW</span> : null}
-          <h1 className="mt-2 text-3xl font-bold">{post.title}</h1>
-          <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-muted-foreground">{post.description}</p>
+            <Link className="text-sm font-medium text-primary hover:text-primary/80" href={`/games/${post.game.slug}`}>
+              {post.game.name}
+            </Link>
+            {post.visibility === "PRIVATE" ? (
+              <span className="ml-2 rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">非公開</span>
+            ) : null}
+            {post.isNsfw ? <span className="ml-2 rounded-md bg-destructive px-2 py-1 text-xs">NSFW</span> : null}
+            <h1 className="mt-2 text-3xl font-bold">{post.title}</h1>
+            <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-muted-foreground">{post.description}</p>
 
-          {post.tags.length > 0 ? (
-            <div className="mt-5 flex flex-wrap gap-2">
-              {post.tags.map(({ tag }) => (
-                <span className="rounded-md border border-border bg-muted px-3 py-1 text-sm" key={tag.id}>
-                  #{tag.name}
-                </span>
-              ))}
-            </div>
-          ) : null}
+            {post.tags.length > 0 ? (
+              <div className="mt-5 flex flex-wrap gap-2">
+                {post.tags.map(({ tag }) => (
+                  <Link
+                    className="rounded-md border border-border bg-muted px-3 py-1 text-sm transition hover:border-primary hover:text-primary"
+                    href={`/search?q=tag:${encodeURIComponent(tag.name)}`}
+                    key={tag.id}
+                  >
+                    #{tag.name}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
 
           {post.rankName || post.discordServerName || customText ? (
             <div className="mt-5 grid gap-3 rounded-md border border-border bg-card p-4 text-sm sm:grid-cols-2">
