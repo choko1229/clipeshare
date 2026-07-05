@@ -16,6 +16,11 @@ const profileSchema = z.object({
   bio: z.string().trim().max(500).optional(),
   profileAccentColor: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/).optional().or(z.literal("")),
   profileButtonColor: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/).optional().or(z.literal("")),
+  showAgeVerified: z.boolean(),
+  showBirthDate: z.boolean(),
+  showFollowersCount: z.boolean(),
+  showFollowingCount: z.boolean(),
+  showProfileGames: z.boolean(),
 });
 
 const linkSchema = z.object({
@@ -42,6 +47,11 @@ async function updateProfileInternal(formData: FormData) {
     bio: formData.get("bio") ?? "",
     profileAccentColor: formData.get("profileAccentColor") ?? "",
     profileButtonColor: formData.get("profileButtonColor") ?? "",
+    showAgeVerified: formData.get("showAgeVerified") === "on",
+    showBirthDate: formData.get("showBirthDate") === "on",
+    showFollowersCount: formData.get("showFollowersCount") === "on",
+    showFollowingCount: formData.get("showFollowingCount") === "on",
+    showProfileGames: formData.get("showProfileGames") === "on",
   });
 
   const username = normalizeUsername(parsed.username);
@@ -84,6 +94,11 @@ async function updateProfileInternal(formData: FormData) {
         bio: parsed.bio ?? "",
         profileAccentColor: parsed.profileAccentColor || null,
         profileButtonColor: parsed.profileButtonColor || null,
+        showAgeVerified: parsed.showAgeVerified,
+        showBirthDate: parsed.showBirthDate,
+        showFollowersCount: parsed.showFollowersCount,
+        showFollowingCount: parsed.showFollowingCount,
+        showProfileGames: parsed.showProfileGames,
         ...(avatarUrl ? { avatarUrl } : {}),
         ...(profileHeaderUrl ? { profileHeaderUrl } : {}),
         ...(profileBackgroundUrl ? { profileBackgroundUrl } : {}),

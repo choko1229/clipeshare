@@ -73,6 +73,11 @@ model User {
   profileBackgroundUrl String? @db.Text
   profileAccentColor String?
   profileButtonColor String?
+  showProfileGames Boolean @default(true)
+  showFollowingCount Boolean @default(true)
+  showFollowersCount Boolean @default(true)
+  showBirthDate Boolean @default(true)
+  showAgeVerified Boolean @default(true)
   bio             String?   @db.Text
   themePreference ThemePreference @default(SYSTEM)
   role            UserRole  @default(USER)

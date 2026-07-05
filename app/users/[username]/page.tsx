@@ -3,11 +3,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { Grid2X2, List, UserRound } from "lucide-react";
+import { CalendarDays, Grid2X2, List } from "lucide-react";
 import { authOptions } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { PostCard } from "@/components/posts/post-card";
 import { PostTile } from "@/components/posts/post-tile";
+import { ProfileInfoModals } from "@/components/profile/profile-info-modals";
 import { SocialLinkBadge, VerifiedAdultBadge } from "@/components/profile/social-link-badge";
 import { toggleFollow } from "@/app/users/[username]/actions";
 import { prisma } from "@/lib/db/prisma";
@@ -62,6 +63,42 @@ async function getProfile(username: string) {
         orderBy: {
           sortOrder: "asc",
         },
+      },
+      followers: {
+        include: {
+          follower: {
+            select: {
+              avatarUrl: true,
+              displayName: true,
+              id: true,
+              image: true,
+              name: true,
+              username: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 100,
+      },
+      following: {
+        include: {
+          following: {
+            select: {
+              avatarUrl: true,
+              displayName: true,
+              id: true,
+              image: true,
+              name: true,
+              username: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 100,
       },
     },
   });
@@ -173,8 +210,33 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
       : false;
   const displayName = user.displayName ?? user.name ?? user.username ?? "ユーザー";
   const totalLikes = user.posts.reduce((sum, post) => sum + Number(post.likeCount), 0);
-  const topGames = Array.from(new Set(user.posts.map((post) => post.game.name))).slice(0, 5);
+  const profileGames = Array.from(
+    user.posts.reduce((gameMap, post) => {
+      const current = gameMap.get(post.game.slug);
+      const publishedAt = post.publishedAt?.getTime() ?? post.createdAt.getTime();
+
+      if (current) {
+        current.count += 1;
+        current.latest = Math.max(current.latest, publishedAt);
+        return gameMap;
+      }
+
+      gameMap.set(post.game.slug, {
+        count: 1,
+        latest: publishedAt,
+        name: post.game.name,
+        slug: post.game.slug,
+      });
+      return gameMap;
+    }, new Map<string, { count: number; latest: number; name: string; slug: string }>()),
+  )
+    .map(([, game]) => game)
+    .sort((a, b) => b.latest - a.latest);
+  const topGames = profileGames.slice(0, 5);
+  const followers = user.followers.map((follow) => follow.follower).filter((profileUser) => Boolean(profileUser.username));
+  const following = user.following.map((follow) => follow.following).filter((profileUser) => Boolean(profileUser.username));
   const isAdultVerified = Boolean(user.ageVerifiedAt) || Boolean(user.birthDate && isAdultBirthDate(user.birthDate));
+  const birthDateText = user.birthDate ? user.birthDate.toLocaleDateString("ja-JP") : null;
   const accentColor = user.profileAccentColor ?? visibleLevel?.levelColor ?? "#7c5cff";
   const buttonColor = user.profileButtonColor ?? accentColor;
 
@@ -283,21 +345,37 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
                 </div>
               </div>
 
-              {isAdultVerified ? (
+              {user.showAgeVerified && isAdultVerified ? (
                 <div className="mt-3">
                   <VerifiedAdultBadge />
                 </div>
               ) : null}
 
+              {user.showBirthDate && birthDateText ? (
+                <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm text-muted-foreground">
+                  <CalendarDays size={16} />
+                  生年月日: {birthDateText}
+                </div>
+              ) : null}
+
               {user.bio ? <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-muted-foreground">{user.bio}</p> : null}
 
-              <div className="mt-4 grid grid-cols-3 gap-2 text-center text-sm">
+              <div className="mt-4 grid grid-cols-2 gap-2 text-center text-sm sm:grid-cols-3">
                 <ProfileStat label="投稿" value={user.posts.length} />
                 <ProfileStat label="いいね" value={totalLikes} />
-                <ProfileStat label="ゲーム" value={topGames.length} />
-                <ProfileStat label="フォロワー" value={user._count.followers} />
-                <ProfileStat label="フォロー" value={user._count.following} />
+                {user.showProfileGames ? <ProfileStat label="ゲーム" value={profileGames.length} /> : null}
+                {user.showFollowersCount ? <ProfileStat label="フォロワー" value={user._count.followers} /> : null}
+                {user.showFollowingCount ? <ProfileStat label="フォロー" value={user._count.following} /> : null}
               </div>
+
+              <ProfileInfoModals
+                followers={followers}
+                following={following}
+                games={profileGames}
+                showFollowersCount={user.showFollowersCount}
+                showFollowingCount={user.showFollowingCount}
+                showProfileGames={user.showProfileGames}
+              />
 
               {user.links.length > 0 ? (
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -307,12 +385,12 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
                 </div>
               ) : null}
 
-              {topGames.length > 0 ? (
+              {user.showProfileGames && topGames.length > 0 ? (
                 <div className="mt-4 flex flex-wrap gap-2">
                   {topGames.map((game) => (
-                    <span className="rounded-md border border-border bg-muted px-3 py-1 text-sm" key={game}>
-                      {game}
-                    </span>
+                    <Link className="rounded-md border border-border bg-muted px-3 py-1 text-sm transition hover:border-primary/60" href={`/games/${game.slug}`} key={game.slug}>
+                      {game.name}
+                    </Link>
                   ))}
                 </div>
               ) : null}

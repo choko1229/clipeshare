@@ -37,15 +37,13 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
   }
 
   const linkRows = Array.from({ length: 5 }, (_, index) => user.links[index] ?? null);
+  const birthDateText = user.birthDate ? user.birthDate.toLocaleDateString("ja-JP") : null;
 
   return (
     <main className="px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6">
         <h1 className="text-3xl font-bold">プロフィール編集</h1>
         <p className="mt-2 text-sm text-muted-foreground">公開プロフィールに表示する情報を設定します。</p>
-        <Button asChild className="mt-4" variant="outline">
-          <a href="/settings/age">年齢確認を設定</a>
-        </Button>
       </div>
 
       <section className="max-w-3xl rounded-md border border-border bg-card p-5">
@@ -161,6 +159,33 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
             />
           </div>
 
+          <section className="rounded-md border border-border bg-background p-4">
+            <h2 className="text-sm font-medium">プロフィール表示</h2>
+            <p className="mt-1 text-xs text-muted-foreground">公開プロフィールに表示する情報を選択します。</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <VisibilityCheckbox defaultChecked={user.showProfileGames} label="よく投稿するゲームを表示" name="showProfileGames" />
+              <VisibilityCheckbox defaultChecked={user.showFollowingCount} label="フォロー数を表示" name="showFollowingCount" />
+              <VisibilityCheckbox defaultChecked={user.showFollowersCount} label="フォロワー数を表示" name="showFollowersCount" />
+              <VisibilityCheckbox defaultChecked={user.showBirthDate} label="生年月日を表示" name="showBirthDate" />
+              <VisibilityCheckbox defaultChecked={user.showAgeVerified} label="年齢確認済みを表示" name="showAgeVerified" />
+            </div>
+          </section>
+
+          <section className="rounded-md border border-border bg-background p-4">
+            <h2 className="text-sm font-medium">生年月日</h2>
+            {birthDateText ? (
+              <div className="mt-2 rounded-md border border-border bg-card p-3 text-sm">
+                <p className="font-medium">年齢確認済み</p>
+                <p className="mt-1 text-muted-foreground">生年月日: {birthDateText}</p>
+                <p className="mt-2 text-xs text-muted-foreground">一度入力した生年月日は変更できません。変更が必要な場合は運営へ依頼してください。</p>
+              </div>
+            ) : (
+              <Button asChild className="mt-3" variant="outline">
+                <a href="/settings/age">年齢確認を設定</a>
+              </Button>
+            )}
+          </section>
+
           <div>
             <h2 className="text-sm font-medium">SNSリンク</h2>
             <p className="mt-1 text-xs text-muted-foreground">URLからDiscord / X / YouTube / Misskey / Instagram / Steamなどを自動判定します。</p>
@@ -200,4 +225,13 @@ function ActionError({ message }: { message: string | null }) {
   }
 
   return <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">{message}</div>;
+}
+
+function VisibilityCheckbox({ defaultChecked, label, name }: { defaultChecked: boolean; label: string; name: string }) {
+  return (
+    <label className="flex items-center gap-3 rounded-md border border-border bg-card p-3 text-sm">
+      <input className="size-4 accent-primary" defaultChecked={defaultChecked} name={name} type="checkbox" />
+      {label}
+    </label>
+  );
 }

@@ -11,12 +11,17 @@ export async function verifyAge(formData: FormData) {
   const current = await prisma.user.findUnique({
     where: { id: user.id },
     select: {
+      birthDate: true,
       ageVerificationFailedAt: true,
     },
   });
 
   if (!current) {
     redirect("/login");
+  }
+
+  if (current.birthDate) {
+    redirect("/settings/age?status=locked");
   }
 
   if (!canRetryAgeVerification(current.ageVerificationFailedAt)) {

@@ -55,7 +55,7 @@ export default async function AgeSettingsPage({ searchParams }: AgeSettingsPageP
       <div className="mb-6">
         <h1 className="text-3xl font-bold">年齢確認</h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          NSFW投稿の表示には18歳以上であることの確認が必要です。生年月日は年齢判定のために保存されますが、プロフィールには表示しません。
+          NSFW投稿の表示には18歳以上であることの確認が必要です。生年月日は一度入力すると変更できません。
         </p>
       </div>
 
@@ -64,9 +64,12 @@ export default async function AgeSettingsPage({ searchParams }: AgeSettingsPageP
           <div className="rounded-md border border-primary/40 bg-primary/10 p-4">
             <div className="flex items-center gap-2 font-semibold text-primary">
               <BadgeCheck size={20} />
-              18歳以上確認済み
+              年齢確認済み
             </div>
-            <p className="mt-2 text-sm text-muted-foreground">NSFW投稿を表示できます。</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              生年月日: {user.birthDate ? user.birthDate.toLocaleDateString("ja-JP") : "登録済み"}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">変更が必要な場合は運営へ依頼してください。</p>
           </div>
         ) : null}
 
@@ -82,7 +85,13 @@ export default async function AgeSettingsPage({ searchParams }: AgeSettingsPageP
           </p>
         ) : null}
 
-        {!verified ? (
+        {status === "locked" ? (
+          <p className="mt-4 rounded-md border border-border bg-background p-3 text-sm text-muted-foreground">
+            生年月日は登録済みです。変更が必要な場合は運営へ依頼してください。
+          </p>
+        ) : null}
+
+        {!verified && !user.birthDate ? (
           <form action={verifyAge} className="mt-5 space-y-4">
             <div>
               <label className="block text-sm font-medium" htmlFor="birthDate">
@@ -101,6 +110,10 @@ export default async function AgeSettingsPage({ searchParams }: AgeSettingsPageP
               年齢確認する
             </Button>
           </form>
+        ) : !verified && user.birthDate ? (
+          <div className="mt-5 rounded-md border border-border bg-background p-4 text-sm text-muted-foreground">
+            生年月日は登録済みです。変更が必要な場合は運営へ依頼してください。
+          </div>
         ) : null}
 
         <Button asChild className="mt-5" variant="outline">

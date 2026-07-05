@@ -1,0 +1,6 @@
+ALTER TABLE `User`
+  ADD COLUMN `showProfileGames` BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN `showFollowingCount` BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN `showFollowersCount` BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN `showBirthDate` BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN `showAgeVerified` BOOLEAN NOT NULL DEFAULT true;
