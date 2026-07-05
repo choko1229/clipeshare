@@ -54,6 +54,12 @@ enum UploadJobStatus {
   FAILED
 }
 
+enum ThemePreference {
+  SYSTEM
+  DARK
+  LIGHT
+}
+
 model User {
   id              String    @id @default(cuid())
   username        String?   @unique
@@ -64,6 +70,7 @@ model User {
   image           String?   @db.Text
   avatarUrl       String?   @db.Text
   bio             String?   @db.Text
+  themePreference ThemePreference @default(SYSTEM)
   role            UserRole  @default(USER)
   accountLevelId  String?
   isBanned        Boolean   @default(false)

@@ -5,37 +5,54 @@ import { authOptions } from "@/auth";
 import "./globals.css";
 import { Button } from "@/components/ui/button";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { HeaderProfile } from "@/components/layout/header-profile";
+import { HeaderSearch } from "@/components/layout/header-search";
+import { ThemeProvider } from "@/components/theme/theme-provider";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { GlobalPostDrop } from "@/components/uploads/global-post-drop";
+import { prisma } from "@/lib/db/prisma";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   title: {
-    default: "Clipeshare",
-    template: "%s | Clipeshare",
+    default: "Clipshare",
+    template: "%s | Clipshare",
   },
   description: "ゲームクリップとスクリーンショットを共有するメディアサイト",
-  applicationName: "Clipeshare",
+  applicationName: "Clipshare",
   manifest: "/manifest.webmanifest",
   openGraph: {
     type: "website",
-    siteName: "Clipeshare",
-    title: "Clipeshare",
+    siteName: "Clipshare",
+    title: "Clipshare",
     description: "ゲームクリップとスクリーンショットを共有するメディアサイト",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Clipeshare",
+    title: "Clipshare",
     description: "ゲームクリップとスクリーンショットを共有するメディアサイト",
   },
 };
 
 export const viewport: Viewport = {
   themeColor: "#07080d",
-  colorScheme: "dark",
+  colorScheme: "dark light",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
 };
+
+function normalizeTheme(value: string | null | undefined) {
+  if (value === "DARK") {
+    return "dark" as const;
+  }
+
+  if (value === "LIGHT") {
+    return "light" as const;
+  }
+
+  return "system" as const;
+}
 
 export default async function RootLayout({
   children,
@@ -43,70 +60,82 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await getServerSession(authOptions);
+  const user = session?.user?.id
+    ? await prisma.user.findUnique({
+        where: {
+          id: session.user.id,
+        },
+        select: {
+          avatarUrl: true,
+          displayName: true,
+          image: true,
+          name: true,
+          themePreference: true,
+          username: true,
+        },
+      })
+    : null;
+  const initialTheme = normalizeTheme(user?.themePreference);
 
   return (
-    <html lang="ja">
+    <html data-theme={initialTheme} lang="ja" suppressHydrationWarning>
       <body>
-        <GlobalPostDrop />
-        <div className="min-h-dvh bg-background text-foreground">
-          <header className="sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur">
-            <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-              <Link className="flex items-center gap-3" href="/">
-                <span className="grid size-9 place-items-center rounded-md bg-primary text-sm font-black text-primary-foreground">
-                  C
-                </span>
-                <span className="text-lg font-semibold tracking-normal">Clipeshare</span>
-              </Link>
-              <nav className="flex items-center gap-2">
-                <Button asChild variant="ghost">
-                  <Link href="/search">検索</Link>
-                </Button>
-                {session?.user ? (
-                  <>
-                    {session.user.username ? (
-                      <Button asChild variant="ghost">
-                        <Link href={`/users/${session.user.username}`}>プロフィール</Link>
+        <ThemeProvider initialTheme={initialTheme} persistToDatabase={Boolean(session?.user?.id)}>
+          <GlobalPostDrop />
+          <div className="min-h-dvh bg-background text-foreground">
+            <header className="sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur">
+              <div className="flex h-16 w-full items-center justify-between gap-4 px-4">
+                <Link className="flex shrink-0 items-center gap-3" href="/">
+                  <span className="grid size-9 place-items-center rounded-md bg-primary text-sm font-black text-primary-foreground">
+                    C
+                  </span>
+                  <span className="text-lg font-extrabold tracking-normal">Clipshare</span>
+                </Link>
+
+                <nav className="flex min-w-0 items-center justify-end gap-2">
+                  <HeaderSearch />
+                  <ThemeToggle />
+                  {session?.user ? (
+                    <>
+                      {session.user.role && ["MODERATOR", "ADMIN", "OWNER"].includes(session.user.role) ? (
+                        <Button asChild className="hidden sm:inline-flex" variant="ghost">
+                          <Link href="/admin">管理</Link>
+                        </Button>
+                      ) : null}
+                      <HeaderProfile
+                        image={user?.avatarUrl ?? user?.image ?? session.user.image}
+                        name={user?.displayName ?? user?.name ?? session.user.displayName ?? session.user.name}
+                        username={user?.username ?? session.user.username}
+                      />
+                      <Button asChild className="hidden md:inline-flex">
+                        <Link href="/posts/new">投稿</Link>
                       </Button>
-                    ) : null}
-                    <Button asChild variant="ghost">
-                      <Link href="/bookmarks">保存</Link>
-                    </Button>
-                    <Button asChild variant="ghost">
-                      <Link href="/following">フォロー中</Link>
-                    </Button>
-                    {session.user.role && ["MODERATOR", "ADMIN", "OWNER"].includes(session.user.role) ? (
-                      <Button asChild variant="ghost">
-                        <Link href="/admin">管理</Link>
-                      </Button>
-                    ) : null}
+                      <LogoutButton />
+                    </>
+                  ) : (
                     <Button asChild>
-                      <Link href="/posts/new">投稿</Link>
+                      <Link href="/login">ログイン</Link>
                     </Button>
-                    <LogoutButton />
-                  </>
-                ) : (
-                  <Button asChild>
-                    <Link href="/login">ログイン</Link>
-                  </Button>
-                )}
-              </nav>
-            </div>
-          </header>
-          {children}
-          <footer className="border-t border-border/70 px-4 py-6">
-            <div className="mx-auto flex max-w-6xl flex-wrap gap-4 text-sm text-muted-foreground">
-              <Link className="hover:text-foreground" href="/terms">
-                利用規約
-              </Link>
-              <Link className="hover:text-foreground" href="/privacy">
-                プライバシーポリシー
-              </Link>
-              <Link className="hover:text-foreground" href="/guidelines">
-                ガイドライン
-              </Link>
-            </div>
-          </footer>
-        </div>
+                  )}
+                </nav>
+              </div>
+            </header>
+            {children}
+            <footer className="border-t border-border/70 px-4 py-6">
+              <div className="flex w-full flex-wrap gap-4 text-sm text-muted-foreground">
+                <Link className="hover:text-foreground" href="/terms">
+                  利用規約
+                </Link>
+                <Link className="hover:text-foreground" href="/privacy">
+                  プライバシーポリシー
+                </Link>
+                <Link className="hover:text-foreground" href="/guidelines">
+                  ガイドライン
+                </Link>
+              </div>
+            </footer>
+          </div>
+        </ThemeProvider>
       </body>
     </html>
   );
