@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -8,6 +9,8 @@ import { authOptions } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { PostCard } from "@/components/posts/post-card";
 import { PostTile } from "@/components/posts/post-tile";
+import { MarkdownBio } from "@/components/profile/markdown-bio";
+import { ProfileGroupedPosts } from "@/components/profile/profile-grouped-posts";
 import { ProfileInfoModals } from "@/components/profile/profile-info-modals";
 import { SocialLinkBadge, VerifiedAdultBadge } from "@/components/profile/social-link-badge";
 import { toggleFollow } from "@/app/users/[username]/actions";
@@ -27,7 +30,7 @@ type UserPageProps = {
   }>;
 };
 
-type ViewMode = "card" | "tile";
+type ViewMode = "card" | "groupedByGame" | "tile";
 
 async function getProfile(username: string) {
   return prisma.user.findUnique({
@@ -105,10 +108,18 @@ async function getProfile(username: string) {
 }
 
 function parseViewMode(value: string | undefined): ViewMode {
+  if (value === "groupedByGame") {
+    return "groupedByGame";
+  }
+
   return value === "tile" ? "tile" : "card";
 }
 
 function profileViewHref(username: string, view: ViewMode) {
+  if (view === "groupedByGame") {
+    return `/users/${username}?view=groupedByGame`;
+  }
+
   return view === "tile" ? `/users/${username}?view=tile` : `/users/${username}`;
 }
 
@@ -188,7 +199,13 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
     notFound();
   }
 
-  const view = parseViewMode(viewParam);
+  const defaultView =
+    user.profileGroupGames || user.profileDefaultView === "GROUPED_BY_GAME"
+      ? "groupedByGame"
+      : user.profileDefaultView === "TILE"
+        ? "tile"
+        : "card";
+  const view = viewParam ? parseViewMode(viewParam) : defaultView;
   const isOwner = session?.user?.id === user.id;
   const levelProgress = isOwner ? await getAccountLevelProgress(user.id) : null;
   const visibleLevel = levelProgress?.currentLevel ?? user.accountLevel;
@@ -239,23 +256,47 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
   const birthDateText = user.birthDate ? user.birthDate.toLocaleDateString("ja-JP") : null;
   const accentColor = user.profileAccentColor ?? visibleLevel?.levelColor ?? "#7c5cff";
   const buttonColor = user.profileButtonColor ?? accentColor;
+  const groupedPostItems = user.posts.map((post) => ({
+    gameName: post.game.name,
+    gameSlug: post.game.slug,
+    id: post.id,
+    isNsfw: post.isNsfw,
+    mediaCount: post._count.mediaItems || 1,
+    publicId: post.publicId,
+    thumbnailUrl: post.thumbnailUrl,
+    title: post.title,
+    type: post.type,
+  }));
+  const profileThemeStyle = profileThemeVariables(user.profileThemePreference, accentColor);
+  const mainBackgroundStyle: CSSProperties = user.profileBackgroundUrl
+    ? {
+        background: `linear-gradient(135deg, ${accentColor}10, transparent 42%)`,
+      }
+    : {
+        background: `linear-gradient(135deg, ${accentColor}10, transparent 42%)`,
+      };
 
   return (
     <main
-      className="min-h-screen px-4 py-8 sm:px-6 lg:px-8"
+      className="relative isolate min-h-screen overflow-hidden px-4 py-8 sm:px-6 lg:px-8"
       style={
-        user.profileBackgroundUrl
-          ? {
-              backgroundImage: `linear-gradient(rgba(0,0,0,.52), rgba(0,0,0,.72)), url("${user.profileBackgroundUrl}")`,
-              backgroundAttachment: "fixed",
-              backgroundPosition: "center",
-              backgroundSize: "cover",
-            }
-          : {
-              background: `linear-gradient(135deg, ${accentColor}10, transparent 42%)`,
-            }
+        {
+          ...mainBackgroundStyle,
+          ...profileThemeStyle,
+        } as CSSProperties
       }
     >
+      {user.profileBackgroundUrl ? (
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 -z-10 bg-cover bg-center"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0,0,0,.52), rgba(0,0,0,.72)), url("${user.profileBackgroundUrl}")`,
+            filter: `blur(${user.profileBackgroundBlur}px)`,
+            transform: user.profileBackgroundBlur > 0 ? "scale(1.08)" : undefined,
+          }}
+        />
+      ) : null}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <section className="min-w-0 space-y-5">
           <div className="flex flex-wrap items-end justify-between gap-3">
@@ -274,11 +315,18 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
                   <Grid2X2 size={17} />
                 </Link>
               </Button>
+              <Button asChild className="h-9 px-3 text-xs" variant={view === "groupedByGame" ? "default" : "ghost"}>
+                <Link href={profileViewHref(user.username ?? username, "groupedByGame")} title="ゲームごと">
+                  Game
+                </Link>
+              </Button>
             </div>
           </div>
 
           {user.posts.length > 0 ? (
-            view === "tile" ? (
+            view === "groupedByGame" ? (
+              <ProfileGroupedPosts posts={groupedPostItems} />
+            ) : view === "tile" ? (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
                 {user.posts.map((post) => (
                   <PostTile
@@ -358,7 +406,7 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
                 </div>
               ) : null}
 
-              {user.bio ? <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-muted-foreground">{user.bio}</p> : null}
+              {user.bio ? <MarkdownBio text={user.bio} /> : null}
 
               <div className="mt-4 grid grid-cols-2 gap-2 text-center text-sm sm:grid-cols-3">
                 <ProfileStat label="投稿" value={user.posts.length} />
@@ -447,4 +495,47 @@ function ProfileStat({ label, value }: { label: string; value: number }) {
       <p className="mt-1 text-xs text-muted-foreground">{label}</p>
     </div>
   );
+}
+
+function profileThemeVariables(theme: "DARK" | "LIGHT" | "SYSTEM", accentColor: string): CSSProperties {
+  if (theme === "SYSTEM") {
+    return {
+      "--primary": accentColor,
+      "--ring": accentColor,
+    } as CSSProperties;
+  }
+
+  if (theme === "LIGHT") {
+    return {
+      "--background": "#f7f8fb",
+      "--foreground": "#12141c",
+      "--muted": "#e8ebf2",
+      "--muted-foreground": "#626a7b",
+      "--card": "#ffffff",
+      "--card-foreground": "#12141c",
+      "--border": "#d9deea",
+      "--input": "#cfd6e4",
+      "--primary": accentColor,
+      "--primary-foreground": "#f7fffc",
+      "--secondary": "#e2e7f0",
+      "--secondary-foreground": "#12141c",
+      "--ring": accentColor,
+    } as CSSProperties;
+  }
+
+  return {
+    "--background": "#07080d",
+    "--foreground": "#f7f7fb",
+    "--muted": "#151821",
+    "--muted-foreground": "#a3a8b8",
+    "--card": "#10131b",
+    "--card-foreground": "#f7f7fb",
+    "--border": "#252a38",
+    "--input": "#252a38",
+    "--primary": accentColor,
+    "--primary-foreground": "#06110d",
+    "--secondary": "#283144",
+    "--secondary-foreground": "#f7f7fb",
+    "--ring": accentColor,
+  } as CSSProperties;
 }

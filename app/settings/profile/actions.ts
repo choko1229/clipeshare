@@ -7,7 +7,7 @@ import { errorRedirectUrl } from "@/lib/actions/error-message";
 import { requireActiveUser } from "@/lib/auth/active-user";
 import { prisma } from "@/lib/db/prisma";
 import { storeAvatarImage, storeProfileBackgroundImage, storeProfileHeaderImage } from "@/lib/media/avatars";
-import { inferSocialLinkType } from "@/lib/users/social-links";
+import { inferSocialLinkType, socialUsernameUrl } from "@/lib/users/social-links";
 import { isValidUsername, normalizeUsername } from "@/lib/users/username";
 
 const profileSchema = z.object({
@@ -15,7 +15,11 @@ const profileSchema = z.object({
   displayName: z.string().trim().min(1).max(60),
   bio: z.string().trim().max(500).optional(),
   profileAccentColor: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/).optional().or(z.literal("")),
+  profileBackgroundBlur: z.coerce.number().int().min(0).max(128),
   profileButtonColor: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/).optional().or(z.literal("")),
+  profileDefaultView: z.enum(["CARD", "TILE", "GROUPED_BY_GAME"]),
+  profileGroupGames: z.boolean(),
+  profileThemePreference: z.enum(["SYSTEM", "DARK", "LIGHT"]),
   showAgeVerified: z.boolean(),
   showBirthDate: z.boolean(),
   showFollowersCount: z.boolean(),
@@ -46,7 +50,11 @@ async function updateProfileInternal(formData: FormData) {
     displayName: formData.get("displayName"),
     bio: formData.get("bio") ?? "",
     profileAccentColor: formData.get("profileAccentColor") ?? "",
+    profileBackgroundBlur: formData.get("profileBackgroundBlur") ?? 0,
     profileButtonColor: formData.get("profileButtonColor") ?? "",
+    profileDefaultView: formData.get("profileDefaultView") ?? "CARD",
+    profileGroupGames: formData.get("profileGroupGames") === "on",
+    profileThemePreference: formData.get("profileThemePreference") ?? "SYSTEM",
     showAgeVerified: formData.get("showAgeVerified") === "on",
     showBirthDate: formData.get("showBirthDate") === "on",
     showFollowersCount: formData.get("showFollowersCount") === "on",
@@ -93,7 +101,11 @@ async function updateProfileInternal(formData: FormData) {
         displayName: parsed.displayName,
         bio: parsed.bio ?? "",
         profileAccentColor: parsed.profileAccentColor || null,
+        profileBackgroundBlur: parsed.profileBackgroundBlur,
         profileButtonColor: parsed.profileButtonColor || null,
+        profileDefaultView: parsed.profileDefaultView,
+        profileGroupGames: parsed.profileGroupGames,
+        profileThemePreference: parsed.profileThemePreference,
         showAgeVerified: parsed.showAgeVerified,
         showBirthDate: parsed.showBirthDate,
         showFollowersCount: parsed.showFollowersCount,
@@ -134,6 +146,27 @@ function parseLinks(formData: FormData) {
   const labels = formData.getAll("linkLabel");
   const urls = formData.getAll("linkUrl");
   const links = [];
+  const usernameLinks = [
+    { label: "YouTube", type: "youtube" as const, value: String(formData.get("youtubeUsername") ?? "") },
+    { label: "X", type: "x" as const, value: String(formData.get("xUsername") ?? "") },
+    { label: "Twitch", type: "twitch" as const, value: String(formData.get("twitchUsername") ?? "") },
+    { label: "Instagram", type: "instagram" as const, value: String(formData.get("instagramUsername") ?? "") },
+  ];
+
+  for (const usernameLink of usernameLinks) {
+    const url = socialUsernameUrl(usernameLink.type, usernameLink.value);
+    if (!url) {
+      continue;
+    }
+
+    links.push(
+      linkSchema.parse({
+        type: usernameLink.type,
+        label: usernameLink.label,
+        url,
+      }),
+    );
+  }
 
   for (let index = 0; index < urls.length; index += 1) {
     const url = String(urls[index] ?? "").trim();

@@ -27,7 +27,7 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
         orderBy: {
           sortOrder: "asc",
         },
-        take: 5,
+        take: 12,
       },
     },
   });
@@ -36,7 +36,14 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
     redirect("/login");
   }
 
-  const linkRows = Array.from({ length: 5 }, (_, index) => user.links[index] ?? null);
+  const usernameLinks = {
+    instagram: extractSocialUsername(user.links.find((link) => link.type === "instagram")?.url, "instagram"),
+    twitch: extractSocialUsername(user.links.find((link) => link.type === "twitch")?.url, "twitch"),
+    x: extractSocialUsername(user.links.find((link) => link.type === "x")?.url, "x"),
+    youtube: extractSocialUsername(user.links.find((link) => link.type === "youtube")?.url, "youtube"),
+  };
+  const customLinks = user.links.filter((link) => !["instagram", "twitch", "x", "youtube"].includes(link.type));
+  const linkRows = Array.from({ length: 5 }, (_, index) => customLinks[index] ?? null);
   const birthDateText = user.birthDate ? user.birthDate.toLocaleDateString("ja-JP") : null;
 
   return (
@@ -49,35 +56,68 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
       <section className="max-w-3xl rounded-md border border-border bg-card p-5">
         <form action={updateProfile} className="space-y-5">
           <ActionError message={searchParamError(error)} />
-          <div>
-            <label className="block text-sm font-medium" htmlFor="avatar">
-              アイコン
-            </label>
-            <input
-              accept="image/jpeg,image/png,image/webp"
-              className="mt-2 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              id="avatar"
-              name="avatar"
-              type="file"
-            />
-            <p className="mt-2 text-xs text-muted-foreground">jpg / png / webp、5MBまで。</p>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium" htmlFor="profileHeader">
-                ヘッダー画像
-              </label>
-              <input
-                accept="image/jpeg,image/png,image/webp"
-                className="mt-2 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                id="profileHeader"
-                name="profileHeader"
-                type="file"
-              />
-              <p className="mt-2 text-xs text-muted-foreground">3:1で表示します。jpg / png / webp、5MBまで。</p>
+          <section className="rounded-md border border-border bg-background p-4">
+            <h2 className="text-sm font-semibold">基本プロフィール</h2>
+            <div className="mt-4 grid gap-4">
+              <div>
+                <label className="block text-sm font-medium" htmlFor="profileHeader">
+                  ヘッダー画像
+                </label>
+                <input
+                  accept="image/jpeg,image/png,image/webp"
+                  className="mt-2 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  id="profileHeader"
+                  name="profileHeader"
+                  type="file"
+                />
+                <p className="mt-2 text-xs text-muted-foreground">Twitterのヘッダーのように3:1で表示します。jpg / png / webp、5MBまで。</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium" htmlFor="avatar">
+                  アイコン
+                </label>
+                <input
+                  accept="image/jpeg,image/png,image/webp"
+                  className="mt-2 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  id="avatar"
+                  name="avatar"
+                  type="file"
+                />
+                <p className="mt-2 text-xs text-muted-foreground">jpg / png / webp、5MBまで。</p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <TextInput defaultValue={user.displayName ?? user.name ?? user.email ?? ""} id="displayName" label="名前" maxLength={60} name="displayName" required />
+                <TextInput
+                  defaultValue={user.username ?? ""}
+                  id="username"
+                  label="ユーザーID"
+                  maxLength={30}
+                  minLength={3}
+                  name="username"
+                  pattern="[a-zA-Z0-9_]+"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium" htmlFor="bio">
+                  自己紹介
+                </label>
+                <textarea
+                  className="mt-2 min-h-32 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-ring transition focus:ring-2"
+                  defaultValue={user.bio ?? ""}
+                  id="bio"
+                  maxLength={500}
+                  name="bio"
+                  placeholder="改行、リンク、**太字**、*斜体*、- リストが使えます"
+                />
+                <p className="mt-2 text-xs text-muted-foreground">HTMLは使用できません。安全なMarkdownだけ表示します。</p>
+              </div>
             </div>
+          </section>
 
+          <section className="rounded-md border border-border bg-background p-4">
+            <h2 className="text-sm font-semibold">プロフィール画面</h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium" htmlFor="profileBackground">
                 背景画像
@@ -91,73 +131,46 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
               />
               <p className="mt-2 text-xs text-muted-foreground">プロフィール画面の背景に使います。5MBまで。</p>
             </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block text-sm font-medium" htmlFor="profileAccentColor">
-              アクセント色
-              <input
-                className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-ring transition focus:ring-2"
-                defaultValue={user.profileAccentColor ?? "#7c5cff"}
-                id="profileAccentColor"
-                name="profileAccentColor"
-                type="color"
+              <label className="block text-sm font-medium" htmlFor="profileBackgroundBlur">
+                背景ぼかし量
+                <input
+                  className="mt-2 w-full accent-primary"
+                  defaultValue={user.profileBackgroundBlur}
+                  id="profileBackgroundBlur"
+                  max={128}
+                  min={0}
+                  name="profileBackgroundBlur"
+                  step={1}
+                  type="range"
+                />
+              </label>
+              <ColorInput defaultValue={user.profileAccentColor ?? "#7c5cff"} id="profileAccentColor" label="アクセントカラー" name="profileAccentColor" />
+              <ColorInput defaultValue={user.profileButtonColor ?? "#7c5cff"} id="profileButtonColor" label="ボタンカラー" name="profileButtonColor" />
+              <SelectInput
+                defaultValue={user.profileThemePreference}
+                id="profileThemePreference"
+                label="テーマカラー"
+                name="profileThemePreference"
+                options={[
+                  ["SYSTEM", "閲覧者設定に従う"],
+                  ["DARK", "ダークで上書き"],
+                  ["LIGHT", "ライトで上書き"],
+                ]}
               />
-            </label>
-            <label className="block text-sm font-medium" htmlFor="profileButtonColor">
-              ボタン色
-              <input
-                className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-ring transition focus:ring-2"
-                defaultValue={user.profileButtonColor ?? "#7c5cff"}
-                id="profileButtonColor"
-                name="profileButtonColor"
-                type="color"
+              <SelectInput
+                defaultValue={user.profileDefaultView}
+                id="profileDefaultView"
+                label="初期表示のレイアウト"
+                name="profileDefaultView"
+                options={[
+                  ["CARD", "カード"],
+                  ["TILE", "タイル"],
+                  ["GROUPED_BY_GAME", "ゲームごと"],
+                ]}
               />
-            </label>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium" htmlFor="username">
-              ユーザーID
-            </label>
-            <input
-              className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-ring transition focus:ring-2"
-              defaultValue={user.username ?? ""}
-              id="username"
-              maxLength={30}
-              minLength={3}
-              name="username"
-              pattern="[a-zA-Z0-9_]+"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium" htmlFor="displayName">
-              表示名
-            </label>
-            <input
-              className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-ring transition focus:ring-2"
-              defaultValue={user.displayName ?? user.name ?? user.email ?? ""}
-              id="displayName"
-              maxLength={60}
-              name="displayName"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium" htmlFor="bio">
-              自己紹介
-            </label>
-            <textarea
-              className="mt-2 min-h-32 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-ring transition focus:ring-2"
-              defaultValue={user.bio ?? ""}
-              id="bio"
-              maxLength={500}
-              name="bio"
-            />
-          </div>
+              <VisibilityCheckbox defaultChecked={user.profileGroupGames} label="ゲームごとにカードをまとめる" name="profileGroupGames" />
+            </div>
+          </section>
 
           <section className="rounded-md border border-border bg-background p-4">
             <h2 className="text-sm font-medium">プロフィール表示</h2>
@@ -186,10 +199,16 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
             )}
           </section>
 
-          <div>
-            <h2 className="text-sm font-medium">SNSリンク</h2>
-            <p className="mt-1 text-xs text-muted-foreground">URLからDiscord / X / YouTube / Misskey / Instagram / Steamなどを自動判定します。</p>
-            <div className="mt-2 space-y-3">
+          <section className="rounded-md border border-border bg-background p-4">
+            <h2 className="text-sm font-semibold">SNSリンク</h2>
+            <p className="mt-1 text-xs text-muted-foreground">主要SNSはユーザー名だけで登録できます。その他はURLから自動判定します。</p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <TextInput defaultValue={usernameLinks.youtube} id="youtubeUsername" label="YouTube" name="youtubeUsername" placeholder="@channel" />
+              <TextInput defaultValue={usernameLinks.x} id="xUsername" label="X" name="xUsername" placeholder="username" />
+              <TextInput defaultValue={usernameLinks.twitch} id="twitchUsername" label="Twitch" name="twitchUsername" placeholder="username" />
+              <TextInput defaultValue={usernameLinks.instagram} id="instagramUsername" label="Instagram" name="instagramUsername" placeholder="username" />
+            </div>
+            <div className="mt-4 space-y-3">
               {linkRows.map((link, index) => (
                 <div className="grid gap-2" key={link?.id ?? index}>
                   <input
@@ -210,12 +229,98 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
                 </div>
               ))}
             </div>
-          </div>
+          </section>
 
           <Button type="submit">保存</Button>
         </form>
       </section>
     </main>
+  );
+}
+
+function ColorInput({ defaultValue, id, label, name }: { defaultValue: string; id: string; label: string; name: string }) {
+  return (
+    <label className="block text-sm font-medium" htmlFor={id}>
+      {label}
+      <input
+        className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-ring transition focus:ring-2"
+        defaultValue={defaultValue}
+        id={id}
+        name={name}
+        type="color"
+      />
+    </label>
+  );
+}
+
+function SelectInput({
+  defaultValue,
+  id,
+  label,
+  name,
+  options,
+}: {
+  defaultValue: string;
+  id: string;
+  label: string;
+  name: string;
+  options: [string, string][];
+}) {
+  return (
+    <label className="block text-sm font-medium" htmlFor={id}>
+      {label}
+      <select
+        className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-ring transition focus:ring-2"
+        defaultValue={defaultValue}
+        id={id}
+        name={name}
+      >
+        {options.map(([value, labelText]) => (
+          <option key={value} value={value}>
+            {labelText}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function TextInput({
+  defaultValue,
+  id,
+  label,
+  maxLength,
+  minLength,
+  name,
+  pattern,
+  placeholder,
+  required,
+}: {
+  defaultValue: string;
+  id: string;
+  label: string;
+  maxLength?: number;
+  minLength?: number;
+  name: string;
+  pattern?: string;
+  placeholder?: string;
+  required?: boolean;
+}) {
+  return (
+    <label className="block text-sm font-medium" htmlFor={id}>
+      {label}
+      <input
+        className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-ring transition focus:ring-2"
+        defaultValue={defaultValue}
+        id={id}
+        maxLength={maxLength}
+        minLength={minLength}
+        name={name}
+        pattern={pattern}
+        placeholder={placeholder}
+        required={required}
+      />
+    </label>
   );
 }
 
@@ -234,4 +339,23 @@ function VisibilityCheckbox({ defaultChecked, label, name }: { defaultChecked: b
       {label}
     </label>
   );
+}
+
+function extractSocialUsername(url: string | null | undefined, type: "instagram" | "twitch" | "x" | "youtube") {
+  if (!url) {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(url);
+    const firstPath = parsed.pathname.split("/").filter(Boolean)[0] ?? "";
+
+    if (type === "youtube") {
+      return firstPath.startsWith("@") ? firstPath : firstPath ? `@${firstPath}` : "";
+    }
+
+    return firstPath.replace(/^@/, "");
+  } catch {
+    return "";
+  }
 }

@@ -1,4 +1,4 @@
-import { BadgeCheck, ExternalLink, Gamepad2, Globe, MessageCircle, Play } from "lucide-react";
+import { BadgeCheck, Code2, ExternalLink, Gamepad2, Globe, MessageCircle, Play, Radio } from "lucide-react";
 import { socialLinkTypeLabel } from "@/lib/users/social-links";
 
 type SocialLinkBadgeProps = {
@@ -41,6 +41,12 @@ function SocialIcon({ type }: { type: string }) {
       return <Play size={16} />;
     case "instagram":
       return <span className="text-sm font-bold leading-none">IG</span>;
+    case "twitch":
+      return <Radio size={16} />;
+    case "github":
+      return <Code2 size={16} />;
+    case "vrc":
+      return <span className="text-sm font-bold leading-none">VRC</span>;
     case "steam":
       return <Gamepad2 size={16} />;
     case "misskey":

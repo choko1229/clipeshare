@@ -60,6 +60,12 @@ enum ThemePreference {
   LIGHT
 }
 
+enum ProfileLayout {
+  CARD
+  TILE
+  GROUPED_BY_GAME
+}
+
 model User {
   id              String    @id @default(cuid())
   username        String?   @unique
@@ -71,6 +77,10 @@ model User {
   avatarUrl       String?   @db.Text
   profileHeaderUrl String?  @db.Text
   profileBackgroundUrl String? @db.Text
+  profileBackgroundBlur Int @default(0)
+  profileThemePreference ThemePreference @default(SYSTEM)
+  profileDefaultView ProfileLayout @default(CARD)
+  profileGroupGames Boolean @default(false)
   profileAccentColor String?
   profileButtonColor String?
   showProfileGames Boolean @default(true)
