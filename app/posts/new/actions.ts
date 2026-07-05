@@ -13,6 +13,7 @@ import { splitPostBody } from "@/lib/posts/post-body";
 import { extractHashTags, slugify } from "@/lib/posts/slug";
 import { assertDailyUploadLimit, getUploadLimitsForUser } from "@/lib/uploads/account-limits";
 import { detectMediaKind } from "@/lib/uploads/file-kind";
+import { syncUserAccountLevel } from "@/lib/users/account-levels";
 
 const createPostSchema = z.object({
   bodyText: z.string().min(1).max(4200),
@@ -42,6 +43,7 @@ export async function createPost(formData: FormData) {
     throw new Error("対応している画像または動画ファイルを選択してください。");
   }
 
+  await syncUserAccountLevel(userId);
   const uploadLimits = await getUploadLimitsForUser(userId);
   await assertDailyUploadLimit(userId, uploadLimits);
 
@@ -80,6 +82,7 @@ export async function createPost(formData: FormData) {
       height: storedImage.height,
     });
     await createAutoReportForPost(userId, post.id, moderation.reportable);
+    await syncUserAccountLevel(userId);
     redirect(`/c/${post.publicId}`);
   }
 
@@ -114,6 +117,7 @@ export async function createPost(formData: FormData) {
   });
 
   await createAutoReportForPost(userId, post.id, moderation.reportable);
+  await syncUserAccountLevel(userId);
 
   redirect(`/c/${post.publicId}`);
 }

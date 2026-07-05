@@ -5,6 +5,8 @@ import { createPost } from "@/app/posts/new/actions";
 import { PostMediaInput } from "@/components/posts/post-media-input";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/db/prisma";
+import { formatBytes, getUploadLimitsForUser } from "@/lib/uploads/account-limits";
+import { syncUserAccountLevel } from "@/lib/users/account-levels";
 
 export default async function NewPostPage() {
   const session = await getServerSession(authOptions);
@@ -13,17 +15,21 @@ export default async function NewPostPage() {
     redirect("/login");
   }
 
-  const gameSuggestions = await prisma.game.findMany({
-    where: {
-      isActive: true,
-    },
-    select: {
-      id: true,
-      name: true,
-    },
-    orderBy: [{ posts: { _count: "desc" } }, { name: "asc" }],
-    take: 80,
-  });
+  await syncUserAccountLevel(session.user.id);
+  const [gameSuggestions, uploadLimits] = await Promise.all([
+    prisma.game.findMany({
+      where: {
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+      orderBy: [{ posts: { _count: "desc" } }, { name: "asc" }],
+      take: 80,
+    }),
+    getUploadLimitsForUser(session.user.id),
+  ]);
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
@@ -35,6 +41,21 @@ export default async function NewPostPage() {
       </div>
 
       <section className="rounded-md border border-border bg-card p-5">
+        <div
+          className="mb-5 rounded-md border p-3 text-sm"
+          style={{
+            backgroundColor: `${uploadLimits.levelColor}16`,
+            borderColor: `${uploadLimits.levelColor}88`,
+          }}
+        >
+          <p className="font-semibold" style={{ color: uploadLimits.levelColor }}>
+            {uploadLimits.accountLevelName}
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            動画 {uploadLimits.maxVideoSeconds}秒 / {formatBytes(uploadLimits.maxVideoSizeBytes)}、画像 {formatBytes(uploadLimits.maxImageSizeBytes)}、画像枚数 {uploadLimits.maxImagesPerPost}枚、日次投稿{" "}
+            {uploadLimits.dailyUploadLimit === null ? "無制限" : `${uploadLimits.dailyUploadLimit}件`}
+          </p>
+        </div>
         <form action={createPost} className="space-y-5">
           <PostMediaInput />
 

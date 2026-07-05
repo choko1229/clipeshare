@@ -3,18 +3,22 @@ import { prisma } from "@/lib/db/prisma";
 export type UploadLimits = {
   accountLevelId: string | null;
   accountLevelName: string;
+  levelColor: string;
   maxVideoSeconds: number;
   maxVideoSizeBytes: number;
   maxImageSizeBytes: number;
+  maxImagesPerPost: number;
   dailyUploadLimit: number | null;
 };
 
 const fallbackLimits: UploadLimits = {
   accountLevelId: null,
-  accountLevelName: "default",
+  accountLevelName: "NewUser",
+  levelColor: "#8b949e",
   maxVideoSeconds: 180,
   maxVideoSizeBytes: 300_000_000,
   maxImageSizeBytes: 50_000_000,
+  maxImagesPerPost: 1,
   dailyUploadLimit: 20,
 };
 
@@ -40,22 +44,20 @@ export async function getUploadLimitsForUser(userId: string): Promise<UploadLimi
   return {
     accountLevelId: level.id,
     accountLevelName: level.name,
+    levelColor: level.levelColor,
     maxVideoSeconds: level.maxVideoSeconds,
     maxVideoSizeBytes: Number(level.maxVideoSizeBytes),
     maxImageSizeBytes: Number(level.maxImageSizeBytes),
+    maxImagesPerPost: level.maxImagesPerPost,
     dailyUploadLimit: level.dailyUploadLimit,
   };
 }
 
-export async function assertDailyUploadLimit(userId: string, limits: UploadLimits) {
-  if (!limits.dailyUploadLimit) {
-    return;
-  }
-
+export async function getDailyUploadUsage(userId: string) {
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
 
-  const count = await prisma.post.count({
+  return prisma.post.count({
     where: {
       userId,
       createdAt: {
@@ -66,6 +68,14 @@ export async function assertDailyUploadLimit(userId: string, limits: UploadLimit
       },
     },
   });
+}
+
+export async function assertDailyUploadLimit(userId: string, limits: UploadLimits) {
+  if (limits.dailyUploadLimit === null) {
+    return;
+  }
+
+  const count = await getDailyUploadUsage(userId);
 
   if (count >= limits.dailyUploadLimit) {
     throw new Error(`本日の投稿上限 ${limits.dailyUploadLimit} 件に達しています。`);

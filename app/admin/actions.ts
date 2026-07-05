@@ -64,6 +64,32 @@ function parsePositiveIntField(value: FormDataEntryValue | null, label: string) 
   return parsed;
 }
 
+function parseNonNegativeIntField(value: FormDataEntryValue | null, label: string) {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`${label}を入力してください。`);
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isSafeInteger(parsed) || parsed < 0) {
+    throw new Error(`${label}は0以上の整数で入力してください。`);
+  }
+
+  return parsed;
+}
+
+function parseIntField(value: FormDataEntryValue | null, label: string) {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`${label}を入力してください。`);
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isSafeInteger(parsed)) {
+    throw new Error(`${label}は整数で入力してください。`);
+  }
+
+  return parsed;
+}
+
 function parseOptionalPositiveIntField(value: FormDataEntryValue | null, label: string) {
   if (typeof value !== "string" || !value.trim()) {
     return null;
@@ -79,6 +105,15 @@ function parseOptionalPositiveIntField(value: FormDataEntryValue | null, label: 
 
 function megabytesToBytes(value: number) {
   return BigInt(value) * 1_000_000n;
+}
+
+function parseLevelColor(value: FormDataEntryValue | null) {
+  const color = typeof value === "string" && value.trim() ? value.trim() : "#8b949e";
+  if (!/^#[0-9a-fA-F]{6}$/.test(color)) {
+    throw new Error("レベル色は #RRGGBB 形式で入力してください。");
+  }
+
+  return color.toLowerCase();
 }
 
 function parseOptionalDate(value: FormDataEntryValue | null) {
@@ -639,10 +674,17 @@ export async function updateUserAccountLevel(formData: FormData) {
 export async function createAccountLevel(formData: FormData) {
   const admin = await requireAdmin();
   const name = z.string().trim().min(1).max(80).parse(formData.get("name"));
-  const maxVideoSeconds = parsePositiveIntField(formData.get("maxVideoSeconds"), "最大動画時間");
-  const maxVideoSizeMb = parsePositiveIntField(formData.get("maxVideoSizeMb"), "最大動画サイズ");
-  const maxImageSizeMb = parsePositiveIntField(formData.get("maxImageSizeMb"), "最大画像サイズ");
+  const levelColor = parseLevelColor(formData.get("levelColor"));
+  const maxVideoSeconds = parseNonNegativeIntField(formData.get("maxVideoSeconds"), "最大動画時間");
+  const maxVideoSizeMb = parseNonNegativeIntField(formData.get("maxVideoSizeMb"), "最大動画サイズ");
+  const maxImageSizeMb = parseNonNegativeIntField(formData.get("maxImageSizeMb"), "最大画像サイズ");
+  const maxImagesPerPost = parseNonNegativeIntField(formData.get("maxImagesPerPost"), "画像枚数上限");
   const dailyUploadLimit = parseOptionalPositiveIntField(formData.get("dailyUploadLimit"), "1日の投稿数上限");
+  const sortOrder = parseIntField(formData.get("sortOrder"), "表示順");
+  const minPostCount = parseNonNegativeIntField(formData.get("minPostCount"), "昇格に必要な投稿数");
+  const minAccountAgeDays = parseNonNegativeIntField(formData.get("minAccountAgeDays"), "昇格に必要な登録日数");
+  const minFollowerCount = parseNonNegativeIntField(formData.get("minFollowerCount"), "昇格に必要なフォロワー数");
+  const isManualOnly = formData.get("isManualOnly") === "on";
   const isDefault = formData.get("isDefault") === "on";
 
   const created = await prisma.$transaction(async (tx) => {
@@ -656,10 +698,17 @@ export async function createAccountLevel(formData: FormData) {
     return tx.accountLevel.create({
       data: {
         name,
+        levelColor,
         maxVideoSeconds,
         maxVideoSizeBytes: megabytesToBytes(maxVideoSizeMb),
         maxImageSizeBytes: megabytesToBytes(maxImageSizeMb),
+        maxImagesPerPost,
         dailyUploadLimit,
+        sortOrder,
+        minPostCount,
+        minAccountAgeDays,
+        minFollowerCount,
+        isManualOnly,
         isDefault,
       },
     });
@@ -681,10 +730,17 @@ export async function updateAccountLevel(formData: FormData) {
   const admin = await requireAdmin();
   const accountLevelId = idSchema.parse(formData.get("accountLevelId"));
   const name = z.string().trim().min(1).max(80).parse(formData.get("name"));
-  const maxVideoSeconds = parsePositiveIntField(formData.get("maxVideoSeconds"), "最大動画時間");
-  const maxVideoSizeMb = parsePositiveIntField(formData.get("maxVideoSizeMb"), "最大動画サイズ");
-  const maxImageSizeMb = parsePositiveIntField(formData.get("maxImageSizeMb"), "最大画像サイズ");
+  const levelColor = parseLevelColor(formData.get("levelColor"));
+  const maxVideoSeconds = parseNonNegativeIntField(formData.get("maxVideoSeconds"), "最大動画時間");
+  const maxVideoSizeMb = parseNonNegativeIntField(formData.get("maxVideoSizeMb"), "最大動画サイズ");
+  const maxImageSizeMb = parseNonNegativeIntField(formData.get("maxImageSizeMb"), "最大画像サイズ");
+  const maxImagesPerPost = parseNonNegativeIntField(formData.get("maxImagesPerPost"), "画像枚数上限");
   const dailyUploadLimit = parseOptionalPositiveIntField(formData.get("dailyUploadLimit"), "1日の投稿数上限");
+  const sortOrder = parseIntField(formData.get("sortOrder"), "表示順");
+  const minPostCount = parseNonNegativeIntField(formData.get("minPostCount"), "昇格に必要な投稿数");
+  const minAccountAgeDays = parseNonNegativeIntField(formData.get("minAccountAgeDays"), "昇格に必要な登録日数");
+  const minFollowerCount = parseNonNegativeIntField(formData.get("minFollowerCount"), "昇格に必要なフォロワー数");
+  const isManualOnly = formData.get("isManualOnly") === "on";
   const isDefault = formData.get("isDefault") === "on";
 
   const before = await prisma.accountLevel.findUnique({
@@ -727,10 +783,17 @@ export async function updateAccountLevel(formData: FormData) {
       where: { id: accountLevelId },
       data: {
         name,
+        levelColor,
         maxVideoSeconds,
         maxVideoSizeBytes: megabytesToBytes(maxVideoSizeMb),
         maxImageSizeBytes: megabytesToBytes(maxImageSizeMb),
+        maxImagesPerPost,
         dailyUploadLimit,
+        sortOrder,
+        minPostCount,
+        minAccountAgeDays,
+        minFollowerCount,
+        isManualOnly,
         isDefault,
       },
     });
