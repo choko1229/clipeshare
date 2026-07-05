@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { ProfileBackgroundBlurInput } from "@/components/profile/profile-background-blur-input";
+import { ProfileImageCropInput } from "@/components/profile/profile-image-crop-input";
 import { prisma } from "@/lib/db/prisma";
 import { updateProfile } from "@/app/settings/profile/actions";
 import { searchParamError } from "@/lib/actions/error-message";
@@ -60,32 +61,24 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
           <section className="rounded-md border border-border bg-background p-4">
             <h2 className="text-sm font-semibold">基本プロフィール</h2>
             <div className="mt-4 grid gap-4">
-              <div>
-                <label className="block text-sm font-medium" htmlFor="profileHeader">
-                  ヘッダー画像
-                </label>
-                <input
-                  accept="image/jpeg,image/png,image/webp"
-                  className="mt-2 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  id="profileHeader"
-                  name="profileHeader"
-                  type="file"
-                />
-                <p className="mt-2 text-xs text-muted-foreground">Twitterのヘッダーのように3:1で表示します。jpg / png / webp、5MBまで。</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium" htmlFor="avatar">
-                  アイコン
-                </label>
-                <input
-                  accept="image/jpeg,image/png,image/webp"
-                  className="mt-2 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  id="avatar"
-                  name="avatar"
-                  type="file"
-                />
-                <p className="mt-2 text-xs text-muted-foreground">jpg / png / webp、5MBまで。</p>
-              </div>
+              <ProfileImageCropInput
+                aspectRatio={3}
+                defaultPreviewUrl={user.profileHeaderUrl}
+                description="3:1でクロップします。横位置、縦位置、ズームを調整できます。"
+                label="ヘッダー画像"
+                name="profileHeader"
+                outputHeight={512}
+                outputWidth={1536}
+              />
+              <ProfileImageCropInput
+                aspectRatio={1}
+                defaultPreviewUrl={user.avatarUrl ?? user.image}
+                description="1:1でクロップします。プロフィールアイコンとして表示されます。"
+                label="アイコン"
+                name="avatar"
+                outputHeight={512}
+                outputWidth={512}
+              />
               <div className="grid gap-4 sm:grid-cols-2">
                 <TextInput defaultValue={user.displayName ?? user.name ?? user.email ?? ""} id="displayName" label="名前" maxLength={60} name="displayName" required />
                 <TextInput
@@ -119,19 +112,15 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
           <section className="rounded-md border border-border bg-background p-4">
             <h2 className="text-sm font-semibold">プロフィール画面</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium" htmlFor="profileBackground">
-                背景画像
-              </label>
-              <input
-                accept="image/jpeg,image/png,image/webp"
-                className="mt-2 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                id="profileBackground"
-                name="profileBackground"
-                type="file"
-              />
-              <p className="mt-2 text-xs text-muted-foreground">プロフィール画面の背景に使います。5MBまで。</p>
-            </div>
+            <ProfileImageCropInput
+              aspectRatio={16 / 9}
+              defaultPreviewUrl={user.profileBackgroundUrl}
+              description="16:9でクロップします。プロフィール画面の背景に使います。"
+              label="背景画像"
+              name="profileBackground"
+              outputHeight={1080}
+              outputWidth={1920}
+            />
               <ProfileBackgroundBlurInput defaultValue={user.profileBackgroundBlur} />
               <ColorInput defaultValue={user.profileAccentColor ?? "#7c5cff"} id="profileAccentColor" label="アクセントカラー" name="profileAccentColor" />
               <ColorInput defaultValue={user.profileButtonColor ?? "#7c5cff"} id="profileButtonColor" label="ボタンカラー" name="profileButtonColor" />
