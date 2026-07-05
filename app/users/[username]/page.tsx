@@ -342,7 +342,7 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
                 ))}
               </div>
             ) : (
-              <div className="grid justify-between gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),360px))]">
+              <div className="post-card-grid">
                 {user.posts.map((post) => (
                   <PostCard
                     bookmarkCount={Number(post.bookmarkCount)}

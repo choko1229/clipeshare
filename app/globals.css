@@ -158,6 +158,18 @@ a {
   animation: submit-progress 1.1s ease-in-out infinite;
 }
 
+.post-card-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+}
+
+@media (min-width: 768px) {
+  .post-card-grid {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  }
+}
+
 @keyframes page-enter {
   from {
     opacity: 0;
