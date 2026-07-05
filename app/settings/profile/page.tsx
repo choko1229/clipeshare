@@ -4,6 +4,7 @@ import { authOptions } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { ProfileBackgroundBlurInput } from "@/components/profile/profile-background-blur-input";
 import { ProfileImageCropInput } from "@/components/profile/profile-image-crop-input";
+import { ProfileOpacityInput } from "@/components/profile/profile-opacity-input";
 import { prisma } from "@/lib/db/prisma";
 import { updateProfile } from "@/app/settings/profile/actions";
 import { searchParamError } from "@/lib/actions/error-message";
@@ -124,7 +125,9 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
               <ProfileBackgroundBlurInput defaultValue={user.profileBackgroundBlur} />
               <ColorInput defaultValue={user.profileAccentColor ?? "#7c5cff"} id="profileAccentColor" label="アクセントカラー" name="profileAccentColor" />
               <ColorInput defaultValue={user.profileButtonColor ?? "#7c5cff"} id="profileButtonColor" label="ボタンカラー" name="profileButtonColor" />
-              <ColorInput defaultValue={user.profileOverlayColor ?? user.profileAccentColor ?? "#10131b"} id="profileOverlayColor" label="背景画像オーバーレイ色" name="profileOverlayColor" />
+              <ColorInput defaultValue={user.profileOverlayColor ?? user.profileAccentColor ?? "#10131b"} id="profileOverlayColor" label="背景画像オーバーレイ開始色" name="profileOverlayColor" />
+              <ColorInput defaultValue={user.profileOverlayColorEnd ?? user.profileOverlayColor ?? "#10131b"} id="profileOverlayColorEnd" label="背景画像オーバーレイ終了色" name="profileOverlayColorEnd" />
+              <ProfileOpacityInput defaultValue={user.profileOverlayOpacity} />
               <SelectInput
                 defaultValue={user.profileThemePreference}
                 id="profileThemePreference"

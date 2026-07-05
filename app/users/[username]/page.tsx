@@ -257,6 +257,9 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
   const accentColor = user.profileAccentColor ?? visibleLevel?.levelColor ?? "#7c5cff";
   const buttonColor = user.profileButtonColor ?? accentColor;
   const overlayColor = user.profileOverlayColor ?? accentColor;
+  const overlayColorEnd = user.profileOverlayColorEnd ?? overlayColor;
+  const overlayOpacity = Math.min(100, Math.max(0, user.profileOverlayOpacity)) / 100;
+  const heroTextColor = readableTextColor(mixHexColors(overlayColor, overlayColorEnd));
   const groupedPostItems = user.posts.map((post) => ({
     gameName: post.game.name,
     gameSlug: post.game.slug,
@@ -279,7 +282,7 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
 
   return (
     <main
-      className="relative isolate min-h-screen w-full max-w-full overflow-x-clip bg-background px-4 py-8 text-foreground sm:px-6 lg:px-8"
+      className="relative isolate min-h-screen w-full max-w-full overflow-x-hidden bg-background px-4 py-8 text-foreground sm:px-6 lg:px-8"
       style={
         {
           ...mainBackgroundStyle,
@@ -290,20 +293,24 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
       {user.profileBackgroundUrl ? (
         <div
           aria-hidden="true"
-          className="fixed -inset-16 -z-10 bg-cover bg-center"
-          style={{
-            backgroundImage: `linear-gradient(${hexToRgba(overlayColor, 0.52)}, ${hexToRgba(overlayColor, 0.76)}), url("${user.profileBackgroundUrl}")`,
-            filter: `blur(${user.profileBackgroundBlur}px)`,
-            transform: user.profileBackgroundBlur > 0 ? "scale(1.04)" : undefined,
-          }}
-        />
+          className="fixed inset-0 -z-10 w-screen max-w-full overflow-hidden"
+        >
+          <div
+            className="absolute -inset-16 bg-cover bg-center"
+            style={{
+              backgroundImage: `linear-gradient(135deg, ${hexToRgba(overlayColor, overlayOpacity)}, ${hexToRgba(overlayColorEnd, overlayOpacity)}), url("${user.profileBackgroundUrl}")`,
+              filter: `blur(${user.profileBackgroundBlur}px)`,
+              transform: user.profileBackgroundBlur > 0 ? "scale(1.04)" : undefined,
+            }}
+          />
+        </div>
       ) : null}
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
         <section className="min-w-0 space-y-5">
           <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
+            <div style={{ color: heroTextColor }}>
               <h1 className="text-2xl font-bold sm:text-3xl">{displayName} の投稿</h1>
-              <p className="mt-1 text-sm text-muted-foreground">公開中のクリップとスクリーンショットを表示しています。</p>
+              <p className="mt-1 text-sm opacity-75">公開中のクリップとスクリーンショットを表示しています。</p>
             </div>
             <div className="flex rounded-md border border-border bg-card p-1">
               <Button asChild className="size-9 px-0" variant={view === "card" ? "default" : "ghost"}>
@@ -553,4 +560,29 @@ function hexToRgba(hex: string, alpha: number) {
   const green = Number.parseInt(normalized.slice(3, 5), 16);
   const blue = Number.parseInt(normalized.slice(5, 7), 16);
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
+function mixHexColors(firstHex: string, secondHex: string) {
+  const first = hexToRgb(firstHex);
+  const second = hexToRgb(secondHex);
+
+  return {
+    blue: Math.round((first.blue + second.blue) / 2),
+    green: Math.round((first.green + second.green) / 2),
+    red: Math.round((first.red + second.red) / 2),
+  };
+}
+
+function readableTextColor(color: { blue: number; green: number; red: number }) {
+  const luminance = (0.2126 * color.red + 0.7152 * color.green + 0.0722 * color.blue) / 255;
+  return luminance > 0.58 ? "#12141c" : "#ffffff";
+}
+
+function hexToRgb(hex: string) {
+  const normalized = /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : "#10131b";
+  return {
+    blue: Number.parseInt(normalized.slice(5, 7), 16),
+    green: Number.parseInt(normalized.slice(3, 5), 16),
+    red: Number.parseInt(normalized.slice(1, 3), 16),
+  };
 }
