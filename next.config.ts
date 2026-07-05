@@ -17,6 +17,22 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "media.discordapp.net",
       },
+      {
+        protocol: "https",
+        hostname: "store.akamai.steamstatic.com",
+      },
+      {
+        protocol: "https",
+        hostname: "cdn.akamai.steamstatic.com",
+      },
+      {
+        protocol: "https",
+        hostname: "media.rawg.io",
+      },
+      {
+        protocol: "https",
+        hostname: "images.igdb.com",
+      },
     ],
   },
 };

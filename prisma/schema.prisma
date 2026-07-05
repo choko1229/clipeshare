@@ -184,11 +184,18 @@ model Game {
   officialUrl  String?   @db.Text
   igdbId       Int?      @unique
   steamAppId   Int?      @unique
+  steamHeaderUrl String? @db.Text
+  steamCapsuleUrl String? @db.Text
   rawgSlug     String?
+  rawgId       Int?      @unique
+  rawgBackgroundUrl String? @db.Text
+  metacriticScore Int?
   genres       Json?
   platforms    Json?
   releaseDate  DateTime?
   lastSyncedAt DateTime?
+  lastSteamSyncedAt DateTime?
+  lastRawgSyncedAt DateTime?
   isActive     Boolean   @default(true)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt

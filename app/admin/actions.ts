@@ -6,6 +6,9 @@ import { requireAdmin, requireModerator } from "@/lib/admin/auth";
 import { writeAuditLog } from "@/lib/admin/audit";
 import { prisma } from "@/lib/db/prisma";
 import { fetchIgdbGameMetadata } from "@/lib/games/igdb";
+import { preserveExistingGameMetadata } from "@/lib/games/metadata-merge";
+import { fetchRawgGameMetadata } from "@/lib/games/rawg";
+import { fetchSteamGameMetadata } from "@/lib/games/steam";
 import { storageSettingKeys } from "@/lib/media/retention";
 import { slugify } from "@/lib/posts/slug";
 
@@ -889,6 +892,11 @@ export async function updateGameMetadata(formData: FormData) {
   const heroUrl = optionalUrlSchema.parse(formData.get("heroUrl") ?? "");
   const officialUrl = optionalUrlSchema.parse(formData.get("officialUrl") ?? "");
   const rawgSlug = z.string().trim().max(120).optional().parse(formData.get("rawgSlug") || undefined) ?? null;
+  const rawgId = parseOptionalInt(formData.get("rawgId"));
+  const metacriticScore = parseOptionalInt(formData.get("metacriticScore"));
+  const steamHeaderUrl = optionalUrlSchema.parse(formData.get("steamHeaderUrl") ?? "");
+  const steamCapsuleUrl = optionalUrlSchema.parse(formData.get("steamCapsuleUrl") ?? "");
+  const rawgBackgroundUrl = optionalUrlSchema.parse(formData.get("rawgBackgroundUrl") ?? "");
   const igdbId = parseOptionalInt(formData.get("igdbId"));
   const steamAppId = parseOptionalInt(formData.get("steamAppId"));
   const releaseDate = parseOptionalDate(formData.get("releaseDate"));
@@ -913,8 +921,13 @@ export async function updateGameMetadata(formData: FormData) {
       heroUrl,
       officialUrl,
       rawgSlug,
+      rawgId,
+      rawgBackgroundUrl,
+      metacriticScore,
       igdbId,
       steamAppId,
+      steamHeaderUrl,
+      steamCapsuleUrl,
       releaseDate,
       genres,
       platforms,
@@ -951,19 +964,13 @@ export async function syncGameFromIgdb(formData: FormData) {
     igdbId: before.igdbId,
     name: before.name,
   });
+  const merged = preserveExistingGameMetadata(before, metadata);
 
   const after = await prisma.game.update({
     where: { id: gameId },
     data: {
-      name: metadata.name,
-      summary: metadata.summary,
-      coverUrl: metadata.coverUrl,
-      heroUrl: metadata.heroUrl,
-      officialUrl: metadata.officialUrl,
+      ...merged,
       igdbId: metadata.igdbId,
-      genres: metadata.genres,
-      platforms: metadata.platforms,
-      releaseDate: metadata.releaseDate,
       lastSyncedAt: new Date(),
     },
   });
@@ -971,6 +978,98 @@ export async function syncGameFromIgdb(formData: FormData) {
   await writeAuditLog({
     adminId: admin.id,
     action: "game.sync_igdb",
+    targetType: "game",
+    targetId: gameId,
+    beforeData: before,
+    afterData: after,
+  });
+
+  revalidatePath("/admin/games");
+  revalidatePath(`/games/${after.slug}`);
+}
+
+export async function syncGameFromSteam(formData: FormData) {
+  const admin = await requireModerator();
+  const gameId = idSchema.parse(formData.get("gameId"));
+  const formSteamAppId = parseOptionalInt(formData.get("steamAppId"));
+
+  const before = await prisma.game.findUnique({
+    where: { id: gameId },
+  });
+
+  if (!before) {
+    throw new Error("ゲームが見つかりません。");
+  }
+
+  const steamAppId = formSteamAppId ?? before.steamAppId;
+  if (!steamAppId) {
+    throw new Error("Steam App IDを入力してください。");
+  }
+
+  const metadata = await fetchSteamGameMetadata(steamAppId);
+  const merged = preserveExistingGameMetadata(before, metadata);
+  const now = new Date();
+
+  const after = await prisma.game.update({
+    where: { id: gameId },
+    data: {
+      ...merged,
+      steamAppId: metadata.steamAppId,
+      steamHeaderUrl: before.steamHeaderUrl ?? metadata.steamHeaderUrl,
+      steamCapsuleUrl: before.steamCapsuleUrl ?? metadata.steamCapsuleUrl,
+      lastSteamSyncedAt: now,
+      lastSyncedAt: now,
+    },
+  });
+
+  await writeAuditLog({
+    adminId: admin.id,
+    action: "game.sync_steam",
+    targetType: "game",
+    targetId: gameId,
+    beforeData: before,
+    afterData: after,
+  });
+
+  revalidatePath("/admin/games");
+  revalidatePath(`/games/${after.slug}`);
+}
+
+export async function syncGameFromRawg(formData: FormData) {
+  const admin = await requireModerator();
+  const gameId = idSchema.parse(formData.get("gameId"));
+
+  const before = await prisma.game.findUnique({
+    where: { id: gameId },
+  });
+
+  if (!before) {
+    throw new Error("ゲームが見つかりません。");
+  }
+
+  const metadata = await fetchRawgGameMetadata({
+    rawgSlug: before.rawgSlug,
+    name: before.name,
+  });
+  const merged = preserveExistingGameMetadata(before, metadata);
+  const now = new Date();
+
+  const after = await prisma.game.update({
+    where: { id: gameId },
+    data: {
+      ...merged,
+      rawgId: metadata.rawgId,
+      rawgSlug: metadata.rawgSlug,
+      rawgBackgroundUrl: before.rawgBackgroundUrl ?? metadata.rawgBackgroundUrl,
+      metacriticScore: before.metacriticScore ?? metadata.metacriticScore,
+      lastRawgSyncedAt: now,
+      lastSyncedAt: now,
+    },
+  });
+
+  await writeAuditLog({
+    adminId: admin.id,
+    action: "game.sync_rawg",
     targetType: "game",
     targetId: gameId,
     beforeData: before,
