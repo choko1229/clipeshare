@@ -26,6 +26,11 @@ export default async function BookmarksPage() {
       post: {
         include: {
           game: true,
+          _count: {
+            select: {
+              mediaItems: true,
+            },
+          },
         },
       },
     },
@@ -53,6 +58,7 @@ export default async function BookmarksPage() {
               isNsfw={post.isNsfw}
               key={post.id}
               likeCount={Number(post.likeCount)}
+              mediaCount={post._count.mediaItems || 1}
               publicId={post.publicId}
               thumbnailUrl={post.thumbnailUrl}
               title={post.title}

@@ -66,6 +66,7 @@ export function PostMediaInput() {
         accept={acceptTypes}
         className="mt-2 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-foreground"
         id="media"
+        multiple
         name="media"
         onChange={(event) => updateMediaLabel(event.currentTarget.files?.[0] ?? null)}
         ref={inputRef}

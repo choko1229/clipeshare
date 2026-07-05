@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 const root = process.cwd();
 const processedRoot = path.join(root, "storage", "uploads", "processed");
 const pollMs = Number(process.env.WORKER_POLL_MS ?? 5000);
-const fallbackMaxVideoSeconds = Number(process.env.MAX_VIDEO_SECONDS ?? 180);
+const fallbackMaxVideoSeconds = Number(process.env.MAX_VIDEO_SECONDS ?? 30);
 const originalVideoRetentionDays = 30;
 
 let isProcessing = false;

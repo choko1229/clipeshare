@@ -67,6 +67,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                 isNsfw={post.isNsfw}
                 key={post.id}
                 likeCount={Number(post.likeCount)}
+                mediaCount={post._count.mediaItems || 1}
                 publicId={post.publicId}
                 thumbnailUrl={post.thumbnailUrl}
                 title={post.title}
@@ -132,6 +133,11 @@ async function searchPosts(parsed: ReturnType<typeof parseSearchQuery>) {
     },
     include: {
       game: true,
+      _count: {
+        select: {
+          mediaItems: true,
+        },
+      },
     },
     orderBy: {
       publishedAt: "desc",

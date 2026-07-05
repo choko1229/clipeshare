@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { syncUserAccountLevel } from "@/lib/users/account-levels";
 
 export type ActiveUser = {
   id: string;
@@ -35,6 +36,8 @@ export async function requireActiveUser(): Promise<ActiveUser> {
     const suffix = user.banReason ? ` 理由: ${user.banReason}` : "";
     throw new Error(`このアカウントはBANされているため操作できません。${suffix}`);
   }
+
+  await syncUserAccountLevel(user.id);
 
   return {
     id: user.id,

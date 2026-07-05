@@ -40,6 +40,11 @@ async function getProfile(username: string) {
         },
         include: {
           game: true,
+          _count: {
+            select: {
+              mediaItems: true,
+            },
+          },
         },
         orderBy: {
           publishedAt: "desc",
@@ -271,6 +276,7 @@ export default async function UserProfilePage({ params }: UserPageProps) {
                 isNsfw={post.isNsfw}
                 key={post.id}
                 likeCount={Number(post.likeCount)}
+                mediaCount={post._count.mediaItems || 1}
                 publicId={post.publicId}
                 thumbnailUrl={post.thumbnailUrl}
                 title={post.title}

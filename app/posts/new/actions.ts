@@ -33,11 +33,27 @@ export async function createPost(formData: FormData) {
     isNsfw: formData.get("isNsfw") === "on",
   });
 
-  const media = formData.get("media");
-  if (!(media instanceof File) || media.size === 0) {
+  const mediaFiles = formData.getAll("media").filter((item): item is File => item instanceof File && item.size > 0);
+  if (mediaFiles.length === 0) {
     throw new Error("メディアファイルを選択してください。");
   }
 
+  const mediaKinds = mediaFiles.map((file) => detectMediaKind(file));
+  if (mediaKinds.some((kind) => !kind)) {
+    throw new Error("対応している画像または動画ファイルを選択してください。");
+  }
+
+  const hasVideo = mediaKinds.includes("CLIP");
+  const hasImage = mediaKinds.includes("SCREENSHOT");
+  if (hasVideo && mediaFiles.length > 1) {
+    throw new Error("動画投稿で選択できる動画は1本のみです。");
+  }
+
+  if (hasVideo && hasImage) {
+    throw new Error("動画と画像を同時に投稿することはできません。");
+  }
+
+  const media = mediaFiles[0];
   const postType = detectMediaKind(media);
   if (!postType) {
     throw new Error("対応している画像または動画ファイルを選択してください。");
@@ -60,9 +76,18 @@ export async function createPost(formData: FormData) {
   const tagNames = extractHashTags(parsed.bodyText);
 
   if (postType === "SCREENSHOT") {
-    const storedImage = await storeScreenshotImage(media, publicId, {
-      maxImageSizeBytes: uploadLimits.maxImageSizeBytes,
-    });
+    if (mediaFiles.length > uploadLimits.maxImagesPerPost) {
+      throw new Error(`画像は現在のアカウントレベルでは最大${uploadLimits.maxImagesPerPost}枚まで投稿できます。`);
+    }
+
+    const storedImages = await Promise.all(
+      mediaFiles.map((imageFile, index) =>
+        storeScreenshotImage(imageFile, `${publicId}-${index + 1}`, {
+          maxImageSizeBytes: uploadLimits.maxImageSizeBytes,
+        }),
+      ),
+    );
+    const firstImage = storedImages[0];
     const post = await createBasePost({
       publicId,
       userId,
@@ -74,12 +99,23 @@ export async function createPost(formData: FormData) {
       description,
       visibility: parsed.visibility,
       isNsfw: parsed.isNsfw,
-      thumbnailUrl: storedImage.thumbnailUrl,
-      mediaUrl: storedImage.mediaUrl,
-      originalFilePath: storedImage.originalPath,
-      fileSizeBytes: BigInt(storedImage.size),
-      width: storedImage.width,
-      height: storedImage.height,
+      thumbnailUrl: firstImage.thumbnailUrl,
+      mediaUrl: firstImage.mediaUrl,
+      originalFilePath: firstImage.originalPath,
+      fileSizeBytes: BigInt(storedImages.reduce((sum, image) => sum + image.size, 0)),
+      width: firstImage.width,
+      height: firstImage.height,
+      mediaItems: storedImages.map((image, index) => ({
+        type: "SCREENSHOT" as const,
+        sortOrder: index,
+        mediaUrl: image.mediaUrl,
+        thumbnailUrl: image.thumbnailUrl,
+        originalPath: image.originalPath,
+        processedPath: image.processedPath,
+        fileSizeBytes: BigInt(image.size),
+        width: image.width,
+        height: image.height,
+      })),
     });
     await createAutoReportForPost(userId, post.id, moderation.reportable);
     await syncUserAccountLevel(userId);
@@ -188,6 +224,17 @@ type CreateBasePostInput = {
   fileSizeBytes: bigint;
   width: number | null;
   height: number | null;
+  mediaItems?: {
+    type: "CLIP" | "SCREENSHOT";
+    sortOrder: number;
+    mediaUrl: string;
+    thumbnailUrl: string | null;
+    originalPath: string | null;
+    processedPath: string | null;
+    fileSizeBytes: bigint;
+    width: number | null;
+    height: number | null;
+  }[];
 };
 
 async function createBasePost(input: CreateBasePostInput) {
@@ -220,6 +267,11 @@ async function createBasePost(input: CreateBasePostInput) {
         height: input.height,
         isNsfw: input.isNsfw,
         publishedAt: isProcessingClip || input.visibility !== "PUBLIC" ? null : new Date(),
+        mediaItems: input.mediaItems?.length
+          ? {
+              create: input.mediaItems,
+            }
+          : undefined,
       },
     });
 

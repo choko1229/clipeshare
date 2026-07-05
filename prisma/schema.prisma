@@ -69,6 +69,8 @@ model User {
   isBanned        Boolean   @default(false)
   banReason       String?   @db.Text
   bannedAt        DateTime?
+  accountLevelExpiresAt DateTime?
+  levelProgressResetAt DateTime?
   birthDate       DateTime?
   ageVerifiedAt   DateTime?
   ageVerificationFailedAt DateTime?
@@ -140,6 +142,7 @@ model AccountLevel {
   minPostCount       Int      @default(0)
   minAccountAgeDays  Int      @default(0)
   minFollowerCount   Int      @default(0)
+  promotionRule      Json?
   isManualOnly       Boolean  @default(false)
   isDefault          Boolean  @default(false)
   createdAt          DateTime @default(now())
@@ -236,12 +239,32 @@ model Post {
   bookmarks  Bookmark[]
   uploadJobs UploadJob[]
   retentionFiles MediaRetentionFile[]
+  mediaItems PostMedia[]
 
   @@index([status, visibility, publishedAt])
   @@index([gameId, publishedAt])
   @@index([userId, publishedAt])
   @@index([type, publishedAt])
   @@index([isNsfw, publishedAt])
+}
+
+model PostMedia {
+  id            String   @id @default(cuid())
+  postId        String
+  type          PostType
+  sortOrder     Int      @default(0)
+  mediaUrl      String   @db.Text
+  thumbnailUrl  String?  @db.Text
+  originalPath  String?  @db.Text
+  processedPath String?  @db.Text
+  fileSizeBytes BigInt?
+  width         Int?
+  height        Int?
+  createdAt     DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, sortOrder])
 }
 
 model PostTag {

@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Bookmark, Camera, Clapperboard, Heart, MessageCircle } from "lucide-react";
+import { Bookmark, Camera, Clapperboard, Heart, Images, MessageCircle } from "lucide-react";
 
 type PostCardProps = {
   publicId: string;
@@ -13,6 +13,7 @@ type PostCardProps = {
   commentCount: number;
   bookmarkCount: number;
   isNsfw: boolean;
+  mediaCount?: number;
 };
 
 export function PostCard({
@@ -26,6 +27,7 @@ export function PostCard({
   commentCount,
   bookmarkCount,
   isNsfw,
+  mediaCount = 1,
 }: PostCardProps) {
   return (
     <article className="overflow-hidden rounded-md border border-border bg-card">
@@ -39,6 +41,12 @@ export function PostCard({
           <div className="absolute right-3 top-3 text-white/80">
             {type === "CLIP" ? <Clapperboard size={28} /> : <Camera size={28} />}
           </div>
+          {type === "SCREENSHOT" && mediaCount > 1 ? (
+            <div className="absolute bottom-3 right-3 inline-flex items-center gap-1 rounded bg-black/60 px-2 py-1 text-xs font-bold text-white">
+              <Images size={14} />
+              {mediaCount}
+            </div>
+          ) : null}
         </div>
       </Link>
       <div className="space-y-3 p-4">

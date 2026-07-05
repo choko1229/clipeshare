@@ -22,6 +22,15 @@ function LevelBadge({ color, name }: { color: string; name: string }) {
   );
 }
 
+function datetimeLocalValue(value: Date | null) {
+  if (!value) {
+    return "";
+  }
+
+  const offset = value.getTimezoneOffset() * 60_000;
+  return new Date(value.getTime() - offset).toISOString().slice(0, 16);
+}
+
 export default async function AdminUsersPage() {
   const [users, accountLevels, defaultLevel] = await Promise.all([
     prisma.user.findMany({
@@ -97,7 +106,16 @@ export default async function AdminUsersPage() {
                       </option>
                     ))}
                   </select>
-                  <input className="h-10 rounded-md border border-input bg-background px-3 text-sm" name="reason" placeholder="レベル変更理由" />
+                  <div className="grid gap-2">
+                    <input className="h-10 rounded-md border border-input bg-background px-3 text-sm" name="reason" placeholder="レベル変更理由" />
+                    <input
+                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      defaultValue={datetimeLocalValue(user.accountLevelExpiresAt)}
+                      name="accountLevelExpiresAt"
+                      title="Nuisance期限"
+                      type="datetime-local"
+                    />
+                  </div>
                   <Button type="submit" variant="outline">
                     レベル変更
                   </Button>

@@ -129,6 +129,19 @@ function parseOptionalDate(value: FormDataEntryValue | null) {
   return parsed;
 }
 
+function parseOptionalDateTime(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error("期限は正しい日時で入力してください。");
+  }
+
+  return parsed;
+}
+
 export async function updateReportStatus(formData: FormData) {
   const admin = await requireModerator();
   const reportId = idSchema.parse(formData.get("reportId"));
@@ -631,6 +644,7 @@ export async function updateUserAccountLevel(formData: FormData) {
   const userId = idSchema.parse(formData.get("userId"));
   const accountLevelId = z.string().trim().optional().parse(formData.get("accountLevelId") || undefined) ?? null;
   const reason = z.string().trim().max(1000).optional().parse(formData.get("reason") || undefined);
+  const accountLevelExpiresAt = parseOptionalDateTime(formData.get("accountLevelExpiresAt"));
 
   const before = await prisma.user.findUnique({
     where: { id: userId },
@@ -640,6 +654,7 @@ export async function updateUserAccountLevel(formData: FormData) {
     throw new Error("ユーザーが見つかりません。");
   }
 
+  let nextLevelName: string | null = null;
   if (accountLevelId) {
     const level = await prisma.accountLevel.findUnique({
       where: { id: accountLevelId },
@@ -648,12 +663,15 @@ export async function updateUserAccountLevel(formData: FormData) {
     if (!level) {
       throw new Error("アカウントレベルが見つかりません。");
     }
+
+    nextLevelName = level.name;
   }
 
   const after = await prisma.user.update({
     where: { id: userId },
     data: {
       accountLevelId,
+      accountLevelExpiresAt: nextLevelName === "Nuisance" ? accountLevelExpiresAt : null,
     },
   });
 

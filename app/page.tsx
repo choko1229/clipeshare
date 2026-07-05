@@ -108,6 +108,11 @@ async function getTimelinePosts(sort: TimelineSort) {
       },
       include: {
         game: true,
+        _count: {
+          select: {
+            mediaItems: true,
+          },
+        },
       },
       orderBy: getOrderBy(sort),
       take: 24,
@@ -172,6 +177,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   isNsfw={post.isNsfw}
                   key={post.id}
                   likeCount={Number(post.likeCount)}
+                  mediaCount={post._count.mediaItems || 1}
                   publicId={post.publicId}
                   thumbnailUrl={post.thumbnailUrl}
                   title={post.title}

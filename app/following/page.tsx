@@ -28,6 +28,11 @@ export default async function FollowingPage() {
     },
     include: {
       game: true,
+      _count: {
+        select: {
+          mediaItems: true,
+        },
+      },
     },
     orderBy: {
       publishedAt: "desc",
@@ -53,6 +58,7 @@ export default async function FollowingPage() {
               isNsfw={post.isNsfw}
               key={post.id}
               likeCount={Number(post.likeCount)}
+              mediaCount={post._count.mediaItems || 1}
               publicId={post.publicId}
               thumbnailUrl={post.thumbnailUrl}
               title={post.title}

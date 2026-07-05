@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
@@ -7,6 +6,7 @@ import { Bookmark, Eye, Flag, Heart, MessageCircle, Pencil, Trash2 } from "lucid
 import { authOptions } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { HlsPlayer } from "@/components/media/hls-player";
+import { ImageCarousel } from "@/components/media/image-carousel";
 import { NsfwGate } from "@/components/media/nsfw-gate";
 import { SharePanel } from "@/components/share/share-panel";
 import { prisma } from "@/lib/db/prisma";
@@ -46,6 +46,11 @@ async function getPublicPost(publicId: string) {
         },
       },
       user: true,
+      mediaItems: {
+        orderBy: {
+          sortOrder: "asc",
+        },
+      },
       comments: {
         where: {
           status: "PUBLISHED",
@@ -97,6 +102,11 @@ async function getVisiblePost(publicId: string, viewerId?: string) {
         },
       },
       user: true,
+      mediaItems: {
+        orderBy: {
+          sortOrder: "asc",
+        },
+      },
       comments: {
         where: {
           status: "PUBLISHED",
@@ -253,6 +263,26 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
     post.status === "PUBLISHED" && post.visibility === "PUBLIC" && !post.isNsfw && post.type === "CLIP" && post.shareVideoUrl
       ? absoluteUrl(post.shareVideoUrl)
       : undefined;
+  const carouselImages =
+    post.type === "SCREENSHOT"
+      ? post.mediaItems.length > 0
+        ? post.mediaItems.map((item, index) => ({
+            id: item.id,
+            mediaUrl: item.mediaUrl,
+            thumbnailUrl: item.thumbnailUrl,
+            title: `${post.title} ${index + 1}`,
+          }))
+        : post.mediaUrl
+          ? [
+              {
+                id: post.id,
+                mediaUrl: post.mediaUrl,
+                thumbnailUrl: post.thumbnailUrl,
+                title: post.title,
+              },
+            ]
+          : []
+      : [];
   const isLiked = session?.user?.id
     ? Boolean(
         await prisma.like.findUnique({
@@ -290,8 +320,8 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
         <NsfwGate access={nsfwAccess} isNsfw={post.isNsfw}>
           {post.type === "CLIP" && post.mediaUrl ? (
             <HlsPlayer poster={post.thumbnailUrl} src={post.mediaUrl} title={post.title} />
-          ) : post.mediaUrl ? (
-            <Image alt={post.title} className="object-contain" fill priority src={post.mediaUrl} />
+          ) : carouselImages.length > 0 ? (
+            <ImageCarousel images={carouselImages} />
           ) : (
             <div className="grid h-full place-items-center p-6 text-center">
               <div>

@@ -13,13 +13,13 @@ export type UploadLimits = {
 
 const fallbackLimits: UploadLimits = {
   accountLevelId: null,
-  accountLevelName: "NewUser",
-  levelColor: "#8b949e",
-  maxVideoSeconds: 180,
-  maxVideoSizeBytes: 300_000_000,
-  maxImageSizeBytes: 50_000_000,
+  accountLevelName: "Visitor",
+  levelColor: "#808080",
+  maxVideoSeconds: 30,
+  maxVideoSizeBytes: 60_000_000,
+  maxImageSizeBytes: 3_000_000,
   maxImagesPerPost: 1,
-  dailyUploadLimit: 20,
+  dailyUploadLimit: 5,
 };
 
 export async function getUploadLimitsForUser(userId: string): Promise<UploadLimits> {
