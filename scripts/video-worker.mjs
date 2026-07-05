@@ -61,8 +61,9 @@ async function processJob(job) {
   try {
     const maxVideoSeconds = await resolveMaxVideoSeconds(job);
     const metadata = await probeVideo(job.inputPath);
-    if (metadata.durationSeconds > maxVideoSeconds) {
-      throw new Error(`Video duration ${metadata.durationSeconds}s exceeds ${maxVideoSeconds}s.`);
+    const clipRange = resolveClipRange(job, metadata.durationSeconds);
+    if (clipRange.durationSeconds > maxVideoSeconds) {
+      throw new Error(`Video duration ${clipRange.durationSeconds}s exceeds ${maxVideoSeconds}s.`);
     }
 
     const hlsDir = path.join(processedRoot, "hls", job.post.publicId);
@@ -77,8 +78,7 @@ async function processJob(job) {
 
     await run("ffmpeg", [
       "-y",
-      "-i",
-      job.inputPath,
+      ...ffmpegInputArgs(job.inputPath, clipRange),
       "-vf",
       "thumbnail,scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720",
       "-frames:v",
@@ -92,8 +92,7 @@ async function processJob(job) {
 
     await run("ffmpeg", [
       "-y",
-      "-i",
-      job.inputPath,
+      ...ffmpegInputArgs(job.inputPath, clipRange),
       "-vf",
       "scale='min(1280,iw)':-2",
       "-c:v",
@@ -119,8 +118,7 @@ async function processJob(job) {
 
     await run("ffmpeg", [
       "-y",
-      "-i",
-      job.inputPath,
+      ...ffmpegInputArgs(job.inputPath, clipRange),
       "-vf",
       "scale='if(gte(iw,ih),min(1280,iw),-2)':'if(gte(iw,ih),-2,min(1280,ih))',scale='trunc(iw/2)*2:trunc(ih/2)*2'",
       "-c:v",
@@ -157,7 +155,7 @@ async function processJob(job) {
           mediaUrl: `/media/hls/${job.post.publicId}/master.m3u8`,
           shareVideoUrl: `/media/videos/${job.post.publicId}.mp4`,
           hlsPath: playlistPath,
-          durationSeconds: Math.round(metadata.durationSeconds),
+          durationSeconds: Math.round(clipRange.durationSeconds),
           width: metadata.width,
           height: metadata.height,
           publishedAt: job.post.visibility === "PUBLIC" ? new Date() : null,
@@ -204,6 +202,50 @@ async function processJob(job) {
 
 function daysFromNow(days) {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+}
+
+function resolveClipRange(job, sourceDurationSeconds) {
+  const startSeconds = normalizeClipSecond(job.clipStartSeconds, 0);
+  const requestedEndSeconds = normalizeClipSecond(job.clipEndSeconds, sourceDurationSeconds);
+  const safeStartSeconds = Math.min(startSeconds, Math.max(0, sourceDurationSeconds - 0.1));
+  const safeEndSeconds = Math.min(Math.max(requestedEndSeconds, safeStartSeconds + 0.1), sourceDurationSeconds);
+  const durationSeconds = safeEndSeconds - safeStartSeconds;
+
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    throw new Error("Invalid video clip range.");
+  }
+
+  return {
+    durationSeconds,
+    endSeconds: safeEndSeconds,
+    startSeconds: safeStartSeconds,
+  };
+}
+
+function normalizeClipSecond(value, fallback) {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) && numberValue >= 0 ? numberValue : fallback;
+}
+
+function ffmpegInputArgs(inputPath, clipRange) {
+  const hasCustomRange = clipRange.startSeconds > 0 || clipRange.endSeconds < Number.POSITIVE_INFINITY;
+  const args = [];
+
+  if (clipRange.startSeconds > 0) {
+    args.push("-ss", formatSecond(clipRange.startSeconds));
+  }
+
+  args.push("-i", inputPath);
+
+  if (hasCustomRange) {
+    args.push("-t", formatSecond(clipRange.durationSeconds));
+  }
+
+  return args;
+}
+
+function formatSecond(value) {
+  return Math.max(0, value).toFixed(3).replace(/\.?0+$/, "");
 }
 
 async function resolveMaxVideoSeconds(job) {

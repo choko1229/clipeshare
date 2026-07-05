@@ -18,9 +18,13 @@ import { syncUserAccountLevel } from "@/lib/users/account-levels";
 
 const createPostSchema = z.object({
   bodyText: z.string().min(1).max(4200),
+  clipEndSeconds: z.coerce.number().finite().min(0).optional(),
+  clipStartSeconds: z.coerce.number().finite().min(0).optional(),
   gameName: z.string().trim().max(120).optional(),
   visibility: z.enum(["PUBLIC", "PRIVATE"]).default("PUBLIC"),
   isNsfw: z.boolean().default(false),
+}).refine((value) => value.clipEndSeconds === undefined || value.clipStartSeconds === undefined || value.clipEndSeconds > value.clipStartSeconds, {
+  message: "動画の終了秒は開始秒より後にしてください。",
 });
 
 export async function createPost(formData: FormData) {
@@ -40,6 +44,8 @@ async function createPostInternal(formData: FormData) {
 
   const parsed = createPostSchema.parse({
     bodyText: formData.get("bodyText"),
+    clipEndSeconds: optionalNumberFormValue(formData.get("clipEndSeconds")),
+    clipStartSeconds: optionalNumberFormValue(formData.get("clipStartSeconds")),
     gameName: formData.get("gameName"),
     visibility: formData.get("visibility") === "PRIVATE" ? "PRIVATE" : "PUBLIC",
     isNsfw: formData.get("isNsfw") === "on",
@@ -160,6 +166,8 @@ async function createPostInternal(formData: FormData) {
     data: {
       postId: post.id,
       inputPath: storedVideo.originalPath,
+      clipStartSeconds: parsed.clipStartSeconds,
+      clipEndSeconds: parsed.clipEndSeconds,
       status: "QUEUED",
     },
   });
@@ -173,6 +181,14 @@ async function createPostInternal(formData: FormData) {
 function safeReturnTo(value: FormDataEntryValue | null, fallback: string) {
   if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
     return fallback;
+  }
+
+  return value;
+}
+
+function optionalNumberFormValue(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || value.trim() === "") {
+    return undefined;
   }
 
   return value;

@@ -394,6 +394,8 @@ model UploadJob {
   status       UploadJobStatus @default(QUEUED)
   inputPath    String          @db.Text
   outputPath   String?         @db.Text
+  clipStartSeconds Float?
+  clipEndSeconds   Float?
   errorMessage String?         @db.Text
   startedAt    DateTime?
   finishedAt   DateTime?

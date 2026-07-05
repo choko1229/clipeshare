@@ -225,7 +225,9 @@ export function InlinePostComposer({ isLoggedIn, userName, userImage, gameSugges
       ? gameSuggestions.filter((game) => game.name.toLowerCase().includes(gameName.toLowerCase())).slice(0, 8)
       : [];
   const videoPreview = selectedPreviews.find((preview) => preview.type.startsWith("video/"));
-  const clipEndValue = clipEnd === "" ? Math.floor(videoPreview?.durationSeconds ?? 0) : clipEnd;
+  const clipEndValue = clipEnd === "" ? (videoPreview?.durationSeconds ? Math.floor(videoPreview.durationSeconds) : "") : clipEnd;
+  const clipDuration =
+    typeof clipEndValue === "number" && clipEndValue > clipStart ? Math.max(0, clipEndValue - clipStart) : undefined;
 
   function insertTag(tagName: string) {
     const textarea = textareaRef.current;
@@ -361,7 +363,7 @@ export function InlinePostComposer({ isLoggedIn, userName, userImage, gameSugges
             {videoPreview ? (
               <>
                 <input name="clipStartSeconds" type="hidden" value={clipStart} />
-                <input name="clipEndSeconds" type="hidden" value={clipEndValue} />
+                {typeof clipEndValue === "number" ? <input name="clipEndSeconds" type="hidden" value={clipEndValue} /> : null}
               </>
             ) : null}
             <input
@@ -435,7 +437,8 @@ export function InlinePostComposer({ isLoggedIn, userName, userImage, gameSugges
           <div className="rounded-md border border-border bg-background p-3 text-sm">
             <p className="font-medium">動画クリッピング</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              動画時間: {videoPreview.durationSeconds ? `${videoPreview.durationSeconds.toFixed(1)}秒` : "読み取り中"}。指定した範囲は今後の切り出し処理で使用します。
+              動画時間: {videoPreview.durationSeconds ? `${videoPreview.durationSeconds.toFixed(1)}秒` : "読み取り中"}。指定した範囲で変換します。
+              {clipDuration ? ` 投稿される長さ: ${clipDuration.toFixed(1)}秒。` : ""}
             </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <label className="grid gap-1 text-xs">
