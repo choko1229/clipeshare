@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireActiveUser } from "@/lib/auth/active-user";
 import { prisma } from "@/lib/db/prisma";
 import { storeAvatarImage } from "@/lib/media/avatars";
+import { inferSocialLinkType } from "@/lib/users/social-links";
 import { isValidUsername, normalizeUsername } from "@/lib/users/username";
 
 const profileSchema = z.object({
@@ -91,19 +92,18 @@ export async function updateProfile(formData: FormData) {
 }
 
 function parseLinks(formData: FormData) {
-  const types = formData.getAll("linkType");
   const labels = formData.getAll("linkLabel");
   const urls = formData.getAll("linkUrl");
   const links = [];
 
-  for (let index = 0; index < Math.min(types.length, urls.length, 5); index += 1) {
+  for (let index = 0; index < urls.length; index += 1) {
     const url = String(urls[index] ?? "").trim();
     if (!url) {
       continue;
     }
 
     const parsed = linkSchema.parse({
-      type: String(types[index] ?? "website"),
+      type: inferSocialLinkType(url),
       label: String(labels[index] ?? ""),
       url,
     });

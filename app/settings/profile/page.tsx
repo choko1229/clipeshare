@@ -5,14 +5,6 @@ import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/db/prisma";
 import { updateProfile } from "@/app/settings/profile/actions";
 
-const linkTypes = [
-  { value: "x", label: "X" },
-  { value: "discord", label: "Discord" },
-  { value: "youtube", label: "YouTube" },
-  { value: "twitch", label: "Twitch" },
-  { value: "website", label: "Website" },
-];
-
 export default async function ProfileSettingsPage() {
   const session = await getServerSession(authOptions);
 
@@ -43,6 +35,9 @@ export default async function ProfileSettingsPage() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold">プロフィール編集</h1>
         <p className="mt-2 text-sm text-muted-foreground">公開プロフィールに表示する情報を設定します。</p>
+        <Button asChild className="mt-4" variant="outline">
+          <a href="/settings/age">年齢確認を設定</a>
+        </Button>
       </div>
 
       <section className="rounded-md border border-border bg-card p-5">
@@ -106,16 +101,10 @@ export default async function ProfileSettingsPage() {
 
           <div>
             <h2 className="text-sm font-medium">SNSリンク</h2>
+            <p className="mt-1 text-xs text-muted-foreground">URLからDiscord / X / YouTube / Misskey / Instagram / Steamなどを自動判定します。</p>
             <div className="mt-2 space-y-3">
               {linkRows.map((link, index) => (
-                <div className="grid gap-2 sm:grid-cols-[130px_1fr]" key={link?.id ?? index}>
-                  <select className="h-10 rounded-md border border-input bg-background px-3 text-sm" defaultValue={link?.type ?? "website"} name="linkType">
-                    {linkTypes.map((type) => (
-                      <option key={type.value} value={type.value}>
-                        {type.label}
-                      </option>
-                    ))}
-                  </select>
+                <div className="grid gap-2" key={link?.id ?? index}>
                   <input
                     className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                     defaultValue={link?.url ?? ""}
@@ -125,7 +114,7 @@ export default async function ProfileSettingsPage() {
                     type="url"
                   />
                   <input
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm sm:col-span-2"
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                     defaultValue={link?.label ?? ""}
                     maxLength={80}
                     name="linkLabel"

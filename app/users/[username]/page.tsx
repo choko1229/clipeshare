@@ -3,12 +3,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { ExternalLink } from "lucide-react";
 import { authOptions } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { PostCard } from "@/components/posts/post-card";
+import { SocialLinkBadge, VerifiedAdultBadge } from "@/components/profile/social-link-badge";
 import { prisma } from "@/lib/db/prisma";
 import { toggleFollow } from "@/app/users/[username]/actions";
+import { isAdultBirthDate } from "@/lib/users/age";
 
 export const dynamic = "force-dynamic";
 
@@ -108,6 +109,7 @@ export default async function UserProfilePage({ params }: UserPageProps) {
       : false;
   const totalLikes = user.posts.reduce((sum, post) => sum + Number(post.likeCount), 0);
   const topGames = Array.from(new Set(user.posts.map((post) => post.game.name))).slice(0, 5);
+  const isAdultVerified = Boolean(user.ageVerifiedAt) || Boolean(user.birthDate && isAdultBirthDate(user.birthDate));
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
@@ -127,6 +129,11 @@ export default async function UserProfilePage({ params }: UserPageProps) {
             <div>
               <h1 className="text-3xl font-bold">{user.displayName ?? user.name ?? user.username}</h1>
               <p className="mt-1 text-sm text-muted-foreground">@{user.username}</p>
+              {isAdultVerified ? (
+                <div className="mt-2">
+                  <VerifiedAdultBadge />
+                </div>
+              ) : null}
             </div>
             {isOwner ? (
               <Button asChild variant="outline">
@@ -151,16 +158,7 @@ export default async function UserProfilePage({ params }: UserPageProps) {
           {user.links.length > 0 ? (
             <div className="mt-4 flex flex-wrap gap-2">
               {user.links.map((link) => (
-                <a
-                  className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
-                  href={link.url}
-                  key={link.id}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  {link.label || linkTypeLabel(link.type)}
-                  <ExternalLink size={14} />
-                </a>
+                <SocialLinkBadge key={link.id} label={link.label} type={link.type} url={link.url} />
               ))}
             </div>
           ) : null}
@@ -228,19 +226,4 @@ export default async function UserProfilePage({ params }: UserPageProps) {
       </section>
     </main>
   );
-}
-
-function linkTypeLabel(type: string) {
-  switch (type) {
-    case "x":
-      return "X";
-    case "discord":
-      return "Discord";
-    case "youtube":
-      return "YouTube";
-    case "twitch":
-      return "Twitch";
-    default:
-      return "Website";
-  }
 }

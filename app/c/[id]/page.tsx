@@ -10,6 +10,7 @@ import { HlsPlayer } from "@/components/media/hls-player";
 import { NsfwGate } from "@/components/media/nsfw-gate";
 import { SharePanel } from "@/components/share/share-panel";
 import { prisma } from "@/lib/db/prisma";
+import { isAdultBirthDate } from "@/lib/users/age";
 import { createComment, createCommentReport, createReport, deleteComment, toggleBookmark, toggleLike } from "@/app/c/[id]/actions";
 
 export const dynamic = "force-dynamic";
@@ -74,7 +75,6 @@ async function getVisiblePost(publicId: string, viewerId?: string) {
       status: {
         in: ["PUBLISHED", "PROCESSING", "PRIVATE", "FAILED"],
       },
-      ...(viewerId ? {} : { isNsfw: false }),
       OR: [
         {
           visibility: "PUBLIC",
@@ -110,6 +110,38 @@ async function getVisiblePost(publicId: string, viewerId?: string) {
       },
     },
   });
+}
+
+async function getNsfwAccess(isNsfw: boolean, viewerId?: string) {
+  if (!isNsfw) {
+    return "allowed" as const;
+  }
+
+  if (!viewerId) {
+    return "login" as const;
+  }
+
+  const viewer = await prisma.user.findUnique({
+    where: { id: viewerId },
+    select: {
+      ageVerifiedAt: true,
+      birthDate: true,
+    },
+  });
+
+  if (!viewer) {
+    return "login" as const;
+  }
+
+  if (viewer.ageVerifiedAt || (viewer.birthDate && isAdultBirthDate(viewer.birthDate))) {
+    return "allowed" as const;
+  }
+
+  if (viewer.birthDate && !isAdultBirthDate(viewer.birthDate)) {
+    return "blocked" as const;
+  }
+
+  return "verify" as const;
 }
 
 export async function generateMetadata({ params }: ClipPageProps): Promise<Metadata> {
@@ -213,6 +245,7 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
 
   const displayViewCount = Number(post.viewCount) + 1;
   const isOwner = session?.user?.id === post.userId;
+  const nsfwAccess = await getNsfwAccess(post.isNsfw, session?.user?.id);
   const customText = getCustomText(post.customFields);
   const shareUrl = absoluteUrl(`/c/${post.publicId}`);
   const embedUrl = absoluteUrl(`/embed/c/${post.publicId}`);
@@ -254,7 +287,7 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
       <div className="relative aspect-video overflow-hidden rounded-md border border-border bg-card">
-        <NsfwGate isNsfw={post.isNsfw}>
+        <NsfwGate access={nsfwAccess} isNsfw={post.isNsfw}>
           {post.type === "CLIP" && post.mediaUrl ? (
             <HlsPlayer poster={post.thumbnailUrl} src={post.mediaUrl} title={post.title} />
           ) : post.mediaUrl ? (
