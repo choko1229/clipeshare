@@ -81,6 +81,7 @@ export async function toggleLike(formData: FormData) {
   });
 
   revalidatePath("/");
+  revalidatePath("/v");
   revalidatePath(`/c/${publicId}`);
 }
 
@@ -137,6 +138,7 @@ export async function toggleBookmark(formData: FormData) {
   });
 
   revalidatePath("/");
+  revalidatePath("/v");
   revalidatePath("/bookmarks");
   revalidatePath(`/c/${publicId}`);
 }
@@ -182,6 +184,7 @@ export async function createComment(formData: FormData) {
   });
 
   revalidatePath("/");
+  revalidatePath("/v");
   revalidatePath("/admin");
   revalidatePath("/admin/comments");
   revalidatePath("/admin/reports");
