@@ -66,6 +66,22 @@ async function getGameSuggestions() {
       isActive: true,
     },
     select: {
+      aliases: true,
+      id: true,
+      name: true,
+      slug: true,
+    },
+    orderBy: [{ posts: { _count: "desc" } }, { name: "asc" }],
+    take: 80,
+  });
+}
+
+async function getTagSuggestions() {
+  return prisma.tag.findMany({
+    where: {
+      isActive: true,
+    },
+    select: {
       id: true,
       name: true,
     },
@@ -200,9 +216,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const activeSort = parseTimelineSort(sortParam);
   const activeView = parseViewMode(viewParam);
   const userId = session?.user?.id;
-  const [timelinePage, gameSuggestions, currentUser, trends, recommendedUsers] = await Promise.all([
+  const [timelinePage, gameSuggestions, tagSuggestions, currentUser, trends, recommendedUsers] = await Promise.all([
     getTimelinePage(activeSort, 0, timelinePageSize),
     getGameSuggestions(),
+    getTagSuggestions(),
     getCurrentUserProfile(userId),
     getTrends(),
     getRecommendedUsers(userId),
@@ -216,6 +233,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           <InlinePostComposer
             gameSuggestions={gameSuggestions}
             isLoggedIn={Boolean(session?.user)}
+            tagSuggestions={tagSuggestions}
             userImage={currentUser?.avatarUrl || currentUser?.image || session?.user?.image}
             userName={currentUser?.displayName || currentUser?.name || session?.user?.name}
           />

@@ -48,7 +48,7 @@ export default async function BookmarksPage() {
       </div>
 
       {bookmarks.length > 0 ? (
-        <div className="grid justify-center gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),360px))]">
+        <div className="grid justify-between gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),360px))]">
           {bookmarks.map(({ post }) => (
             <PostCard
               bookmarkCount={Number(post.bookmarkCount)}
