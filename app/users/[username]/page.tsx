@@ -256,6 +256,7 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
   const birthDateText = user.birthDate ? user.birthDate.toLocaleDateString("ja-JP") : null;
   const accentColor = user.profileAccentColor ?? visibleLevel?.levelColor ?? "#7c5cff";
   const buttonColor = user.profileButtonColor ?? accentColor;
+  const overlayColor = user.profileOverlayColor ?? accentColor;
   const groupedPostItems = user.posts.map((post) => ({
     gameName: post.game.name,
     gameSlug: post.game.slug,
@@ -278,7 +279,7 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
 
   return (
     <main
-      className="relative isolate min-h-screen overflow-hidden px-4 py-8 sm:px-6 lg:px-8"
+      className="relative isolate min-h-screen w-full max-w-full overflow-x-clip bg-background px-4 py-8 text-foreground sm:px-6 lg:px-8"
       style={
         {
           ...mainBackgroundStyle,
@@ -289,15 +290,15 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
       {user.profileBackgroundUrl ? (
         <div
           aria-hidden="true"
-          className="fixed inset-0 -z-10 bg-cover bg-center"
+          className="fixed -inset-16 -z-10 bg-cover bg-center"
           style={{
-            backgroundImage: `linear-gradient(rgba(0,0,0,.52), rgba(0,0,0,.72)), url("${user.profileBackgroundUrl}")`,
+            backgroundImage: `linear-gradient(${hexToRgba(overlayColor, 0.52)}, ${hexToRgba(overlayColor, 0.76)}), url("${user.profileBackgroundUrl}")`,
             filter: `blur(${user.profileBackgroundBlur}px)`,
-            transform: user.profileBackgroundBlur > 0 ? "scale(1.08)" : undefined,
+            transform: user.profileBackgroundBlur > 0 ? "scale(1.04)" : undefined,
           }}
         />
       ) : null}
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
         <section className="min-w-0 space-y-5">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
@@ -368,7 +369,7 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
           )}
         </section>
 
-        <aside className="xl:sticky xl:top-24 xl:self-start">
+        <aside className="min-w-0 xl:sticky xl:top-24 xl:self-start">
           <section className="overflow-hidden rounded-md border border-border bg-card">
             <div className="relative aspect-[3/1] bg-muted" style={!user.profileHeaderUrl ? { backgroundColor: `${accentColor}44` } : undefined}>
               {user.profileHeaderUrl ? <Image alt="" className="object-cover" fill priority sizes="360px" src={user.profileHeaderUrl} /> : null}
@@ -502,6 +503,8 @@ function profileThemeVariables(theme: "DARK" | "LIGHT" | "SYSTEM", accentColor: 
     return {
       "--primary": accentColor,
       "--ring": accentColor,
+      "--destructive": "#f15d6a",
+      "--destructive-foreground": "#fff7f8",
     } as CSSProperties;
   }
 
@@ -520,6 +523,8 @@ function profileThemeVariables(theme: "DARK" | "LIGHT" | "SYSTEM", accentColor: 
       "--secondary": "#e2e7f0",
       "--secondary-foreground": "#12141c",
       "--ring": accentColor,
+      "--destructive": "#d83d4b",
+      "--destructive-foreground": "#fff7f8",
     } as CSSProperties;
   }
 
@@ -537,5 +542,15 @@ function profileThemeVariables(theme: "DARK" | "LIGHT" | "SYSTEM", accentColor: 
     "--secondary": "#283144",
     "--secondary-foreground": "#f7f7fb",
     "--ring": accentColor,
+    "--destructive": "#f15d6a",
+    "--destructive-foreground": "#fff7f8",
   } as CSSProperties;
+}
+
+function hexToRgba(hex: string, alpha: number) {
+  const normalized = /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : "#10131b";
+  const red = Number.parseInt(normalized.slice(1, 3), 16);
+  const green = Number.parseInt(normalized.slice(3, 5), 16);
+  const blue = Number.parseInt(normalized.slice(5, 7), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }

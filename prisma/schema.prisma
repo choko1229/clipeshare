@@ -78,6 +78,7 @@ model User {
   profileHeaderUrl String?  @db.Text
   profileBackgroundUrl String? @db.Text
   profileBackgroundBlur Int @default(0)
+  profileOverlayColor String?
   profileThemePreference ThemePreference @default(SYSTEM)
   profileDefaultView ProfileLayout @default(CARD)
   profileGroupGames Boolean @default(false)

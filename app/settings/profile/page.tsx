@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { Button } from "@/components/ui/button";
+import { ProfileBackgroundBlurInput } from "@/components/profile/profile-background-blur-input";
 import { prisma } from "@/lib/db/prisma";
 import { updateProfile } from "@/app/settings/profile/actions";
 import { searchParamError } from "@/lib/actions/error-message";
@@ -131,21 +132,10 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
               />
               <p className="mt-2 text-xs text-muted-foreground">プロフィール画面の背景に使います。5MBまで。</p>
             </div>
-              <label className="block text-sm font-medium" htmlFor="profileBackgroundBlur">
-                背景ぼかし量
-                <input
-                  className="mt-2 w-full accent-primary"
-                  defaultValue={user.profileBackgroundBlur}
-                  id="profileBackgroundBlur"
-                  max={128}
-                  min={0}
-                  name="profileBackgroundBlur"
-                  step={1}
-                  type="range"
-                />
-              </label>
+              <ProfileBackgroundBlurInput defaultValue={user.profileBackgroundBlur} />
               <ColorInput defaultValue={user.profileAccentColor ?? "#7c5cff"} id="profileAccentColor" label="アクセントカラー" name="profileAccentColor" />
               <ColorInput defaultValue={user.profileButtonColor ?? "#7c5cff"} id="profileButtonColor" label="ボタンカラー" name="profileButtonColor" />
+              <ColorInput defaultValue={user.profileOverlayColor ?? user.profileAccentColor ?? "#10131b"} id="profileOverlayColor" label="背景画像オーバーレイ色" name="profileOverlayColor" />
               <SelectInput
                 defaultValue={user.profileThemePreference}
                 id="profileThemePreference"
