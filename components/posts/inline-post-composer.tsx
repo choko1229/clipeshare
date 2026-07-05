@@ -93,6 +93,7 @@ export function InlinePostComposer({ isLoggedIn, userName, userImage, gameSugges
       }}
     >
       <form action={createPost} className="space-y-4">
+        <input name="returnTo" type="hidden" value="/" />
         <div className="flex gap-3">
           <div className="relative size-10 shrink-0 overflow-hidden rounded-full bg-muted">
             {userImage ? <Image alt="" className="object-cover" fill sizes="40px" src={userImage} /> : null}

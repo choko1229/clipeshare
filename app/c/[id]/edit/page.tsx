@@ -7,12 +7,16 @@ import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/db/prisma";
 import { joinPostBody } from "@/lib/posts/post-body";
 import { appendMissingHashTags } from "@/lib/posts/slug";
+import { searchParamError } from "@/lib/actions/error-message";
 
 export const dynamic = "force-dynamic";
 
 type EditPostPageProps = {
   params: Promise<{
     id: string;
+  }>;
+  searchParams: Promise<{
+    error?: string;
   }>;
 };
 
@@ -24,8 +28,8 @@ function getCustomText(value: unknown) {
   return "";
 }
 
-export default async function EditPostPage({ params }: EditPostPageProps) {
-  const { id } = await params;
+export default async function EditPostPage({ params, searchParams }: EditPostPageProps) {
+  const [{ id }, { error }] = await Promise.all([params, searchParams]);
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
@@ -86,6 +90,7 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
       <section className="rounded-md border border-border bg-card p-5">
         <form action={updatePost} className="space-y-5">
           <input name="publicId" type="hidden" value={post.publicId} />
+          <ActionError message={searchParamError(error)} />
 
           <div>
             <label className="block text-sm font-medium" htmlFor="bodyText">
@@ -210,4 +215,12 @@ export default async function EditPostPage({ params }: EditPostPageProps) {
       </section>
     </main>
   );
+}
+
+function ActionError({ message }: { message: string | null }) {
+  if (!message) {
+    return null;
+  }
+
+  return <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">{message}</div>;
 }

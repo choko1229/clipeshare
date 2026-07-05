@@ -7,6 +7,7 @@ import { authOptions } from "@/auth";
 import { InlinePostComposer } from "@/components/posts/inline-post-composer";
 import { TimelineFeed } from "@/components/posts/timeline-feed";
 import { Button } from "@/components/ui/button";
+import { searchParamError } from "@/lib/actions/error-message";
 import { prisma } from "@/lib/db/prisma";
 import { getSortDescription, getTimelinePage, parseTimelineSort, timelinePageSize } from "@/lib/timeline/posts";
 import { syncUserAccountLevel } from "@/lib/users/account-levels";
@@ -32,6 +33,7 @@ type HomePageProps = {
   searchParams: Promise<{
     sort?: string;
     view?: string;
+    error?: string;
   }>;
 };
 
@@ -194,7 +196,7 @@ async function getRecommendedUsers(currentUserId: string | undefined) {
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {
-  const [{ sort: sortParam, view: viewParam }, session] = await Promise.all([searchParams, getServerSession(authOptions)]);
+  const [{ sort: sortParam, view: viewParam, error }, session] = await Promise.all([searchParams, getServerSession(authOptions)]);
   const activeSort = parseTimelineSort(sortParam);
   const activeView = parseViewMode(viewParam);
   const userId = session?.user?.id;
@@ -217,6 +219,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             userImage={currentUser?.avatarUrl || currentUser?.image || session?.user?.image}
             userName={currentUser?.displayName || currentUser?.name || session?.user?.name}
           />
+          <ActionError message={searchParamError(error)} />
 
           <section className="space-y-4">
             <div className="flex flex-wrap items-end justify-between gap-3">
@@ -279,6 +282,14 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       </div>
     </main>
   );
+}
+
+function ActionError({ message }: { message: string | null }) {
+  if (!message) {
+    return null;
+  }
+
+  return <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">{message}</div>;
 }
 
 function ProfilePanel({

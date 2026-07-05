@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { nanoid } from "nanoid";
 import { z } from "zod";
+import { errorRedirectUrl } from "@/lib/actions/error-message";
 import { requireActiveUser } from "@/lib/auth/active-user";
 import { prisma } from "@/lib/db/prisma";
 import { inferGameName } from "@/lib/games/infer-game";
@@ -23,6 +24,17 @@ const createPostSchema = z.object({
 });
 
 export async function createPost(formData: FormData) {
+  const returnTo = safeReturnTo(formData.get("returnTo"), "/posts/new");
+
+  try {
+    const redirectUrl = await createPostInternal(formData);
+    redirect(redirectUrl);
+  } catch (error) {
+    redirect(errorRedirectUrl(returnTo, error));
+  }
+}
+
+async function createPostInternal(formData: FormData) {
   const user = await requireActiveUser();
   const userId = user.id;
 
@@ -119,7 +131,7 @@ export async function createPost(formData: FormData) {
     });
     await createAutoReportForPost(userId, post.id, moderation.reportable);
     await syncUserAccountLevel(userId);
-    redirect(`/c/${post.publicId}`);
+    return `/c/${post.publicId}`;
   }
 
   const storedVideo = await storeOriginalVideo(media, publicId, {
@@ -155,7 +167,15 @@ export async function createPost(formData: FormData) {
   await createAutoReportForPost(userId, post.id, moderation.reportable);
   await syncUserAccountLevel(userId);
 
-  redirect(`/c/${post.publicId}`);
+  return `/c/${post.publicId}`;
+}
+
+function safeReturnTo(value: FormDataEntryValue | null, fallback: string) {
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
+    return fallback;
+  }
+
+  return value;
 }
 
 async function createAutoReportForPost(userId: string, postId: string, matches: { type: string; pattern: string }[]) {

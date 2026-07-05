@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
+import { errorRedirectUrl } from "@/lib/actions/error-message";
 import { requireActiveUser } from "@/lib/auth/active-user";
 import { prisma } from "@/lib/db/prisma";
 import { storeThumbnailImage } from "@/lib/media/images";
@@ -26,6 +27,18 @@ const updatePostSchema = z.object({
 });
 
 export async function updatePost(formData: FormData) {
+  const publicId = typeof formData.get("publicId") === "string" ? String(formData.get("publicId")) : "";
+  const fallback = publicId ? `/c/${publicId}/edit` : "/";
+
+  try {
+    const redirectUrl = await updatePostInternal(formData);
+    redirect(redirectUrl);
+  } catch (error) {
+    redirect(errorRedirectUrl(fallback, error));
+  }
+}
+
+async function updatePostInternal(formData: FormData) {
   const user = await requireActiveUser();
 
   const parsed = updatePostSchema.parse({
@@ -191,5 +204,5 @@ export async function updatePost(formData: FormData) {
     revalidatePath(`/users/${post.user.username}`);
   }
 
-  redirect(`/c/${post.publicId}`);
+  return `/c/${post.publicId}`;
 }

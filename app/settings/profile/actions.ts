@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { errorRedirectUrl } from "@/lib/actions/error-message";
 import { requireActiveUser } from "@/lib/auth/active-user";
 import { prisma } from "@/lib/db/prisma";
 import { storeAvatarImage, storeProfileBackgroundImage, storeProfileHeaderImage } from "@/lib/media/avatars";
@@ -24,6 +25,15 @@ const linkSchema = z.object({
 });
 
 export async function updateProfile(formData: FormData) {
+  try {
+    const redirectUrl = await updateProfileInternal(formData);
+    redirect(redirectUrl);
+  } catch (error) {
+    redirect(errorRedirectUrl("/settings/profile", error));
+  }
+}
+
+async function updateProfileInternal(formData: FormData) {
   const user = await requireActiveUser();
 
   const parsed = profileSchema.parse({
@@ -102,7 +112,7 @@ export async function updateProfile(formData: FormData) {
   revalidatePath("/");
   revalidatePath(`/users/${username}`);
   revalidatePath("/settings/profile");
-  redirect(`/users/${username}`);
+  return `/users/${username}`;
 }
 
 function parseLinks(formData: FormData) {

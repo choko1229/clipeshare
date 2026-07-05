@@ -7,8 +7,16 @@ import { PostSubmitButton } from "@/components/posts/post-submit-button";
 import { prisma } from "@/lib/db/prisma";
 import { formatBytes, getUploadLimitsForUser } from "@/lib/uploads/account-limits";
 import { syncUserAccountLevel } from "@/lib/users/account-levels";
+import { searchParamError } from "@/lib/actions/error-message";
 
-export default async function NewPostPage() {
+type NewPostPageProps = {
+  searchParams: Promise<{
+    error?: string;
+  }>;
+};
+
+export default async function NewPostPage({ searchParams }: NewPostPageProps) {
+  const { error } = await searchParams;
   const session = await getServerSession(authOptions);
 
   if (!session?.user) {
@@ -59,6 +67,8 @@ export default async function NewPostPage() {
         </div>
 
         <form action={createPost} className="space-y-5">
+          <input name="returnTo" type="hidden" value="/posts/new" />
+          <ActionError message={searchParamError(error)} />
           <PostMediaInput />
 
           <div>
@@ -114,4 +124,12 @@ export default async function NewPostPage() {
       </section>
     </main>
   );
+}
+
+function ActionError({ message }: { message: string | null }) {
+  if (!message) {
+    return null;
+  }
+
+  return <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">{message}</div>;
 }

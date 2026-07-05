@@ -4,8 +4,16 @@ import { authOptions } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/db/prisma";
 import { updateProfile } from "@/app/settings/profile/actions";
+import { searchParamError } from "@/lib/actions/error-message";
 
-export default async function ProfileSettingsPage() {
+type ProfileSettingsPageProps = {
+  searchParams: Promise<{
+    error?: string;
+  }>;
+};
+
+export default async function ProfileSettingsPage({ searchParams }: ProfileSettingsPageProps) {
+  const { error } = await searchParams;
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
@@ -42,6 +50,7 @@ export default async function ProfileSettingsPage() {
 
       <section className="max-w-3xl rounded-md border border-border bg-card p-5">
         <form action={updateProfile} className="space-y-5">
+          <ActionError message={searchParamError(error)} />
           <div>
             <label className="block text-sm font-medium" htmlFor="avatar">
               アイコン
@@ -183,4 +192,12 @@ export default async function ProfileSettingsPage() {
       </section>
     </main>
   );
+}
+
+function ActionError({ message }: { message: string | null }) {
+  if (!message) {
+    return null;
+  }
+
+  return <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">{message}</div>;
 }
