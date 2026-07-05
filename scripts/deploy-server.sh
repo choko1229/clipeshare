@@ -56,6 +56,11 @@ if [[ -f "prisma/schema.prisma" ]]; then
   npx prisma migrate deploy
 fi
 
+echo "==> Seeding database defaults"
+if [[ -f "prisma/schema.prisma" ]]; then
+  npx prisma db seed
+fi
+
 echo "==> Building application"
 npm run build
 

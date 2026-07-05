@@ -125,6 +125,7 @@ mainブランチへpushすると、GitHub ActionsがVPSへSSH接続し、以下�
 - `npm ci`
 - `prisma generate`
 - `prisma migrate deploy`
+- `prisma db seed`
 - `npm run build`
 - `systemctl restart clipeshare`
 - `systemctl restart clipeshare-worker`
