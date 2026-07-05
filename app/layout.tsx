@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { HeaderProfile } from "@/components/layout/header-profile";
 import { HeaderSearch } from "@/components/layout/header-search";
+import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { GlobalPostDrop } from "@/components/uploads/global-post-drop";
@@ -81,6 +82,7 @@ export default async function RootLayout({
     <html data-theme={initialTheme} lang="ja" suppressHydrationWarning>
       <body>
         <ThemeProvider initialTheme={initialTheme} persistToDatabase={Boolean(session?.user?.id)}>
+          <ServiceWorkerRegister />
           <GlobalPostDrop />
           <div className="min-h-dvh bg-background text-foreground">
             <header className="sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur">
