@@ -93,6 +93,19 @@ export default async function RootLayout({
             </div>
           </header>
           {children}
+          <footer className="border-t border-border/70 px-4 py-6">
+            <div className="mx-auto flex max-w-6xl flex-wrap gap-4 text-sm text-muted-foreground">
+              <Link className="hover:text-foreground" href="/terms">
+                利用規約
+              </Link>
+              <Link className="hover:text-foreground" href="/privacy">
+                プライバシーポリシー
+              </Link>
+              <Link className="hover:text-foreground" href="/guidelines">
+                ガイドライン
+              </Link>
+            </div>
+          </footer>
         </div>
       </body>
     </html>

@@ -47,6 +47,41 @@ async function main() {
       description: "Replaced media retention period in days.",
     },
   });
+
+  await ensureModerationRule("ng_word", "report", "違法薬物");
+  await ensureModerationRule("ng_word", "report", "個人情報");
+  await ensureModerationRule("ng_word", "report", "住所晒し");
+  await ensureModerationRule("ng_word", "report", "電話番号晒し");
+  await ensureModerationRule("ng_word", "report", "殺害予告");
+  await ensureModerationRule("ng_word", "report", "チート販売");
+  await ensureModerationRule("ng_word", "report", "アカウント販売");
+  await ensureModerationRule("blocked_pattern", "report", "(?:https?://)?(?:.+\\.)?(?:discord|steam|x|twitter)\\.(?:gift|free|click)");
+}
+
+async function ensureModerationRule(type: string, action: string, pattern: string) {
+  const existing = await prisma.moderationRule.findFirst({
+    where: {
+      type,
+      action,
+      pattern,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (existing) {
+    return;
+  }
+
+  await prisma.moderationRule.create({
+    data: {
+      type,
+      action,
+      pattern,
+      isActive: true,
+    },
+  });
 }
 
 main()
