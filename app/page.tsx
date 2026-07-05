@@ -2,14 +2,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { Grid2X2, List, Search, Sparkles, TrendingUp, UserRound } from "lucide-react";
-import type { Prisma } from "@prisma/client";
 import type React from "react";
 import { authOptions } from "@/auth";
 import { InlinePostComposer } from "@/components/posts/inline-post-composer";
-import { PostCard } from "@/components/posts/post-card";
-import { PostTile } from "@/components/posts/post-tile";
+import { TimelineFeed } from "@/components/posts/timeline-feed";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/db/prisma";
+import { getSortDescription, getTimelinePage, parseTimelineSort, timelinePageSize } from "@/lib/timeline/posts";
 import { syncUserAccountLevel } from "@/lib/users/account-levels";
 
 export const dynamic = "force-dynamic";
@@ -43,10 +42,6 @@ type TrendItem = {
   count: number;
 };
 
-function parseTimelineSort(value: string | undefined): TimelineSort {
-  return sortTabs.some((tab) => tab.key === value) ? (value as TimelineSort) : "new";
-}
-
 function parseViewMode(value: string | undefined): ViewMode {
   return value === "tile" ? "tile" : "card";
 }
@@ -61,99 +56,6 @@ function timelineHref(sort: TimelineSort, view: ViewMode) {
   }
   const query = params.toString();
   return query ? `/?${query}` : "/";
-}
-
-function getSortStartDate(sort: TimelineSort) {
-  const now = new Date();
-
-  if (sort === "week") {
-    return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  }
-
-  if (sort === "month") {
-    return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  }
-
-  return null;
-}
-
-function getOrderBy(sort: TimelineSort): Prisma.PostOrderByWithRelationInput[] {
-  if (sort === "popular" || sort === "week" || sort === "month") {
-    return [
-      { likeCount: "desc" },
-      { commentCount: "desc" },
-      { bookmarkCount: "desc" },
-      { viewCount: "desc" },
-      { publishedAt: "desc" },
-    ];
-  }
-
-  if (sort === "views") {
-    return [{ viewCount: "desc" }, { publishedAt: "desc" }];
-  }
-
-  if (sort === "likes") {
-    return [{ likeCount: "desc" }, { publishedAt: "desc" }];
-  }
-
-  if (sort === "comments") {
-    return [{ commentCount: "desc" }, { publishedAt: "desc" }];
-  }
-
-  return [{ publishedAt: "desc" }];
-}
-
-function getSortDescription(sort: TimelineSort) {
-  switch (sort) {
-    case "popular":
-      return "いいね、コメント、ブックマーク、再生数を組み合わせて並べています。";
-    case "views":
-      return "再生数・表示数が多い投稿から表示しています。";
-    case "likes":
-      return "いいね数が多い投稿から表示しています。";
-    case "comments":
-      return "コメント数が多い投稿から表示しています。";
-    case "week":
-      return "直近7日間の投稿を人気順で表示しています。";
-    case "month":
-      return "直近30日間の投稿を人気順で表示しています。";
-    case "new":
-    default:
-      return "公開されたばかりの投稿から表示しています。";
-  }
-}
-
-async function getTimelinePosts(sort: TimelineSort) {
-  const startDate = getSortStartDate(sort);
-
-  try {
-    return await prisma.post.findMany({
-      where: {
-        status: "PUBLISHED",
-        visibility: "PUBLIC",
-        isNsfw: false,
-        ...(startDate
-          ? {
-              publishedAt: {
-                gte: startDate,
-              },
-            }
-          : {}),
-      },
-      include: {
-        game: true,
-        _count: {
-          select: {
-            mediaItems: true,
-          },
-        },
-      },
-      orderBy: getOrderBy(sort),
-      take: 30,
-    });
-  } catch {
-    return [];
-  }
 }
 
 async function getGameSuggestions() {
@@ -296,8 +198,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const activeSort = parseTimelineSort(sortParam);
   const activeView = parseViewMode(viewParam);
   const userId = session?.user?.id;
-  const [posts, gameSuggestions, currentUser, trends, recommendedUsers] = await Promise.all([
-    getTimelinePosts(activeSort),
+  const [timelinePage, gameSuggestions, currentUser, trends, recommendedUsers] = await Promise.all([
+    getTimelinePage(activeSort, 0, timelinePageSize),
     getGameSuggestions(),
     getCurrentUserProfile(userId),
     getTrends(),
@@ -355,48 +257,14 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               ))}
             </div>
 
-            {posts.length > 0 ? (
-              activeView === "tile" ? (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
-                  {posts.map((post) => (
-                    <PostTile
-                      gameName={post.game.name}
-                      isNsfw={post.isNsfw}
-                      key={post.id}
-                      mediaCount={post._count.mediaItems || 1}
-                      publicId={post.publicId}
-                      thumbnailUrl={post.thumbnailUrl}
-                      title={post.title}
-                      type={post.type}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-                  {posts.map((post) => (
-                    <PostCard
-                      bookmarkCount={Number(post.bookmarkCount)}
-                      commentCount={Number(post.commentCount)}
-                      gameName={post.game.name}
-                      gameSlug={post.game.slug}
-                      isNsfw={post.isNsfw}
-                      key={post.id}
-                      likeCount={Number(post.likeCount)}
-                      mediaCount={post._count.mediaItems || 1}
-                      publicId={post.publicId}
-                      thumbnailUrl={post.thumbnailUrl}
-                      title={post.title}
-                      type={post.type}
-                    />
-                  ))}
-                </div>
-              )
-            ) : (
-              <div className="rounded-md border border-border bg-card p-8 text-center">
-                <h2 className="text-lg font-semibold">まだ公開投稿はありません</h2>
-                <p className="mt-2 text-sm text-muted-foreground">最初のクリップやスクリーンショットを投稿できます。</p>
-              </div>
-            )}
+            <TimelineFeed
+              initialHasMore={timelinePage.hasMore}
+              initialNextOffset={timelinePage.nextOffset}
+              initialPosts={timelinePage.posts}
+              key={`${activeSort}:${activeView}`}
+              sort={activeSort}
+              view={activeView}
+            />
           </section>
         </div>
 
