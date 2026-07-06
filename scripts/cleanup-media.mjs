@@ -45,7 +45,7 @@ try {
       continue;
     }
 
-    await rm(filePath, { force: true, recursive: false });
+    await rm(filePath, { force: true, recursive: true });
     await prisma.$transaction(async (tx) => {
       await tx.mediaRetentionFile.update({
         where: { id: file.id },

@@ -8,10 +8,11 @@ import { Button } from "@/components/ui/button";
 import { HlsPlayer } from "@/components/media/hls-player";
 import { ImageCarousel } from "@/components/media/image-carousel";
 import { NsfwGate } from "@/components/media/nsfw-gate";
+import { DeletePostButton } from "@/components/posts/delete-post-button";
 import { SharePanel } from "@/components/share/share-panel";
 import { prisma } from "@/lib/db/prisma";
 import { isAdultBirthDate } from "@/lib/users/age";
-import { createComment, createCommentReport, createReport, deleteComment, toggleBookmark, toggleLike } from "@/app/c/[id]/actions";
+import { createComment, createCommentReport, createReport, deleteComment, deletePost, toggleBookmark, toggleLike } from "@/app/c/[id]/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -519,12 +520,15 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
             {session?.user ? (
               <div className="grid gap-2">
                 {isOwner ? (
-                  <Button asChild variant="outline">
-                    <Link href={`/c/${post.publicId}/edit`}>
-                      <Pencil size={18} />
-                      投稿を編集
-                    </Link>
-                  </Button>
+                  <>
+                    <Button asChild variant="outline">
+                      <Link href={`/c/${post.publicId}/edit`}>
+                        <Pencil size={18} />
+                        投稿を編集
+                      </Link>
+                    </Button>
+                    <DeletePostButton action={deletePost} publicId={post.publicId} title={post.title} />
+                  </>
                 ) : null}
                 <form action={toggleLike}>
                   <input name="publicId" type="hidden" value={post.publicId} />

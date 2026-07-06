@@ -1,9 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import path from "node:path";
 import { z } from "zod";
 import { requireActiveUser } from "@/lib/auth/active-user";
 import { prisma } from "@/lib/db/prisma";
+import { daysFromNow, getDeletedFileRetentionDays, mediaUrlToProcessedPath } from "@/lib/media/retention";
 import { assertNotBlockedByModerationRules, moderationReportDetail } from "@/lib/moderation/rules";
 
 const publicIdSchema = z.string().min(1).max(64);
@@ -237,6 +240,108 @@ export async function deleteComment(formData: FormData) {
   revalidatePath("/admin");
   revalidatePath("/admin/comments");
   revalidatePath(`/c/${publicId}`);
+}
+
+export async function deletePost(formData: FormData) {
+  const user = await requireActiveUser();
+  const publicId = publicIdSchema.parse(formData.get("publicId"));
+
+  const post = await prisma.post.findFirst({
+    where: {
+      publicId,
+      userId: user.id,
+      status: {
+        not: "DELETED",
+      },
+    },
+    include: {
+      game: {
+        select: {
+          slug: true,
+        },
+      },
+      user: {
+        select: {
+          username: true,
+        },
+      },
+      mediaItems: {
+        select: {
+          mediaUrl: true,
+          thumbnailUrl: true,
+          originalPath: true,
+          processedPath: true,
+        },
+      },
+    },
+  });
+
+  if (!post) {
+    throw new Error("削除できる投稿が見つかりません。");
+  }
+
+  const retentionDays = await getDeletedFileRetentionDays();
+  const deleteAfter = daysFromNow(retentionDays);
+  const retentionPaths = new Set<string>();
+
+  function addPath(filePath?: string | null) {
+    if (filePath) {
+      retentionPaths.add(filePath);
+    }
+  }
+
+  function addMediaUrl(url?: string | null) {
+    addPath(mediaUrlToProcessedPath(url));
+  }
+
+  addPath(post.originalFilePath);
+  addPath(post.hlsPath ? path.dirname(post.hlsPath) : null);
+  addMediaUrl(post.mediaUrl);
+  addMediaUrl(post.thumbnailUrl);
+  addMediaUrl(post.shareVideoUrl);
+
+  for (const item of post.mediaItems) {
+    addPath(item.originalPath);
+    addPath(item.processedPath);
+    addMediaUrl(item.mediaUrl);
+    addMediaUrl(item.thumbnailUrl);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.post.update({
+      where: {
+        id: post.id,
+      },
+      data: {
+        status: "DELETED",
+        publishedAt: null,
+      },
+    });
+
+    if (retentionPaths.size > 0) {
+      await tx.mediaRetentionFile.createMany({
+        data: Array.from(retentionPaths).map((filePath) => ({
+          postId: post.id,
+          path: filePath,
+          reason: "DELETED_FILE",
+          deleteAfter,
+        })),
+      });
+    }
+  });
+
+  revalidatePath("/");
+  revalidatePath("/v");
+  revalidatePath("/search");
+  revalidatePath("/admin");
+  revalidatePath("/admin/posts");
+  revalidatePath(`/c/${post.publicId}`);
+  revalidatePath(`/games/${post.game.slug}`);
+  if (post.user.username) {
+    revalidatePath(`/users/${post.user.username}`);
+  }
+
+  redirect(post.user.username ? `/users/${post.user.username}` : "/");
 }
 
 export async function createReport(formData: FormData) {
