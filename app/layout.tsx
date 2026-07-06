@@ -4,7 +4,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import "./globals.css";
 import { Button } from "@/components/ui/button";
-import { LogoutButton } from "@/components/auth/logout-button";
 import { HeaderProfile } from "@/components/layout/header-profile";
 import { HeaderSearch } from "@/components/layout/header-search";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
@@ -112,7 +111,6 @@ export default async function RootLayout({
                       <Button asChild className="hidden md:inline-flex">
                         <Link href="/posts/new">投稿</Link>
                       </Button>
-                      <LogoutButton />
                     </>
                   ) : (
                     <Button asChild>
