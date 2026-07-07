@@ -12,12 +12,13 @@ import { PostTile } from "@/components/posts/post-tile";
 import { MarkdownBio } from "@/components/profile/markdown-bio";
 import { ProfileGroupedPosts } from "@/components/profile/profile-grouped-posts";
 import { ProfileInfoModals } from "@/components/profile/profile-info-modals";
-import { SocialLinkCard, VerifiedAdultBadge } from "@/components/profile/social-link-badge";
+import { RichSocialLinkCard, VerifiedAdultBadge } from "@/components/profile/social-link-badge";
 import { toggleFollow } from "@/app/users/[username]/actions";
 import { prisma } from "@/lib/db/prisma";
 import { formatBytes } from "@/lib/uploads/account-limits";
 import { getAccountLevelProgress } from "@/lib/users/account-levels";
 import { isAdultBirthDate } from "@/lib/users/age";
+import { getExternalLinkMetaMap } from "@/lib/users/external-link-meta";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,9 @@ async function getProfile(username: string) {
         take: 60,
       },
       links: {
+        include: {
+          meta: true,
+        },
         orderBy: {
           sortOrder: "asc",
         },
@@ -208,6 +212,7 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
   const view = viewParam ? parseViewMode(viewParam) : defaultView;
   const isOwner = session?.user?.id === user.id;
   const levelProgress = isOwner ? await getAccountLevelProgress(user.id) : null;
+  const linkMetaMap = user.links.length > 0 ? await getExternalLinkMetaMap(user.links) : new Map();
   const visibleLevel = levelProgress?.currentLevel ?? user.accountLevel;
   const isFollowing =
     session?.user?.id && !isOwner
@@ -436,7 +441,7 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
               {user.links.length > 0 ? (
                 <div className="mt-4 grid min-w-0 gap-2">
                   {user.links.map((link) => (
-                    <SocialLinkCard key={link.id} label={link.label} type={link.type} url={link.url} />
+                    <RichSocialLinkCard key={link.id} label={link.label} meta={linkMetaMap.get(link.id)} type={link.type} url={link.url} />
                   ))}
                 </div>
               ) : null}

@@ -210,6 +210,29 @@ model UserLink {
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meta UserLinkMeta?
+}
+
+model UserLinkMeta {
+  id           String   @id @default(cuid())
+  userLinkId   String   @unique
+  provider     String
+  title        String?  @db.Text
+  description  String?  @db.Text
+  imageUrl     String?  @db.Text
+  siteName     String?
+  handle       String?
+  extra        Json?
+  errorMessage String?  @db.Text
+  fetchedAt    DateTime @default(now())
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  userLink UserLink @relation(fields: [userLinkId], references: [id], onDelete: Cascade)
+
+  @@index([provider])
+  @@index([expiresAt])
 }
 
 model Game {

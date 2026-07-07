@@ -1,8 +1,11 @@
+/* eslint-disable @next/next/no-img-element */
 import { BadgeCheck, Code2, ExternalLink, Gamepad2, Globe, MessageCircle, Play, Radio } from "lucide-react";
+import type { ExternalLinkMetaCard } from "@/lib/users/external-link-meta";
 import { socialLinkTypeLabel } from "@/lib/users/social-links";
 
 type SocialLinkBadgeProps = {
   label?: string | null;
+  meta?: ExternalLinkMetaCard | null;
   type: string;
   url: string;
 };
@@ -23,7 +26,7 @@ export function SocialLinkBadge({ label, type, url }: SocialLinkBadgeProps) {
 }
 
 export function SocialLinkCard({ label, type, url }: SocialLinkBadgeProps) {
-  const info = socialLinkInfo({ label, type, url });
+  const info = socialLinkInfo({ label, meta: null, type, url });
 
   return (
     <article className="min-w-0 rounded-md border border-border bg-background p-3">
@@ -48,6 +51,43 @@ export function SocialLinkCard({ label, type, url }: SocialLinkBadgeProps) {
             </a>
           </div>
           <p className="mt-2 break-words text-xs leading-5 text-muted-foreground">{info.description}</p>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+export function RichSocialLinkCard({ label, meta, type, url }: SocialLinkBadgeProps) {
+  const info = socialLinkInfo({ label, meta, type, url });
+  const hasRemoteImage = Boolean(info.imageUrl);
+
+  return (
+    <article className="min-w-0 rounded-md border border-border bg-background p-3">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-md bg-muted text-primary">
+          {hasRemoteImage ? <img alt="" className="size-full object-cover" loading="lazy" referrerPolicy="no-referrer" src={info.imageUrl ?? ""} /> : <SocialIcon type={type} />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">{info.title}</p>
+              <p className="mt-0.5 break-all text-xs text-muted-foreground">{info.handle}</p>
+            </div>
+            <a
+              aria-label={`${info.serviceName}を開く`}
+              className="grid size-8 shrink-0 place-items-center rounded-md border border-border transition hover:border-primary hover:text-primary"
+              href={url}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <ExternalLink size={15} />
+            </a>
+          </div>
+          <div className="mt-2 flex min-w-0 items-center gap-2 text-[11px] font-semibold text-muted-foreground">
+            <SocialIcon type={type} />
+            <span className="truncate">{info.serviceName}</span>
+          </div>
+          <p className="mt-2 line-clamp-3 break-words text-xs leading-5 text-muted-foreground">{info.description}</p>
         </div>
       </div>
     </article>
@@ -90,7 +130,7 @@ function SocialIcon({ type }: { type: string }) {
   }
 }
 
-function socialLinkInfo({ label, type, url }: SocialLinkBadgeProps) {
+function socialLinkInfo({ label, meta, type, url }: SocialLinkBadgeProps) {
   const parsed = safeUrl(url);
   const serviceName = label || socialLinkTypeLabel(type);
   const host = parsed?.hostname.replace(/^www\./, "") ?? url;
@@ -98,12 +138,24 @@ function socialLinkInfo({ label, type, url }: SocialLinkBadgeProps) {
   const firstPath = pathParts[0] ?? "";
   const lastPath = pathParts[pathParts.length - 1] ?? firstPath;
 
+  if (meta?.title || meta?.description || meta?.imageUrl) {
+    return {
+      description: meta.description || `${meta.siteName || serviceName}の公開情報です。`,
+      handle: meta.handle || firstPath || host,
+      imageUrl: meta.imageUrl ?? null,
+      serviceName: meta.siteName || serviceName,
+      title: meta.title || serviceName,
+    };
+  }
+
   if (type === "discord") {
     const inviteCode = host === "discord.gg" ? firstPath : lastPath;
     return {
       description: inviteCode ? `Discord招待またはサーバーリンク: ${inviteCode}` : "Discordの外部リンクです。",
       handle: inviteCode ? inviteCode : host,
+      imageUrl: null,
       serviceName: "Discord",
+      title: "Discord",
     };
   }
 
@@ -112,7 +164,9 @@ function socialLinkInfo({ label, type, url }: SocialLinkBadgeProps) {
     return {
       description: `Misskeyインスタンス: ${host}`,
       handle,
+      imageUrl: null,
       serviceName: "Misskey",
+      title: "Misskey",
     };
   }
 
@@ -120,14 +174,18 @@ function socialLinkInfo({ label, type, url }: SocialLinkBadgeProps) {
     return {
       description: `${socialLinkTypeLabel(type)}のプロフィールまたは関連ページです。`,
       handle: firstPath || host,
+      imageUrl: null,
       serviceName,
+      title: serviceName,
     };
   }
 
   return {
     description: `${host} の外部リンクです。`,
     handle: host,
+    imageUrl: null,
     serviceName,
+    title: serviceName,
   };
 }
 
