@@ -61,6 +61,49 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(networkFirst(request));
 });
 
+self.addEventListener("push", (event) => {
+  const payload = event.data
+    ? event.data.json()
+    : {
+        title: "Clipshare",
+        body: "新しい通知があります。",
+        url: "/notice",
+      };
+  const title = payload.title || "Clipshare";
+  const options = {
+    body: payload.body || "新しい通知があります。",
+    data: {
+      url: payload.url || "/notice",
+    },
+    icon: "/icons/icon.svg",
+    badge: "/icons/icon.svg",
+    tag: payload.url || "clipeshare-notice",
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = new URL(event.notification.data?.url || "/notice", self.location.origin).href;
+
+  event.waitUntil(
+    self.clients
+      .matchAll({
+        includeUncontrolled: true,
+        type: "window",
+      })
+      .then((clients) => {
+        const existing = clients.find((client) => client.url === targetUrl);
+        if (existing) {
+          return existing.focus();
+        }
+
+        return self.clients.openWindow(targetUrl);
+      }),
+  );
+});
+
 function shouldBypassCache(url) {
   return (
     url.pathname.startsWith("/api/") ||

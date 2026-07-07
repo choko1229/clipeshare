@@ -8,8 +8,10 @@ import { requireActiveUser } from "@/lib/auth/active-user";
 import { prisma } from "@/lib/db/prisma";
 import { daysFromNow, getDeletedFileRetentionDays, mediaUrlToProcessedPath } from "@/lib/media/retention";
 import { assertNotBlockedByModerationRules, moderationReportDetail } from "@/lib/moderation/rules";
+import { sendWebPushToUser } from "@/lib/notifications/web-push";
 
 const publicIdSchema = z.string().min(1).max(64);
+const commentBodySchema = z.string().trim().min(1).max(1000);
 
 async function getPostByPublicId(publicId: string) {
   const post = await prisma.post.findFirst({
@@ -21,6 +23,8 @@ async function getPostByPublicId(publicId: string) {
     select: {
       id: true,
       publicId: true,
+      title: true,
+      userId: true,
     },
   });
 
@@ -36,6 +40,7 @@ export async function toggleLike(formData: FormData) {
   const userId = user.id;
   const publicId = publicIdSchema.parse(formData.get("publicId"));
   const post = await getPostByPublicId(publicId);
+  let shouldSendLikePush = false;
 
   await prisma.$transaction(async (tx) => {
     const existing = await tx.like.findUnique({
@@ -73,6 +78,35 @@ export async function toggleLike(formData: FormData) {
         postId: post.id,
       },
     });
+
+    if (post.userId !== userId) {
+      const existingNotification = await tx.notification.findFirst({
+        where: {
+          userId: post.userId,
+          actorId: userId,
+          type: "LIKE_ON_POST",
+          targetType: "POST",
+          targetId: post.id,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!existingNotification) {
+        await tx.notification.create({
+          data: {
+            userId: post.userId,
+            actorId: userId,
+            type: "LIKE_ON_POST",
+            targetType: "POST",
+            targetId: post.id,
+          },
+        });
+        shouldSendLikePush = true;
+      }
+    }
+
     await tx.post.update({
       where: { id: post.id },
       data: {
@@ -85,7 +119,17 @@ export async function toggleLike(formData: FormData) {
 
   revalidatePath("/");
   revalidatePath("/v");
+  revalidatePath("/notice");
+  revalidatePath("/", "layout");
   revalidatePath(`/c/${publicId}`);
+
+  if (shouldSendLikePush) {
+    await sendWebPushToUser(post.userId, {
+      body: `${user.username ?? "ユーザー"} さんが「${post.title}」にいいねしました`,
+      title: "新しいいいね",
+      url: `/c/${post.publicId}`,
+    });
+  }
 }
 
 export async function toggleBookmark(formData: FormData) {
@@ -150,19 +194,42 @@ export async function createComment(formData: FormData) {
   const user = await requireActiveUser();
   const userId = user.id;
   const publicId = publicIdSchema.parse(formData.get("publicId"));
-  const body = z.string().trim().min(1).max(1000).parse(formData.get("body"));
+  const body = commentBodySchema.parse(formData.get("body"));
+  const parentCommentId = z.string().trim().min(1).optional().parse(formData.get("parentCommentId") || undefined);
   const moderation = await assertNotBlockedByModerationRules(body);
   const post = await getPostByPublicId(publicId);
+  let createdCommentId: string | null = null;
+  let replyRecipientId: string | null = null;
 
   await prisma.$transaction(async (tx) => {
+    const parentComment = parentCommentId
+      ? await tx.comment.findFirst({
+          where: {
+            id: parentCommentId,
+            postId: post.id,
+            status: "PUBLISHED",
+          },
+          select: {
+            id: true,
+            userId: true,
+          },
+        })
+      : null;
+
+    if (parentCommentId && !parentComment) {
+      throw new Error("返信先のコメントが見つかりません。");
+    }
+
     const comment = await tx.comment.create({
       data: {
         postId: post.id,
         userId,
+        parentCommentId: parentComment?.id ?? null,
         body,
         status: "PUBLISHED",
       },
     });
+    createdCommentId = comment.id;
     await tx.post.update({
       where: { id: post.id },
       data: {
@@ -184,9 +251,107 @@ export async function createComment(formData: FormData) {
         },
       });
     }
+
+    if (post.userId !== userId) {
+      await tx.notification.create({
+        data: {
+          userId: post.userId,
+          actorId: userId,
+          type: "COMMENT_ON_POST",
+          targetType: "COMMENT",
+          targetId: comment.id,
+        },
+      });
+    }
+
+    if (parentComment && parentComment.userId !== userId && parentComment.userId !== post.userId) {
+      replyRecipientId = parentComment.userId;
+      await tx.notification.create({
+        data: {
+          userId: parentComment.userId,
+          actorId: userId,
+          type: "COMMENT_REPLY",
+          targetType: "COMMENT",
+          targetId: comment.id,
+        },
+      });
+    }
   });
 
   revalidatePath("/");
+  revalidatePath("/v");
+  revalidatePath("/notice");
+  revalidatePath("/admin");
+  revalidatePath("/admin/comments");
+  revalidatePath("/admin/reports");
+  revalidatePath(`/c/${publicId}`);
+
+  if (post.userId !== userId && createdCommentId) {
+    await sendWebPushToUser(post.userId, {
+      body: `${user.username ?? "ユーザー"} さんが「${post.title}」にコメントしました`,
+      title: "新しいコメント",
+      url: `/c/${post.publicId}#comment-${createdCommentId}`,
+    });
+  }
+
+  if (replyRecipientId && createdCommentId) {
+    await sendWebPushToUser(replyRecipientId, {
+      body: `${user.username ?? "ユーザー"} さんがあなたのコメントに返信しました`,
+      title: "新しい返信",
+      url: `/c/${post.publicId}#comment-${createdCommentId}`,
+    });
+  }
+}
+
+export async function updateComment(formData: FormData) {
+  const user = await requireActiveUser();
+  const userId = user.id;
+  const publicId = publicIdSchema.parse(formData.get("publicId"));
+  const commentId = z.string().min(1).parse(formData.get("commentId"));
+  const body = commentBodySchema.parse(formData.get("body"));
+  const moderation = await assertNotBlockedByModerationRules(body);
+
+  const comment = await prisma.comment.findFirst({
+    where: {
+      id: commentId,
+      userId,
+      status: "PUBLISHED",
+      post: {
+        publicId,
+      },
+    },
+    select: {
+      id: true,
+      postId: true,
+    },
+  });
+
+  if (!comment) {
+    throw new Error("編集できるコメントが見つかりません。");
+  }
+
+  await prisma.comment.update({
+    where: {
+      id: comment.id,
+    },
+    data: {
+      body,
+    },
+  });
+
+  if (moderation.reportable.length > 0) {
+    await prisma.report.create({
+      data: {
+        reporterId: user.id,
+        targetType: "COMMENT",
+        targetId: comment.id,
+        reason: "moderation_rule",
+        detail: moderationReportDetail(moderation.reportable),
+        status: "OPEN",
+      },
+    });
+  }
+
   revalidatePath("/v");
   revalidatePath("/admin");
   revalidatePath("/admin/comments");

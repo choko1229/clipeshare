@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireActiveUser } from "@/lib/auth/active-user";
 import { prisma } from "@/lib/db/prisma";
+import { sendWebPushToUser } from "@/lib/notifications/web-push";
 
 const usernameSchema = z.string().min(1).max(64);
 
@@ -28,6 +29,8 @@ export async function toggleFollow(formData: FormData) {
   if (target.id === user.id) {
     throw new Error("自分自身はフォローできません。");
   }
+
+  let shouldSendFollowPush = false;
 
   await prisma.$transaction(async (tx) => {
     const existing = await tx.follow.findUnique({
@@ -57,8 +60,44 @@ export async function toggleFollow(formData: FormData) {
         followingId: target.id,
       },
     });
+
+    const existingNotification = await tx.notification.findFirst({
+      where: {
+        userId: target.id,
+        actorId: userId,
+        type: "FOLLOW",
+        targetType: "USER",
+        targetId: userId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!existingNotification) {
+      await tx.notification.create({
+        data: {
+          userId: target.id,
+          actorId: userId,
+          type: "FOLLOW",
+          targetType: "USER",
+          targetId: userId,
+        },
+      });
+      shouldSendFollowPush = true;
+    }
   });
 
   revalidatePath(`/users/${target.username}`);
   revalidatePath("/following");
+  revalidatePath("/notice");
+  revalidatePath("/", "layout");
+
+  if (shouldSendFollowPush) {
+    await sendWebPushToUser(target.id, {
+      body: `${user.username ?? "ユーザー"} さんがあなたをフォローしました`,
+      title: "新しいフォロワー",
+      url: user.username ? `/users/${user.username}` : "/notice",
+    });
+  }
 }

@@ -12,7 +12,16 @@ import { DeletePostButton } from "@/components/posts/delete-post-button";
 import { SharePanel } from "@/components/share/share-panel";
 import { prisma } from "@/lib/db/prisma";
 import { isAdultBirthDate } from "@/lib/users/age";
-import { createComment, createCommentReport, createReport, deleteComment, deletePost, toggleBookmark, toggleLike } from "@/app/c/[id]/actions";
+import {
+  createComment,
+  createCommentReport,
+  createReport,
+  deleteComment,
+  deletePost,
+  toggleBookmark,
+  toggleLike,
+  updateComment,
+} from "@/app/c/[id]/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -284,6 +293,14 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
             ]
           : []
       : [];
+  const repliesByParent = new Map<string | null, typeof post.comments>();
+  for (const comment of post.comments) {
+    const parentId = comment.parentCommentId ?? null;
+    const comments = repliesByParent.get(parentId) ?? [];
+    comments.push(comment);
+    repliesByParent.set(parentId, comments);
+  }
+  const rootComments = repliesByParent.get(null) ?? [];
   const isLiked = session?.user?.id
     ? Boolean(
         await prisma.like.findUnique({
@@ -411,8 +428,155 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
             )}
 
             <div className="mt-6 space-y-4">
-              {post.comments.length > 0 ? (
-                post.comments.map((comment) => (
+              {rootComments.length > 0
+                ? rootComments.map((comment) => {
+                    const childComments = repliesByParent.get(comment.id) ?? [];
+                    const commentUserName = comment.user.displayName ?? comment.user.name ?? comment.user.username ?? "Unknown";
+
+                    return (
+                      <article className="rounded-md border border-border bg-background p-4" id={`comment-${comment.id}`} key={comment.id}>
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold">
+                              {comment.user.username ? <Link href={`/users/${comment.user.username}`}>{commentUserName}</Link> : commentUserName}
+                            </p>
+                            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{comment.body}</p>
+                            {comment.updatedAt.getTime() !== comment.createdAt.getTime() ? (
+                              <p className="mt-1 text-xs text-muted-foreground">編集済み</p>
+                            ) : null}
+                          </div>
+                          {session?.user?.id === comment.userId ? (
+                            <form action={deleteComment}>
+                              <input name="publicId" type="hidden" value={post.publicId} />
+                              <input name="commentId" type="hidden" value={comment.id} />
+                              <Button type="submit" variant="ghost">
+                                <Trash2 size={16} />
+                                削除
+                              </Button>
+                            </form>
+                          ) : null}
+                        </div>
+
+                        {session?.user ? (
+                          <div className="mt-3 flex flex-wrap gap-3 text-xs">
+                            <details>
+                              <summary className="cursor-pointer text-primary">返信</summary>
+                              <form action={createComment} className="mt-3 grid gap-2">
+                                <input name="publicId" type="hidden" value={post.publicId} />
+                                <input name="parentCommentId" type="hidden" value={comment.id} />
+                                <textarea
+                                  className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-ring transition focus:ring-2"
+                                  maxLength={1000}
+                                  name="body"
+                                  placeholder={`${commentUserName} さんへ返信`}
+                                  required
+                                />
+                                <Button className="w-fit" type="submit" variant="outline">
+                                  返信する
+                                </Button>
+                              </form>
+                            </details>
+                            {session.user.id === comment.userId ? (
+                              <details>
+                                <summary className="cursor-pointer text-primary">編集</summary>
+                                <form action={updateComment} className="mt-3 grid gap-2">
+                                  <input name="publicId" type="hidden" value={post.publicId} />
+                                  <input name="commentId" type="hidden" value={comment.id} />
+                                  <textarea
+                                    className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-ring transition focus:ring-2"
+                                    defaultValue={comment.body}
+                                    maxLength={1000}
+                                    name="body"
+                                    required
+                                  />
+                                  <Button className="w-fit" type="submit" variant="outline">
+                                    保存
+                                  </Button>
+                                </form>
+                              </details>
+                            ) : null}
+                          </div>
+                        ) : null}
+
+                        {childComments.length > 0 ? (
+                          <div className="mt-4 space-y-3 border-l border-border pl-4">
+                            {childComments.map((reply) => {
+                              const replyUserName = reply.user.displayName ?? reply.user.name ?? reply.user.username ?? "Unknown";
+
+                              return (
+                                <article className="rounded-md border border-border bg-card p-3" id={`comment-${reply.id}`} key={reply.id}>
+                                  <div className="flex items-start justify-between gap-4">
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-semibold">
+                                        {reply.user.username ? <Link href={`/users/${reply.user.username}`}>{replyUserName}</Link> : replyUserName}
+                                      </p>
+                                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{reply.body}</p>
+                                      {reply.updatedAt.getTime() !== reply.createdAt.getTime() ? (
+                                        <p className="mt-1 text-xs text-muted-foreground">編集済み</p>
+                                      ) : null}
+                                    </div>
+                                    {session?.user?.id === reply.userId ? (
+                                      <form action={deleteComment}>
+                                        <input name="publicId" type="hidden" value={post.publicId} />
+                                        <input name="commentId" type="hidden" value={reply.id} />
+                                        <Button type="submit" variant="ghost">
+                                          <Trash2 size={16} />
+                                          削除
+                                        </Button>
+                                      </form>
+                                    ) : null}
+                                  </div>
+                                  {session?.user ? (
+                                    <div className="mt-3 flex flex-wrap gap-3 text-xs">
+                                      <details>
+                                        <summary className="cursor-pointer text-primary">返信</summary>
+                                        <form action={createComment} className="mt-3 grid gap-2">
+                                          <input name="publicId" type="hidden" value={post.publicId} />
+                                          <input name="parentCommentId" type="hidden" value={comment.id} />
+                                          <textarea
+                                            className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-ring transition focus:ring-2"
+                                            maxLength={1000}
+                                            name="body"
+                                            placeholder={`${replyUserName} さんへ返信`}
+                                            required
+                                          />
+                                          <Button className="w-fit" type="submit" variant="outline">
+                                            返信する
+                                          </Button>
+                                        </form>
+                                      </details>
+                                      {session.user.id === reply.userId ? (
+                                        <details>
+                                          <summary className="cursor-pointer text-primary">編集</summary>
+                                          <form action={updateComment} className="mt-3 grid gap-2">
+                                            <input name="publicId" type="hidden" value={post.publicId} />
+                                            <input name="commentId" type="hidden" value={reply.id} />
+                                            <textarea
+                                              className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-ring transition focus:ring-2"
+                                              defaultValue={reply.body}
+                                              maxLength={1000}
+                                              name="body"
+                                              required
+                                            />
+                                            <Button className="w-fit" type="submit" variant="outline">
+                                              保存
+                                            </Button>
+                                          </form>
+                                        </details>
+                                      ) : null}
+                                    </div>
+                                  ) : null}
+                                </article>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </article>
+                    );
+                  })
+                : null}
+              {false && post!.comments.length > 0 ? (
+                post!.comments.map((comment) => (
                   <article className="rounded-md border border-border bg-background p-4" id={`comment-${comment.id}`} key={comment.id}>
                     <div className="flex items-start justify-between gap-4">
                       <div>
@@ -429,7 +593,7 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
                       </div>
                       {session?.user?.id === comment.userId ? (
                         <form action={deleteComment}>
-                          <input name="publicId" type="hidden" value={post.publicId} />
+                          <input name="publicId" type="hidden" value={post!.publicId} />
                           <input name="commentId" type="hidden" value={comment.id} />
                           <Button type="submit" variant="ghost">
                             <Trash2 size={16} />
@@ -440,7 +604,7 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
                     </div>
                     {session?.user && session.user.id !== comment.userId ? (
                       <form action={createCommentReport} className="mt-4 grid gap-2 border-t border-border pt-3 sm:grid-cols-[160px_1fr_auto]">
-                        <input name="publicId" type="hidden" value={post.publicId} />
+                        <input name="publicId" type="hidden" value={post!.publicId} />
                         <input name="commentId" type="hidden" value={comment.id} />
                         <select
                           className="h-9 rounded-md border border-input bg-background px-3 text-xs outline-none ring-ring transition focus:ring-2"
@@ -467,11 +631,11 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
                     ) : null}
                   </article>
                 ))
-              ) : (
+              ) : rootComments.length === 0 ? (
                 <p className="rounded-md border border-border bg-background p-4 text-sm text-muted-foreground">
                   まだコメントはありません。
                 </p>
-              )}
+              ) : null}
             </div>
           </section>
 

@@ -6,6 +6,7 @@ import "./globals.css";
 import { Button } from "@/components/ui/button";
 import { HeaderProfile } from "@/components/layout/header-profile";
 import { HeaderSearch } from "@/components/layout/header-search";
+import { NoticeLink } from "@/components/layout/notice-link";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -75,6 +76,14 @@ export default async function RootLayout({
         },
       })
     : null;
+  const unreadNotificationCount = session?.user?.id
+    ? await prisma.notification.count({
+        where: {
+          userId: session.user.id,
+          readAt: null,
+        },
+      })
+    : 0;
   const initialTheme = normalizeTheme(user?.themePreference);
 
   return (
@@ -98,6 +107,7 @@ export default async function RootLayout({
                   <ThemeToggle />
                   {session?.user ? (
                     <>
+                      <NoticeLink unreadCount={unreadNotificationCount} />
                       {session.user.role && ["MODERATOR", "ADMIN", "OWNER"].includes(session.user.role) ? (
                         <Button asChild className="hidden sm:inline-flex" variant="ghost">
                           <Link href="/admin">管理</Link>
