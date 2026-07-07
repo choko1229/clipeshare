@@ -1,4 +1,4 @@
-const CACHE_VERSION = "clipeshare-pwa-v1";
+const CACHE_VERSION = "clipeshare-pwa-v2";
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 
@@ -45,6 +45,10 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin || shouldBypassCache(url)) {
+    return;
+  }
+
+  if (url.pathname.startsWith("/_next/static/")) {
     return;
   }
 
@@ -116,7 +120,6 @@ function shouldBypassCache(url) {
 
 function isStaticAsset(url) {
   return (
-    url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/fonts/") ||
     url.pathname.startsWith("/icons/") ||
     url.pathname.startsWith("/images/") ||

@@ -53,7 +53,7 @@ export function PwaInstallGuide() {
   }
 
   return (
-    <section className="rounded-md border border-border bg-card p-5">
+    <section className="scroll-mt-24 rounded-md border border-border bg-card p-5" id="install-app">
       <div className="flex items-start gap-3">
         <span className="grid size-10 shrink-0 place-items-center rounded-md bg-muted text-primary">
           <Smartphone size={20} />
@@ -94,7 +94,8 @@ export function PwaInstallGuide() {
               インストール案内
             </div>
             <p className="mt-2 text-sm text-muted-foreground">
-              このブラウザではインストールボタンを表示できません。ChromeやEdgeなどPWA対応ブラウザで開くと、インストールできる場合があります。
+              このブラウザでは自動インストールボタンを表示できません。ブラウザのメニューから「アプリをインストール」または
+              「ホーム画面に追加」が表示される場合があります。
             </p>
           </div>
         )}

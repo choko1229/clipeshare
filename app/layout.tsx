@@ -103,8 +103,8 @@ export default async function RootLayout({
           <PwaModeEnhancer />
           <GlobalPostDrop />
           <div className="min-h-dvh bg-background text-foreground">
-            <header className="sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur">
-              <div className="flex h-16 w-full items-center justify-between gap-4 px-4">
+            <header className="app-header sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur">
+              <div className="app-header-inner flex min-h-16 w-full items-center justify-between gap-4 px-4">
                 <Link className="flex shrink-0 items-center gap-3" href="/">
                   <span className="grid size-9 place-items-center rounded-md bg-primary text-sm font-black text-primary-foreground">
                     C

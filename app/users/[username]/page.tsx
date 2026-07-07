@@ -12,7 +12,7 @@ import { PostTile } from "@/components/posts/post-tile";
 import { MarkdownBio } from "@/components/profile/markdown-bio";
 import { ProfileGroupedPosts } from "@/components/profile/profile-grouped-posts";
 import { ProfileInfoModals } from "@/components/profile/profile-info-modals";
-import { SocialLinkBadge, VerifiedAdultBadge } from "@/components/profile/social-link-badge";
+import { SocialLinkCard, VerifiedAdultBadge } from "@/components/profile/social-link-badge";
 import { toggleFollow } from "@/app/users/[username]/actions";
 import { prisma } from "@/lib/db/prisma";
 import { formatBytes } from "@/lib/uploads/account-limits";
@@ -305,7 +305,7 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
           />
         </div>
       ) : null}
-      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
+      <div className="grid min-w-0 max-w-full gap-6 overflow-x-hidden xl:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
         <section className="min-w-0 space-y-5">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div style={{ color: heroTextColor }}>
@@ -377,7 +377,7 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
         </section>
 
         <aside className="min-w-0 xl:sticky xl:top-24 xl:self-start">
-          <section className="overflow-hidden rounded-md border border-border bg-card">
+          <section className="min-w-0 overflow-hidden rounded-md border border-border bg-card">
             <div className="relative aspect-[3/1] bg-muted" style={!user.profileHeaderUrl ? { backgroundColor: `${accentColor}44` } : undefined}>
               {user.profileHeaderUrl ? <Image alt="" className="object-cover" fill priority sizes="360px" src={user.profileHeaderUrl} /> : null}
             </div>
@@ -434,9 +434,9 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
               />
 
               {user.links.length > 0 ? (
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-4 grid min-w-0 gap-2">
                   {user.links.map((link) => (
-                    <SocialLinkBadge key={link.id} label={link.label} type={link.type} url={link.url} />
+                    <SocialLinkCard key={link.id} label={link.label} type={link.type} url={link.url} />
                   ))}
                 </div>
               ) : null}

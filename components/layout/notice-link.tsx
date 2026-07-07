@@ -33,6 +33,10 @@ export function NoticeLink({ unreadCount }: NoticeLinkProps) {
             <Smartphone size={16} />
             端末通知を設定
           </Link>
+          <Link className="flex items-center gap-2 rounded px-3 py-2 transition hover:bg-muted" href="/settings/notifications#install-app">
+            <Smartphone size={16} />
+            アプリとして追加
+          </Link>
         </div>
       </div>
     </div>
