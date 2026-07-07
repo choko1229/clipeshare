@@ -19,11 +19,19 @@ export function PushNotificationSettings({ publicKey }: PushNotificationSettings
     () => typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window,
     [],
   );
+  const isAppleDevice = useMemo(() => typeof navigator !== "undefined" && /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent), []);
+  const isStandalone = useMemo(
+    () =>
+      typeof window !== "undefined" &&
+      (window.matchMedia("(display-mode: standalone)").matches ||
+        ("standalone" in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone))),
+    [],
+  );
 
   async function enable() {
     setMessage("");
     if (!supported) {
-      setMessage("このブラウザはWeb Push通知に対応していません。");
+      setMessage("この環境はWeb Push通知に対応していません。対応ブラウザ、またはホーム画面に追加したPWAから試してください。");
       return;
     }
 
@@ -35,7 +43,7 @@ export function PushNotificationSettings({ publicKey }: PushNotificationSettings
     const result = await Notification.requestPermission();
     setPermission(result);
     if (result !== "granted") {
-      setMessage("通知が許可されませんでした。ブラウザ設定を確認してください。");
+      setMessage("通知が許可されませんでした。ブラウザまたはOSの通知設定を確認してください。");
       return;
     }
 
@@ -100,6 +108,13 @@ export function PushNotificationSettings({ publicKey }: PushNotificationSettings
       <p className="mt-3 text-xs text-muted-foreground">
         現在の許可状態: {permission === "granted" ? "許可" : permission === "denied" ? "拒否" : permission === "default" ? "未選択" : "未対応"}
       </p>
+      {!supported ? (
+        <div className="mt-3 rounded-md border border-border bg-background p-3 text-sm text-muted-foreground">
+          {isAppleDevice && !isStandalone
+            ? "Apple系端末では、Safariからホーム画面に追加したPWAで通知を有効化してください。"
+            : "このブラウザではPush通知を利用できません。Chrome、Edge、または対応済みのPWA環境で試してください。"}
+        </div>
+      ) : null}
       {message ? <p className="mt-3 rounded-md border border-border bg-background p-3 text-sm">{message}</p> : null}
     </div>
   );

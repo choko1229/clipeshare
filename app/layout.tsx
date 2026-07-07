@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { HeaderProfile } from "@/components/layout/header-profile";
 import { HeaderSearch } from "@/components/layout/header-search";
 import { NoticeLink } from "@/components/layout/notice-link";
+import { PwaModeEnhancer } from "@/components/pwa/pwa-mode-enhancer";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -22,6 +23,14 @@ export const metadata: Metadata = {
   description: "ゲームクリップとスクリーンショットを共有するメディアサイト",
   applicationName: "Clipshare",
   manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Clipshare",
+  },
+  formatDetection: {
+    telephone: false,
+  },
   openGraph: {
     type: "website",
     siteName: "Clipshare",
@@ -91,6 +100,7 @@ export default async function RootLayout({
       <body>
         <ThemeProvider initialTheme={initialTheme} persistToDatabase={Boolean(session?.user?.id)}>
           <ServiceWorkerRegister />
+          <PwaModeEnhancer />
           <GlobalPostDrop />
           <div className="min-h-dvh bg-background text-foreground">
             <header className="sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur">

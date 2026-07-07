@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { PushNotificationSettings } from "@/components/notifications/push-notification-settings";
+import { PwaInstallGuide } from "@/components/pwa/pwa-install-guide";
 import { prisma } from "@/lib/db/prisma";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +43,8 @@ export default async function NotificationSettingsPage() {
               コメント、返信、いいね、フォローはClipshare内の通知一覧に保存されます。現在は常に有効です。
             </p>
           </section>
+
+          <PwaInstallGuide />
 
           <PushNotificationSettings publicKey={process.env.WEB_PUSH_VAPID_PUBLIC_KEY} />
 
