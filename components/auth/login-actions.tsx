@@ -13,6 +13,9 @@ export function LoginActions() {
       <Button className="mt-6 w-full" onClick={() => signIn("discord", { callbackUrl: "/" })} type="button">
         Discordでログイン
       </Button>
+      <Button className="mt-3 w-full" onClick={() => signIn("twitter", { callbackUrl: "/" })} type="button" variant="secondary">
+        Xでログイン
+      </Button>
 
       <div className="my-6 h-px bg-border" />
 

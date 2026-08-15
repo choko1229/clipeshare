@@ -154,7 +154,8 @@ async function updateProfileInternal(formData: FormData) {
 function parseLinks(formData: FormData) {
   const labels = formData.getAll("linkLabel");
   const urls = formData.getAll("linkUrl");
-  const links = [];
+  const pinnedLinkKey = String(formData.get("pinnedLinkKey") ?? "");
+  const entries: Array<{ formKey: string; link: z.infer<typeof linkSchema> }> = [];
   const usernameLinks = [
     { label: "YouTube", type: "youtube" as const, value: String(formData.get("youtubeUsername") ?? "") },
     { label: "X", type: "x" as const, value: String(formData.get("xUsername") ?? "") },
@@ -168,13 +169,14 @@ function parseLinks(formData: FormData) {
       continue;
     }
 
-    links.push(
-      linkSchema.parse({
+    entries.push({
+      formKey: usernameLink.type,
+      link: linkSchema.parse({
         type: usernameLink.type,
         label: usernameLink.label,
         url,
       }),
-    );
+    });
   }
 
   for (let index = 0; index < urls.length; index += 1) {
@@ -194,8 +196,16 @@ function parseLinks(formData: FormData) {
       throw new Error("SNSリンクは http または https のURLを入力してください。");
     }
 
-    links.push(parsed);
+    entries.push({ formKey: `custom:${index}`, link: parsed });
   }
 
-  return links;
+  if (pinnedLinkKey) {
+    const pinnedIndex = entries.findIndex((entry) => entry.formKey === pinnedLinkKey);
+    if (pinnedIndex > 0) {
+      const [pinned] = entries.splice(pinnedIndex, 1);
+      entries.unshift(pinned);
+    }
+  }
+
+  return entries.map((entry) => entry.link);
 }

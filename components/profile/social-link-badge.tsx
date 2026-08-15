@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
-import { BadgeCheck, Code2, ExternalLink, Gamepad2, Globe, MessageCircle, Play, Radio } from "lucide-react";
+import { BadgeCheck, Code2, ExternalLink, Gamepad2, Globe, MessageCircle, Pin, Play, Radio } from "lucide-react";
 import type { ExternalLinkMetaCard } from "@/lib/users/external-link-meta";
+import { cn } from "@/lib/utils";
 import { socialLinkTypeLabel } from "@/lib/users/social-links";
 
 type SocialLinkBadgeProps = {
@@ -8,6 +9,10 @@ type SocialLinkBadgeProps = {
   meta?: ExternalLinkMetaCard | null;
   type: string;
   url: string;
+};
+
+type RichSocialLinkCardProps = SocialLinkBadgeProps & {
+  featured?: boolean;
 };
 
 export function SocialLinkBadge({ label, type, url }: SocialLinkBadgeProps) {
@@ -57,20 +62,36 @@ export function SocialLinkCard({ label, type, url }: SocialLinkBadgeProps) {
   );
 }
 
-export function RichSocialLinkCard({ label, meta, type, url }: SocialLinkBadgeProps) {
+export function RichSocialLinkCard({ featured = false, label, meta, type, url }: RichSocialLinkCardProps) {
   const info = socialLinkInfo({ label, meta, type, url });
   const hasRemoteImage = Boolean(info.imageUrl);
 
   return (
-    <article className="min-w-0 rounded-md border border-border bg-background p-3">
+    <article
+      className={cn(
+        "min-w-0 rounded-md border bg-background p-3",
+        featured ? "border-primary/60 bg-primary/5 p-4" : "border-border",
+      )}
+    >
       <div className="flex min-w-0 items-start gap-3">
-        <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-md bg-muted text-primary">
+        <span
+          className={cn(
+            "grid shrink-0 place-items-center overflow-hidden rounded-md bg-muted text-primary",
+            featured ? "size-14" : "size-11",
+          )}
+        >
           {hasRemoteImage ? <img alt="" className="size-full object-cover" loading="lazy" referrerPolicy="no-referrer" src={info.imageUrl ?? ""} /> : <SocialIcon type={type} />}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-start justify-between gap-2">
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{info.title}</p>
+              {featured ? (
+                <span className="mb-1 inline-flex items-center gap-1 text-[11px] font-bold text-primary">
+                  <Pin size={11} />
+                  ピン留め
+                </span>
+              ) : null}
+              <p className={cn("truncate font-semibold", featured ? "text-base" : "text-sm")}>{info.title}</p>
               <p className="mt-0.5 break-all text-xs text-muted-foreground">{info.handle}</p>
             </div>
             <a

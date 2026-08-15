@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import "./globals.css";
+import { GoogleAnalytics } from "@/components/analytics/google-analytics";
 import { Button } from "@/components/ui/button";
 import { HeaderProfile } from "@/components/layout/header-profile";
 import { HeaderSearch } from "@/components/layout/header-search";
@@ -30,6 +32,12 @@ export const metadata: Metadata = {
   },
   formatDetection: {
     telephone: false,
+  },
+  verification: {
+    google: process.env.GOOGLE_SITE_VERIFICATION || undefined,
+    other: process.env.BING_SITE_VERIFICATION
+      ? { "msvalidate.01": process.env.BING_SITE_VERIFICATION }
+      : undefined,
   },
   openGraph: {
     type: "website",
@@ -98,6 +106,7 @@ export default async function RootLayout({
   return (
     <html data-theme={initialTheme} lang="ja" suppressHydrationWarning>
       <body>
+        <GoogleAnalytics />
         <ThemeProvider initialTheme={initialTheme} persistToDatabase={Boolean(session?.user?.id)}>
           <ServiceWorkerRegister />
           <PwaModeEnhancer />
@@ -128,6 +137,11 @@ export default async function RootLayout({
                         name={user?.displayName ?? user?.name ?? session.user.displayName ?? session.user.name}
                         username={user?.username ?? session.user.username}
                       />
+                      <Button asChild className="size-10 px-0 md:hidden">
+                        <Link aria-label="投稿" href="/posts/new" title="投稿">
+                          <Plus size={20} />
+                        </Link>
+                      </Button>
                       <Button asChild className="hidden md:inline-flex">
                         <Link href="/posts/new">投稿</Link>
                       </Button>

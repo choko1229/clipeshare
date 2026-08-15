@@ -48,6 +48,12 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
   const customLinks = user.links.filter((link) => !["instagram", "twitch", "x", "youtube"].includes(link.type));
   const linkRows = Array.from({ length: 5 }, (_, index) => customLinks[index] ?? null);
   const birthDateText = user.birthDate ? user.birthDate.toLocaleDateString("ja-JP") : null;
+  const firstLink = user.links[0];
+  const defaultPinnedKey = firstLink
+    ? ["instagram", "twitch", "x", "youtube"].includes(firstLink.type)
+      ? firstLink.type
+      : `custom:${customLinks.findIndex((link) => link.id === firstLink.id)}`
+    : "";
 
   return (
     <main className="px-4 py-8 sm:px-6 lg:px-8">
@@ -183,16 +189,30 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
 
           <section className="rounded-md border border-border bg-background p-4">
             <h2 className="text-sm font-semibold">SNSリンク</h2>
-            <p className="mt-1 text-xs text-muted-foreground">主要SNSはユーザー名だけで登録できます。その他はURLから自動判定します。</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              主要SNSはユーザー名だけで登録できます。その他はURLから自動判定します。「ピン留め」を選んだ1件がプロフィールの一番上に大きく表示されます。
+            </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <TextInput defaultValue={usernameLinks.youtube} id="youtubeUsername" label="YouTube" name="youtubeUsername" placeholder="@channel" />
-              <TextInput defaultValue={usernameLinks.x} id="xUsername" label="X" name="xUsername" placeholder="username" />
-              <TextInput defaultValue={usernameLinks.twitch} id="twitchUsername" label="Twitch" name="twitchUsername" placeholder="username" />
-              <TextInput defaultValue={usernameLinks.instagram} id="instagramUsername" label="Instagram" name="instagramUsername" placeholder="username" />
+              <div className="space-y-2">
+                <TextInput defaultValue={usernameLinks.youtube} id="youtubeUsername" label="YouTube" name="youtubeUsername" placeholder="@channel" />
+                <PinRadioOption defaultChecked={defaultPinnedKey === "youtube"} value="youtube" />
+              </div>
+              <div className="space-y-2">
+                <TextInput defaultValue={usernameLinks.x} id="xUsername" label="X" name="xUsername" placeholder="username" />
+                <PinRadioOption defaultChecked={defaultPinnedKey === "x"} value="x" />
+              </div>
+              <div className="space-y-2">
+                <TextInput defaultValue={usernameLinks.twitch} id="twitchUsername" label="Twitch" name="twitchUsername" placeholder="username" />
+                <PinRadioOption defaultChecked={defaultPinnedKey === "twitch"} value="twitch" />
+              </div>
+              <div className="space-y-2">
+                <TextInput defaultValue={usernameLinks.instagram} id="instagramUsername" label="Instagram" name="instagramUsername" placeholder="username" />
+                <PinRadioOption defaultChecked={defaultPinnedKey === "instagram"} value="instagram" />
+              </div>
             </div>
             <div className="mt-4 space-y-3">
               {linkRows.map((link, index) => (
-                <div className="grid gap-2" key={link?.id ?? index}>
+                <div className="grid gap-2 rounded-md border border-border p-3" key={link?.id ?? index}>
                   <input
                     className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                     defaultValue={link?.url ?? ""}
@@ -208,6 +228,7 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
                     name="linkLabel"
                     placeholder="表示名 任意"
                   />
+                  <PinRadioOption defaultChecked={defaultPinnedKey === `custom:${index}`} value={`custom:${index}`} />
                 </div>
               ))}
             </div>
@@ -263,6 +284,15 @@ function SelectInput({
           </option>
         ))}
       </select>
+    </label>
+  );
+}
+
+function PinRadioOption({ defaultChecked, value }: { defaultChecked: boolean; value: string }) {
+  return (
+    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+      <input className="size-3.5 accent-primary" defaultChecked={defaultChecked} name="pinnedLinkKey" type="radio" value={value} />
+      このリンクをピン留めする
     </label>
   );
 }

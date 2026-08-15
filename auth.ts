@@ -1,6 +1,7 @@
 import type { NextAuthOptions } from "next-auth";
 import DiscordProvider from "next-auth/providers/discord";
 import EmailProvider from "next-auth/providers/email";
+import TwitterProvider from "next-auth/providers/twitter";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/db/prisma";
 import { generateUniqueUsername } from "@/lib/users/username";
@@ -18,6 +19,11 @@ export const authOptions: NextAuthOptions = {
     DiscordProvider({
       clientId: process.env.DISCORD_CLIENT_ID ?? "",
       clientSecret: process.env.DISCORD_CLIENT_SECRET ?? "",
+    }),
+    TwitterProvider({
+      clientId: process.env.TWITTER_CLIENT_ID ?? "",
+      clientSecret: process.env.TWITTER_CLIENT_SECRET ?? "",
+      version: "2.0",
     }),
     EmailProvider({
       server: {

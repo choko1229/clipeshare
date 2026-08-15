@@ -13,6 +13,7 @@ import { MarkdownBio } from "@/components/profile/markdown-bio";
 import { ProfileGroupedPosts } from "@/components/profile/profile-grouped-posts";
 import { ProfileInfoModals } from "@/components/profile/profile-info-modals";
 import { RichSocialLinkCard, VerifiedAdultBadge } from "@/components/profile/social-link-badge";
+import { JsonLd } from "@/components/seo/json-ld";
 import { toggleFollow } from "@/app/users/[username]/actions";
 import { prisma } from "@/lib/db/prisma";
 import { formatBytes } from "@/lib/uploads/account-limits";
@@ -111,6 +112,10 @@ async function getProfile(username: string) {
   });
 }
 
+function absoluteUrl(pathOrUrl: string) {
+  return new URL(pathOrUrl, process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").toString();
+}
+
 function parseViewMode(value: string | undefined): ViewMode {
   if (value === "groupedByGame") {
     return "groupedByGame";
@@ -134,20 +139,36 @@ export async function generateMetadata({ params }: UserPageProps): Promise<Metad
   if (!user) {
     return {
       title: "ユーザーが見つかりません",
+      robots: {
+        index: false,
+        follow: false,
+      },
     };
   }
 
   const title = `${user.displayName ?? user.name ?? user.username} (@${user.username})`;
   const description = user.bio || "Clipeshareのユーザープロフィール";
+  const pageUrl = absoluteUrl(`/users/${user.username}`);
+  const profileImage = user.profileHeaderUrl ?? user.avatarUrl ?? user.image;
 
   return {
     title,
     description,
+    alternates: {
+      canonical: pageUrl,
+    },
+    robots: user.isBanned
+      ? {
+          index: false,
+          follow: false,
+        }
+      : undefined,
     openGraph: {
       title,
       description,
       type: "profile",
-      images: user.profileHeaderUrl || user.avatarUrl || user.image ? [user.profileHeaderUrl ?? user.avatarUrl ?? user.image ?? ""] : undefined,
+      url: pageUrl,
+      images: profileImage ? [absoluteUrl(profileImage)] : undefined,
     },
     twitter: {
       card: "summary",
@@ -284,6 +305,23 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
     : {
         background: `linear-gradient(135deg, ${accentColor}10, transparent 42%)`,
       };
+  const profileImageUrl = user.profileHeaderUrl ?? user.avatarUrl ?? user.image;
+  const profileJsonLd = user.isBanned
+    ? null
+    : {
+        "@context": "https://schema.org",
+        "@type": "ProfilePage",
+        dateCreated: user.createdAt.toISOString(),
+        mainEntity: {
+          "@type": "Person",
+          name: displayName,
+          alternateName: user.username ?? undefined,
+          url: absoluteUrl(`/users/${user.username}`),
+          image: profileImageUrl ? absoluteUrl(profileImageUrl) : undefined,
+          description: user.bio || undefined,
+          sameAs: user.links.map((link) => link.url),
+        },
+      };
 
   return (
     <main
@@ -295,6 +333,7 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
         } as CSSProperties
       }
     >
+      {profileJsonLd ? <JsonLd data={profileJsonLd} /> : null}
       {user.profileBackgroundUrl ? (
         <div
           aria-hidden="true"
@@ -341,12 +380,13 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
               <ProfileGroupedPosts posts={groupedPostItems} />
             ) : view === "tile" ? (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
-                {user.posts.map((post) => (
+                {user.posts.map((post, index) => (
                   <PostTile
                     gameName={post.game.name}
                     isNsfw={post.isNsfw}
                     key={post.id}
                     mediaCount={post._count.mediaItems || 1}
+                    priority={index < 5}
                     publicId={post.publicId}
                     thumbnailUrl={post.thumbnailUrl}
                     title={post.title}
@@ -356,7 +396,7 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
               </div>
             ) : (
               <div className="post-card-grid">
-                {user.posts.map((post) => (
+                {user.posts.map((post, index) => (
                   <PostCard
                     bookmarkCount={Number(post.bookmarkCount)}
                     commentCount={Number(post.commentCount)}
@@ -366,6 +406,7 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
                     key={post.id}
                     likeCount={Number(post.likeCount)}
                     mediaCount={post._count.mediaItems || 1}
+                    priority={index < 3}
                     publicId={post.publicId}
                     thumbnailUrl={post.thumbnailUrl}
                     title={post.title}
@@ -440,8 +481,15 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
 
               {user.links.length > 0 ? (
                 <div className="mt-4 grid min-w-0 gap-2">
-                  {user.links.map((link) => (
-                    <RichSocialLinkCard key={link.id} label={link.label} meta={linkMetaMap.get(link.id)} type={link.type} url={link.url} />
+                  {user.links.map((link, index) => (
+                    <RichSocialLinkCard
+                      featured={index === 0}
+                      key={link.id}
+                      label={link.label}
+                      meta={linkMetaMap.get(link.id)}
+                      type={link.type}
+                      url={link.url}
+                    />
                   ))}
                 </div>
               ) : null}
