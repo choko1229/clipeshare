@@ -58,17 +58,21 @@ export function PostCard({
             <h2 className="mt-1 line-clamp-2 text-base font-semibold hover:text-primary">{title}</h2>
           </Link>
         </div>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <span className="inline-flex items-center gap-1">
-            <Heart size={16} /> {likeCount}
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <MessageCircle size={16} /> {commentCount}
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <Bookmark size={16} /> {bookmarkCount}
-          </span>
-        </div>
+        {likeCount === 0 && commentCount === 0 && bookmarkCount === 0 ? (
+          <p className="text-sm text-muted-foreground">まだ反応がありません</p>
+        ) : (
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <Heart size={16} /> {likeCount}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <MessageCircle size={16} /> {commentCount}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Bookmark size={16} /> {bookmarkCount}
+            </span>
+          </div>
+        )}
       </div>
     </article>
   );

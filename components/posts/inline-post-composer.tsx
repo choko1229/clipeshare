@@ -253,7 +253,8 @@ export function InlinePostComposer({ isLoggedIn, userName, userImage, gameSugges
       <section className="rounded-lg border border-border bg-card p-5">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-bold">クリップを投稿</h2>
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary">ゲームの記録を、消えない場所に</p>
+            <h2 className="mt-1 text-lg font-bold">クリップを投稿</h2>
             <p className="mt-1 text-sm text-muted-foreground">投稿、いいね、コメントにはログインが必要です。</p>
           </div>
           <Button asChild>

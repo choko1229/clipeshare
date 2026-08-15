@@ -114,60 +114,89 @@ async function getCurrentUserProfile(userId: string | undefined) {
   });
 }
 
+const trendWindows = [
+  { days: 7, label: "直近7日" },
+  { days: 30, label: "直近30日" },
+  { days: null, label: "全期間" },
+] as const;
+
 async function getTrends() {
-  const start = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-  const recentPosts = await prisma.post.findMany({
-    where: {
-      status: "PUBLISHED",
-      visibility: "PUBLIC",
-      isNsfw: false,
-      publishedAt: {
-        gte: start,
+  let games: TrendItem[] = [];
+  let gamesLabel: string = trendWindows[0].label;
+  let tags: TrendItem[] = [];
+  let tagsLabel: string = trendWindows[0].label;
+
+  for (const window of trendWindows) {
+    if (games.length > 0 && tags.length > 0) {
+      break;
+    }
+
+    const posts = await prisma.post.findMany({
+      where: {
+        status: "PUBLISHED",
+        visibility: "PUBLIC",
+        isNsfw: false,
+        ...(window.days
+          ? { publishedAt: { gte: new Date(Date.now() - window.days * 24 * 60 * 60 * 1000) } }
+          : {}),
       },
-    },
-    include: {
-      game: true,
-      tags: {
-        include: {
-          tag: true,
+      include: {
+        game: true,
+        tags: {
+          include: {
+            tag: true,
+          },
         },
       },
-    },
-    orderBy: {
-      publishedAt: "desc",
-    },
-    take: 500,
-  });
-
-  const games = new Map<string, TrendItem>();
-  const tags = new Map<string, TrendItem>();
-
-  for (const post of recentPosts) {
-    const game = games.get(post.game.slug);
-    games.set(post.game.slug, {
-      key: post.game.slug,
-      label: post.game.name,
-      href: `/games/${post.game.slug}`,
-      count: (game?.count ?? 0) + 1,
+      orderBy: {
+        publishedAt: "desc",
+      },
+      take: 500,
     });
 
-    for (const postTag of post.tags) {
-      const tag = tags.get(postTag.tag.slug);
-      tags.set(postTag.tag.slug, {
-        key: postTag.tag.slug,
-        label: `#${postTag.tag.name}`,
-        href: `/search?q=tag:${encodeURIComponent(postTag.tag.name)}`,
-        count: (tag?.count ?? 0) + 1,
+    const gameMap = new Map<string, TrendItem>();
+    const tagMap = new Map<string, TrendItem>();
+
+    for (const post of posts) {
+      const game = gameMap.get(post.game.slug);
+      gameMap.set(post.game.slug, {
+        key: post.game.slug,
+        label: post.game.name,
+        href: `/games/${post.game.slug}`,
+        count: (game?.count ?? 0) + 1,
       });
+
+      for (const postTag of post.tags) {
+        const tag = tagMap.get(postTag.tag.slug);
+        tagMap.set(postTag.tag.slug, {
+          key: postTag.tag.slug,
+          label: `#${postTag.tag.name}`,
+          href: `/search?q=tag:${encodeURIComponent(postTag.tag.name)}`,
+          count: (tag?.count ?? 0) + 1,
+        });
+      }
+    }
+
+    const sortTrend = (items: TrendItem[]) => items.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)).slice(0, 5);
+
+    if (games.length === 0) {
+      const sortedGames = sortTrend(Array.from(gameMap.values()));
+      if (sortedGames.length > 0) {
+        games = sortedGames;
+        gamesLabel = window.label;
+      }
+    }
+
+    if (tags.length === 0) {
+      const sortedTags = sortTrend(Array.from(tagMap.values()));
+      if (sortedTags.length > 0) {
+        tags = sortedTags;
+        tagsLabel = window.label;
+      }
     }
   }
 
-  const sortTrend = (items: TrendItem[]) => items.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)).slice(0, 5);
-
-  return {
-    games: sortTrend(Array.from(games.values())),
-    tags: sortTrend(Array.from(tags.values())),
-  };
+  return { games, gamesLabel, tags, tagsLabel };
 }
 
 async function getRecommendedUsers(currentUserId: string | undefined) {
@@ -261,7 +290,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               </div>
             </div>
 
-            <div className="flex gap-2 overflow-x-auto pb-1">
+            <div className="flex gap-2 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,black_88%,transparent_100%)] sm:[mask-image:none]">
               {sortTabs.map((tab) => (
                 <Link
                   className={[
@@ -292,8 +321,20 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         <aside className="hidden xl:block">
           <div className="sticky top-24 space-y-4">
           <ProfilePanel user={currentUser} />
-          <TrendPanel title="トレンドゲーム" icon={<TrendingUp size={18} />} items={trends.games} emptyText="直近3日のゲーム投稿はまだありません。" />
-          <TrendPanel title="トレンドタグ" icon={<HashIcon />} items={trends.tags} emptyText="直近3日のタグ投稿はまだありません。" />
+          <TrendPanel
+            title="トレンドゲーム"
+            icon={<TrendingUp size={18} />}
+            items={trends.games}
+            periodLabel={trends.gamesLabel}
+            emptyText="まだゲーム投稿がありません。"
+          />
+          <TrendPanel
+            title="トレンドタグ"
+            icon={<HashIcon />}
+            items={trends.tags}
+            periodLabel={trends.tagsLabel}
+            emptyText="まだタグ投稿がありません。"
+          />
           <RecommendedUsers users={recommendedUsers} />
           </div>
         </aside>
@@ -384,13 +425,28 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function TrendPanel({ title, icon, items, emptyText }: { title: string; icon: React.ReactNode; items: TrendItem[]; emptyText: string }) {
+function TrendPanel({
+  title,
+  icon,
+  items,
+  periodLabel,
+  emptyText,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  items: TrendItem[];
+  periodLabel: string;
+  emptyText: string;
+}) {
   return (
     <section className="rounded-md border border-border bg-card p-4">
-      <h2 className="flex items-center gap-2 text-sm font-bold">
-        {icon}
-        {title}
-      </h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-sm font-bold">
+          {icon}
+          {title}
+        </h2>
+        {items.length > 0 ? <span className="text-xs text-muted-foreground">{periodLabel}</span> : null}
+      </div>
       {items.length > 0 ? (
         <div className="mt-4 space-y-2">
           {items.map((item) => (
