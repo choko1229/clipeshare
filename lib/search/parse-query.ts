@@ -1,18 +1,24 @@
 export type SearchPostType = "CLIP" | "SCREENSHOT";
 
+export type NsfwFilter = "include" | "exclude" | "only";
+
 export type ParsedSearchQuery = {
   keyword: string;
   game?: string;
   tag?: string;
   from?: string;
   type?: SearchPostType;
+  rank?: string;
+  server?: string;
+  nsfw: NsfwFilter;
 };
 
-const operatorPattern = /(?:^|\s)(game|tag|from|type):(?:"([^"]+)"|(\S+))/gi;
+const operatorPattern = /(?:^|\s)(game|tag|from|type|rank|server|nsfw):(?:"([^"]+)"|(\S+))/gi;
 
 export function parseSearchQuery(input: string): ParsedSearchQuery {
   const operators: ParsedSearchQuery = {
     keyword: "",
+    nsfw: "exclude",
   };
   const consumedRanges: Array<[number, number]> = [];
 
@@ -40,6 +46,15 @@ export function parseSearchQuery(input: string): ParsedSearchQuery {
         operators.type = normalizedType;
       }
     }
+    if (key === "rank") {
+      operators.rank = value;
+    }
+    if (key === "server") {
+      operators.server = value;
+    }
+    if (key === "nsfw") {
+      operators.nsfw = normalizeNsfwFilter(value);
+    }
   }
 
   operators.keyword = stripConsumedRanges(input, consumedRanges).replace(/\s+/g, " ").trim();
@@ -57,6 +72,19 @@ function normalizeType(value: string): SearchPostType | undefined {
   }
 
   return undefined;
+}
+
+function normalizeNsfwFilter(value: string): NsfwFilter {
+  const normalized = value.trim().toLowerCase();
+
+  if (["true", "1", "yes", "only"].includes(normalized)) {
+    return "only";
+  }
+  if (["all", "any", "both"].includes(normalized)) {
+    return "include";
+  }
+
+  return "exclude";
 }
 
 function stripConsumedRanges(input: string, ranges: Array<[number, number]>) {
