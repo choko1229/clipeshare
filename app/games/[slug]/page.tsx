@@ -24,6 +24,10 @@ function jsonStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
+function absoluteUrl(pathOrUrl: string) {
+  return new URL(pathOrUrl, process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").toString();
+}
+
 function formatReleaseDate(value: Date | null) {
   if (!value) {
     return null;
@@ -157,20 +161,30 @@ export async function generateMetadata({ params }: GamePageProps): Promise<Metad
   if (!game) {
     return {
       title: "ゲームが見つかりません",
+      robots: {
+        index: false,
+        follow: false,
+      },
     };
   }
 
   const description = game.summary?.slice(0, 160) ?? `${game.name}のクリップとスクリーンショット一覧です。`;
-  const image = game.heroUrl ?? game.steamHeaderUrl ?? game.rawgBackgroundUrl ?? game.coverUrl ?? game.steamCapsuleUrl ?? "/images/og-default.svg";
+  const image = absoluteUrl(
+    game.heroUrl ?? game.steamHeaderUrl ?? game.rawgBackgroundUrl ?? game.coverUrl ?? game.steamCapsuleUrl ?? "/images/og-default.svg",
+  );
+  const pageUrl = absoluteUrl(`/games/${game.slug}`);
 
   return {
     title: `${game.name}の投稿`,
     description,
+    alternates: {
+      canonical: pageUrl,
+    },
     openGraph: {
       title: `${game.name}の投稿`,
       description,
       type: "website",
-      url: `/games/${game.slug}`,
+      url: pageUrl,
       images: [
         {
           url: image,
@@ -285,7 +299,12 @@ export default async function GamePage({ params }: GamePageProps) {
 
       <div className="grid gap-8 px-4 py-8 sm:px-6 lg:px-8 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-10">
-          <PostSection description="いいね、コメント、再生数をもとに、このゲームで反応が多い投稿を表示します。" posts={game.popularPosts} title="人気投稿" />
+          <PostSection
+            description="いいね、コメント、再生数をもとに、このゲームで反応が多い投稿を表示します。"
+            posts={game.popularPosts}
+            prioritizeFirst
+            title="人気投稿"
+          />
           <PostSection description="このゲームに紐づく公開投稿を新着順で表示します。" posts={game.recentPosts} title="最近の投稿" />
         </div>
 
@@ -362,7 +381,17 @@ function ExternalButton({ href, label }: { href: string; label: string }) {
   );
 }
 
-function PostSection({ description, posts, title }: { description: string; posts: GamePost[]; title: string }) {
+function PostSection({
+  description,
+  posts,
+  title,
+  prioritizeFirst = false,
+}: {
+  description: string;
+  posts: GamePost[];
+  title: string;
+  prioritizeFirst?: boolean;
+}) {
   return (
     <section>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
@@ -377,7 +406,7 @@ function PostSection({ description, posts, title }: { description: string; posts
 
       {posts.length > 0 ? (
         <div className="post-card-grid">
-          {posts.map((post) => (
+          {posts.map((post, index) => (
             <PostCard
               bookmarkCount={Number(post.bookmarkCount)}
               commentCount={Number(post.commentCount)}
@@ -387,6 +416,7 @@ function PostSection({ description, posts, title }: { description: string; posts
               key={post.id}
               likeCount={Number(post.likeCount)}
               mediaCount={post._count.mediaItems || 1}
+              priority={prioritizeFirst && index < 3}
               publicId={post.publicId}
               thumbnailUrl={post.thumbnailUrl}
               title={post.title}

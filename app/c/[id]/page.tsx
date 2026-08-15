@@ -9,6 +9,7 @@ import { HlsPlayer } from "@/components/media/hls-player";
 import { ImageCarousel } from "@/components/media/image-carousel";
 import { NsfwGate } from "@/components/media/nsfw-gate";
 import { DeletePostButton } from "@/components/posts/delete-post-button";
+import { JsonLd } from "@/components/seo/json-ld";
 import { SharePanel } from "@/components/share/share-panel";
 import { prisma } from "@/lib/db/prisma";
 import { isAdultBirthDate } from "@/lib/users/age";
@@ -82,6 +83,84 @@ function absoluteUrl(pathOrUrl: string) {
 
 const EMBED_VIDEO_WIDTH = 1280;
 const EMBED_VIDEO_HEIGHT = 720;
+
+type VisiblePost = NonNullable<Awaited<ReturnType<typeof getVisiblePost>>>;
+
+function buildPostJsonLd(post: VisiblePost, pageUrl: string, embedUrl: string): Record<string, unknown>[] {
+  if (post.isNsfw || post.visibility !== "PUBLIC" || post.status !== "PUBLISHED") {
+    return [];
+  }
+
+  const authorName = post.user.displayName ?? post.user.name ?? post.user.username ?? "Unknown";
+  const author = post.user.username
+    ? {
+        "@type": "Person",
+        name: authorName,
+        url: absoluteUrl(`/users/${post.user.username}`),
+      }
+    : {
+        "@type": "Person",
+        name: authorName,
+      };
+  const uploadDate = (post.publishedAt ?? post.createdAt).toISOString();
+  const thumbnailUrl = absoluteUrl(post.thumbnailUrl);
+
+  const mainEntity: Record<string, unknown> =
+    post.type === "CLIP" && post.mediaUrl
+      ? {
+          "@context": "https://schema.org",
+          "@type": "VideoObject",
+          name: post.title,
+          description: post.description || post.title,
+          thumbnailUrl: [thumbnailUrl],
+          uploadDate,
+          duration: post.durationSeconds ? `PT${post.durationSeconds}S` : undefined,
+          contentUrl: absoluteUrl(post.mediaUrl),
+          embedUrl,
+          author,
+          isFamilyFriendly: true,
+          interactionStatistic: [
+            {
+              "@type": "InteractionCounter",
+              interactionType: "https://schema.org/WatchAction",
+              userInteractionCount: Number(post.viewCount),
+            },
+            {
+              "@type": "InteractionCounter",
+              interactionType: "https://schema.org/LikeAction",
+              userInteractionCount: Number(post.likeCount),
+            },
+            {
+              "@type": "InteractionCounter",
+              interactionType: "https://schema.org/CommentAction",
+              userInteractionCount: Number(post.commentCount),
+            },
+          ],
+        }
+      : {
+          "@context": "https://schema.org",
+          "@type": "ImageObject",
+          name: post.title,
+          description: post.description || post.title,
+          contentUrl: absoluteUrl(post.mediaUrl ?? post.thumbnailUrl),
+          thumbnailUrl,
+          uploadDate,
+          author,
+          isFamilyFriendly: true,
+        };
+
+  const breadcrumb: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Clipshare", item: absoluteUrl("/") },
+      { "@type": "ListItem", position: 2, name: post.game.name, item: absoluteUrl(`/games/${post.game.slug}`) },
+      { "@type": "ListItem", position: 3, name: post.title, item: pageUrl },
+    ],
+  };
+
+  return [mainEntity, breadcrumb];
+}
 
 async function getVisiblePost(publicId: string, viewerId?: string) {
   return prisma.post.findFirst({
@@ -172,6 +251,10 @@ export async function generateMetadata({ params }: ClipPageProps): Promise<Metad
     if (!post) {
       return {
         title: "投稿が見つかりません",
+        robots: {
+          index: false,
+          follow: false,
+        },
       };
     }
 
@@ -183,9 +266,23 @@ export async function generateMetadata({ params }: ClipPageProps): Promise<Metad
     const canEmbedVideo = post.status === "PUBLISHED" && !post.isNsfw && post.type === "CLIP" && Boolean(post.shareVideoUrl);
     const shareVideoUrl = canEmbedVideo && post.shareVideoUrl ? absoluteUrl(post.shareVideoUrl) : undefined;
 
+    const oembedUrl = absoluteUrl(`/api/oembed?url=${encodeURIComponent(pageUrl)}&format=json`);
+
     return {
       title,
       description,
+      alternates: {
+        canonical: pageUrl,
+        types: {
+          "application/json+oembed": oembedUrl,
+        },
+      },
+      robots: post.isNsfw
+        ? {
+            index: false,
+            follow: false,
+          }
+        : undefined,
       openGraph: {
         title,
         description,
@@ -211,34 +308,41 @@ export async function generateMetadata({ params }: ClipPageProps): Promise<Metad
             ]
           : undefined,
       },
-      twitter: {
-        card: "summary_large_image",
-        title,
-        description,
-        images: [image],
-      },
-      other:
-        shareVideoUrl
-          ? {
-              "twitter:card": "player",
-              "twitter:player": playerUrl,
-              "twitter:player:width": String(EMBED_VIDEO_WIDTH),
-              "twitter:player:height": String(EMBED_VIDEO_HEIGHT),
-              "twitter:player:stream": shareVideoUrl,
-              "twitter:player:stream:content_type": "video/mp4",
-              "og:video": shareVideoUrl,
-              "og:video:url": shareVideoUrl,
-              "og:video:secure_url": shareVideoUrl,
-              "og:video:type": "video/mp4",
-              "og:video:width": String(EMBED_VIDEO_WIDTH),
-              "og:video:height": String(EMBED_VIDEO_HEIGHT),
-            }
-          : undefined,
+      twitter: shareVideoUrl
+        ? {
+            card: "player",
+            title,
+            description,
+            images: [image],
+            players: [
+              {
+                playerUrl,
+                streamUrl: shareVideoUrl,
+                width: EMBED_VIDEO_WIDTH,
+                height: EMBED_VIDEO_HEIGHT,
+              },
+            ],
+          }
+        : {
+            card: "summary_large_image",
+            title,
+            description,
+            images: [image],
+          },
+      other: shareVideoUrl
+        ? {
+            "twitter:player:stream:content_type": "video/mp4",
+          }
+        : undefined,
     };
   } catch {
     return {
       title: `Clip ${id}`,
       description: "Clipeshareの投稿詳細ページです。",
+      robots: {
+        index: false,
+        follow: false,
+      },
     };
   }
 }
@@ -332,8 +436,11 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
       )
     : false;
 
+  const jsonLd = buildPostJsonLd(post, shareUrl, embedUrl);
+
   return (
     <main className="px-4 py-8 sm:px-6 lg:px-8">
+      {jsonLd.length > 0 ? <JsonLd data={jsonLd} /> : null}
       <section className="grid gap-6 xl:grid-cols-[minmax(0,7fr)_minmax(360px,4fr)]">
         <div className="min-w-0">
           <div className="relative aspect-video overflow-hidden rounded-md border border-border bg-card">

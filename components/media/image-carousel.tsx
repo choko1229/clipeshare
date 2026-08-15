@@ -34,9 +34,16 @@ export function ImageCarousel({ images }: { images: CarouselImage[] }) {
           transform: `translateX(-${activeIndex * 100}%)`,
         }}
       >
-        {images.map((image) => (
+        {images.map((image, index) => (
           <div className="relative h-full w-full shrink-0" key={image.id}>
-            <Image alt={image.title} className="object-contain" fill priority src={image.mediaUrl} />
+            <Image
+              alt={image.title}
+              className="object-contain"
+              fill
+              priority={index === 0}
+              sizes="(min-width: 1280px) 58vw, 100vw"
+              src={image.mediaUrl}
+            />
           </div>
         ))}
       </div>

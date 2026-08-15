@@ -94,12 +94,13 @@ export function TimelineFeed({ initialPosts, initialHasMore, initialNextOffset, 
     <div className="space-y-5">
       {view === "tile" ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
-          {posts.map((post) => (
+          {posts.map((post, index) => (
             <PostTile
               gameName={post.game.name}
               isNsfw={post.isNsfw}
               key={post.id}
               mediaCount={post.mediaCount}
+              priority={index < 5}
               publicId={post.publicId}
               thumbnailUrl={post.thumbnailUrl}
               title={post.title}
@@ -109,7 +110,7 @@ export function TimelineFeed({ initialPosts, initialHasMore, initialNextOffset, 
         </div>
       ) : (
         <div className="post-card-grid">
-          {posts.map((post) => (
+          {posts.map((post, index) => (
             <PostCard
               bookmarkCount={post.bookmarkCount}
               commentCount={post.commentCount}
@@ -119,6 +120,7 @@ export function TimelineFeed({ initialPosts, initialHasMore, initialNextOffset, 
               key={post.id}
               likeCount={post.likeCount}
               mediaCount={post.mediaCount}
+              priority={index < 3}
               publicId={post.publicId}
               thumbnailUrl={post.thumbnailUrl}
               title={post.title}

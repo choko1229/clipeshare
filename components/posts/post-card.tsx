@@ -14,6 +14,7 @@ type PostCardProps = {
   bookmarkCount: number;
   isNsfw: boolean;
   mediaCount?: number;
+  priority?: boolean;
 };
 
 export function PostCard({
@@ -28,12 +29,20 @@ export function PostCard({
   bookmarkCount,
   isNsfw,
   mediaCount = 1,
+  priority = false,
 }: PostCardProps) {
   return (
     <article className="overflow-hidden rounded-md border border-border bg-card">
       <Link className="block" href={`/c/${publicId}`}>
         <div className="relative aspect-video bg-muted">
-          <Image alt="" className={isNsfw ? "object-cover blur-xl" : "object-cover"} fill src={thumbnailUrl} />
+          <Image
+            alt=""
+            className={isNsfw ? "object-cover blur-xl" : "object-cover"}
+            fill
+            priority={priority}
+            sizes="(min-width: 1280px) 30vw, (min-width: 768px) 45vw, 92vw"
+            src={thumbnailUrl}
+          />
           <div className="absolute left-3 top-3 flex gap-2">
             <span className="rounded bg-black/55 px-2 py-1 text-xs font-bold text-white">{type}</span>
             {isNsfw ? <span className="rounded bg-destructive px-2 py-1 text-xs font-bold text-white">NSFW</span> : null}

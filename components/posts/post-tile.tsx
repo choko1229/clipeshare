@@ -10,9 +10,19 @@ type PostTileProps = {
   thumbnailUrl: string;
   isNsfw: boolean;
   mediaCount?: number;
+  priority?: boolean;
 };
 
-export function PostTile({ publicId, title, gameName, type, thumbnailUrl, isNsfw, mediaCount = 1 }: PostTileProps) {
+export function PostTile({
+  publicId,
+  title,
+  gameName,
+  type,
+  thumbnailUrl,
+  isNsfw,
+  mediaCount = 1,
+  priority = false,
+}: PostTileProps) {
   return (
     <Link className="group block overflow-hidden rounded-md border border-border bg-card" href={`/c/${publicId}`}>
       <article className="relative aspect-square bg-muted">
@@ -23,6 +33,7 @@ export function PostTile({ publicId, title, gameName, type, thumbnailUrl, isNsfw
             isNsfw ? "blur-xl" : "",
           ].join(" ")}
           fill
+          priority={priority}
           sizes="(min-width: 1280px) 20vw, (min-width: 768px) 25vw, 50vw"
           src={thumbnailUrl}
         />
