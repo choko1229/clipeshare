@@ -193,6 +193,18 @@ function LevelBadge({ color, name }: { color: string; name: string }) {
   );
 }
 
+function nextRequirementItems(progress: NonNullable<Awaited<ReturnType<typeof getAccountLevelProgress>>>) {
+  if (!progress.nextLevel) {
+    return [];
+  }
+
+  return [
+    { label: "投稿数", current: progress.metrics.postCount, target: progress.nextLevel.minPostCount },
+    { label: "登録日数", current: progress.metrics.accountAgeDays, target: progress.nextLevel.minAccountAgeDays },
+    { label: "フォロワー", current: progress.metrics.followerCount, target: progress.nextLevel.minFollowerCount },
+  ].filter((item) => item.target > 0);
+}
+
 function nextRequirementText(progress: NonNullable<Awaited<ReturnType<typeof getAccountLevelProgress>>>) {
   if (!progress.nextLevel) {
     return "次の自動昇格レベルはありません。";
@@ -538,6 +550,33 @@ export default async function UserProfilePage({ params, searchParams }: UserPage
                       画像: {formatBytes(levelProgress.limits.maxImageSizeBytes)} / {levelProgress.limits.maxImagesPerPost}枚
                     </p>
                   </div>
+
+                  {levelProgress.nextLevel ? (
+                    <div className="mt-4 border-t border-border pt-4">
+                      <p className="font-medium">
+                        次のレベル: <span style={{ color: levelProgress.nextLevel.levelColor }}>{levelProgress.nextLevel.name}</span>
+                      </p>
+                      <div className="mt-3 grid gap-3">
+                        {nextRequirementItems(levelProgress).map((item) => {
+                          const ratio = item.target > 0 ? Math.min(1, item.current / item.target) : 1;
+                          return (
+                            <div key={item.label}>
+                              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                <span>{item.label}</span>
+                                <span className="tabular-nums">
+                                  {Math.min(item.current, item.target)} / {item.target}
+                                </span>
+                              </div>
+                              <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
+                                <div className="h-full rounded-full bg-primary" style={{ width: `${Math.round(ratio * 100)}%` }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+
                   <p className="mt-3 text-muted-foreground">{nextRequirementText(levelProgress)}</p>
                 </details>
               ) : null}
