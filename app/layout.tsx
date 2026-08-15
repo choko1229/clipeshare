@@ -33,6 +33,11 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
+  alternates: {
+    types: {
+      "application/rss+xml": "/feed.xml",
+    },
+  },
   verification: {
     google: process.env.GOOGLE_SITE_VERIFICATION || undefined,
     other: process.env.BING_SITE_VERIFICATION

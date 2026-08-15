@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { escapeXml } from "@/lib/seo/xml";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
@@ -11,15 +12,6 @@ const MAX_DURATION_SECONDS = 28_800;
 
 function absoluteUrl(pathOrUrl: string) {
   return new URL(pathOrUrl, BASE_URL).toString();
-}
-
-function escapeXml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
 }
 
 async function getVideoPosts() {

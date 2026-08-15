@@ -317,12 +317,14 @@ export async function generateMetadata({ params }: ClipPageProps): Promise<Metad
           "application/json+oembed": oembedUrl,
         },
       },
-      robots: post.isNsfw
-        ? {
-            index: false,
-            follow: false,
-          }
-        : undefined,
+      // NSFW、またはメディア変換が完了していない投稿(再生できない薄いコンテンツ)はインデックス対象外にする。
+      robots:
+        post.isNsfw || post.status !== "PUBLISHED"
+          ? {
+              index: false,
+              follow: false,
+            }
+          : undefined,
       openGraph: {
         title,
         description,

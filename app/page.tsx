@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
@@ -238,6 +239,55 @@ async function getRecommendedUsers(currentUserId: string | undefined) {
     orderBy: [{ posts: { _count: "desc" } }, { createdAt: "desc" }],
     take: 5,
   });
+}
+
+function absoluteUrl(pathOrUrl: string) {
+  return new URL(pathOrUrl, process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").toString();
+}
+
+const sortMetaTitles: Record<Exclude<TimelineSort, "new">, string> = {
+  popular: "人気のクリップ・スクリーンショット",
+  views: "再生数が多いクリップ・スクリーンショット",
+  likes: "いいねが多いクリップ・スクリーンショット",
+  comments: "コメントが多いクリップ・スクリーンショット",
+  week: "今週の人気クリップ・スクリーンショット",
+  month: "今月の人気クリップ・スクリーンショット",
+};
+
+export async function generateMetadata({ searchParams }: HomePageProps): Promise<Metadata> {
+  const { sort: sortParam } = await searchParams;
+  const sort = parseTimelineSort(sortParam);
+
+  if (sort === "new") {
+    return {
+      alternates: {
+        canonical: absoluteUrl("/"),
+      },
+    };
+  }
+
+  const title = sortMetaTitles[sort];
+  const description = getSortDescription(sort);
+  const pageUrl = absoluteUrl(`/?sort=${sort}`);
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: pageUrl,
+    },
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      url: pageUrl,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
+  };
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {
