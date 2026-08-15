@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { Bookmark, Eye, Flag, Heart, MessageCircle, Pencil, Trash2 } from "lucide-react";
+import { Bookmark, ChevronRight, Eye, Flag, Heart, MessageCircle, Pencil, Trash2 } from "lucide-react";
 import { authOptions } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { HlsPlayer } from "@/components/media/hls-player";
 import { ImageCarousel } from "@/components/media/image-carousel";
 import { NsfwGate } from "@/components/media/nsfw-gate";
 import { DeletePostButton } from "@/components/posts/delete-post-button";
+import { PostCard } from "@/components/posts/post-card";
 import { JsonLd } from "@/components/seo/json-ld";
 import { SharePanel } from "@/components/share/share-panel";
 import { prisma } from "@/lib/db/prisma";
@@ -243,6 +244,45 @@ async function getNsfwAccess(isNsfw: boolean, viewerId?: string) {
   return "verify" as const;
 }
 
+const RELATED_POSTS_TAKE = 6;
+
+async function getRelatedPosts(post: VisiblePost) {
+  const [sameGame, byAuthor] = await Promise.all([
+    prisma.post.findMany({
+      where: {
+        gameId: post.gameId,
+        id: { not: post.id },
+        status: "PUBLISHED",
+        visibility: "PUBLIC",
+        isNsfw: false,
+      },
+      include: {
+        game: true,
+        _count: { select: { mediaItems: true } },
+      },
+      orderBy: { publishedAt: "desc" },
+      take: RELATED_POSTS_TAKE,
+    }),
+    prisma.post.findMany({
+      where: {
+        userId: post.userId,
+        id: { not: post.id },
+        status: "PUBLISHED",
+        visibility: "PUBLIC",
+        isNsfw: false,
+      },
+      include: {
+        game: true,
+        _count: { select: { mediaItems: true } },
+      },
+      orderBy: { publishedAt: "desc" },
+      take: RELATED_POSTS_TAKE,
+    }),
+  ]);
+
+  return { sameGame, byAuthor };
+}
+
 export async function generateMetadata({ params }: ClipPageProps): Promise<Metadata> {
   const { id } = await params;
 
@@ -435,12 +475,27 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
         }),
       )
     : false;
+  const relatedPosts = await getRelatedPosts(post);
+  const authorName = post.user.displayName ?? post.user.name ?? post.user.username ?? "投稿者";
 
   const jsonLd = buildPostJsonLd(post, shareUrl, embedUrl);
 
   return (
     <main className="px-4 py-8 sm:px-6 lg:px-8">
       {jsonLd.length > 0 ? <JsonLd data={jsonLd} /> : null}
+      <nav aria-label="パンくずリスト" className="mb-4 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+        <Link className="hover:text-foreground" href="/">
+          Clipshare
+        </Link>
+        <ChevronRight className="shrink-0" size={14} />
+        <Link className="hover:text-foreground" href={`/games/${post.game.slug}`}>
+          {post.game.name}
+        </Link>
+        <ChevronRight className="shrink-0" size={14} />
+        <span aria-current="page" className="truncate text-foreground">
+          {post.title}
+        </span>
+      </nav>
       <section className="grid gap-6 xl:grid-cols-[minmax(0,7fr)_minmax(360px,4fr)]">
         <div className="min-w-0">
           <div className="relative aspect-video overflow-hidden rounded-md border border-border bg-card">
@@ -482,7 +537,7 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
                 {post.tags.map(({ tag }) => (
                   <Link
                     className="rounded-md border border-border bg-muted px-3 py-1 text-sm transition hover:border-primary hover:text-primary"
-                    href={`/search?q=tag:${encodeURIComponent(tag.name)}`}
+                    href={`/tags/${tag.slug}`}
                     key={tag.id}
                   >
                     #{tag.name}
@@ -745,6 +800,54 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
               ) : null}
             </div>
           </section>
+
+          {relatedPosts.sameGame.length > 0 ? (
+            <section className="mt-8">
+              <h2 className="text-xl font-semibold">{post.game.name}の新着クリップ</h2>
+              <div className="post-card-grid mt-4">
+                {relatedPosts.sameGame.map((related) => (
+                  <PostCard
+                    bookmarkCount={Number(related.bookmarkCount)}
+                    commentCount={Number(related.commentCount)}
+                    gameName={related.game.name}
+                    gameSlug={related.game.slug}
+                    isNsfw={related.isNsfw}
+                    key={related.id}
+                    likeCount={Number(related.likeCount)}
+                    mediaCount={related._count.mediaItems || 1}
+                    publicId={related.publicId}
+                    thumbnailUrl={related.thumbnailUrl}
+                    title={related.title}
+                    type={related.type}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {relatedPosts.byAuthor.length > 0 ? (
+            <section className="mt-8">
+              <h2 className="text-xl font-semibold">{authorName}の他の投稿</h2>
+              <div className="post-card-grid mt-4">
+                {relatedPosts.byAuthor.map((related) => (
+                  <PostCard
+                    bookmarkCount={Number(related.bookmarkCount)}
+                    commentCount={Number(related.commentCount)}
+                    gameName={related.game.name}
+                    gameSlug={related.game.slug}
+                    isNsfw={related.isNsfw}
+                    key={related.id}
+                    likeCount={Number(related.likeCount)}
+                    mediaCount={related._count.mediaItems || 1}
+                    publicId={related.publicId}
+                    thumbnailUrl={related.thumbnailUrl}
+                    title={related.title}
+                    type={related.type}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <div className="mt-6 lg:hidden">
             <SharePanel embedUrl={embedUrl} shareVideoUrl={xShareVideoUrl} title={post.title} url={shareUrl} />

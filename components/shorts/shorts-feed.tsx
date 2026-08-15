@@ -273,7 +273,7 @@ function ShortDetails({ isLoggedIn, post }: { isLoggedIn: boolean; post: ShortPo
       {post.tags.length > 0 ? (
         <div className="flex flex-wrap gap-2">
           {post.tags.map((tag) => (
-            <Link className="rounded-md border border-border bg-muted px-3 py-1 text-sm transition hover:border-primary hover:text-primary" href={`/search?q=tag:${encodeURIComponent(tag.name)}`} key={tag.id}>
+            <Link className="rounded-md border border-border bg-muted px-3 py-1 text-sm transition hover:border-primary hover:text-primary" href={`/tags/${tag.slug}`} key={tag.id}>
               #{tag.name}
             </Link>
           ))}

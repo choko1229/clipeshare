@@ -171,7 +171,7 @@ async function getTrends() {
         tagMap.set(postTag.tag.slug, {
           key: postTag.tag.slug,
           label: `#${postTag.tag.name}`,
-          href: `/search?q=tag:${encodeURIComponent(postTag.tag.name)}`,
+          href: `/tags/${postTag.tag.slug}`,
           count: (tag?.count ?? 0) + 1,
         });
       }

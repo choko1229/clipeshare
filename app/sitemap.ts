@@ -6,9 +6,10 @@ const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 // Googleのsitemap 1ファイル上限(5万URL)を踏まえた安全マージン。
 const MAX_POSTS = 45_000;
 const MAX_USERS = 5_000;
+const MAX_TAGS = 5_000;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [posts, games, users] = await Promise.all([
+  const [posts, games, users, tags] = await Promise.all([
     prisma.post.findMany({
       where: {
         status: "PUBLISHED",
@@ -51,6 +52,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       },
       take: MAX_USERS,
     }),
+    prisma.tag.findMany({
+      where: {
+        isActive: true,
+        posts: {
+          some: {
+            post: {
+              status: "PUBLISHED",
+              visibility: "PUBLIC",
+              isNsfw: false,
+            },
+          },
+        },
+      },
+      select: {
+        slug: true,
+        createdAt: true,
+      },
+      take: MAX_TAGS,
+    }),
   ]);
 
   const now = new Date();
@@ -58,7 +78,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: `${BASE_URL}/`, lastModified: now, changeFrequency: "hourly", priority: 1 },
     { url: `${BASE_URL}/v`, lastModified: now, changeFrequency: "hourly", priority: 0.7 },
-    { url: `${BASE_URL}/search`, lastModified: now, changeFrequency: "daily", priority: 0.5 },
     { url: `${BASE_URL}/guidelines`, lastModified: now, changeFrequency: "monthly", priority: 0.3 },
     { url: `${BASE_URL}/terms`, lastModified: now, changeFrequency: "yearly", priority: 0.2 },
     { url: `${BASE_URL}/privacy`, lastModified: now, changeFrequency: "yearly", priority: 0.2 },
@@ -85,5 +104,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.5,
   }));
 
-  return [...staticRoutes, ...postRoutes, ...gameRoutes, ...userRoutes];
+  const tagRoutes: MetadataRoute.Sitemap = tags.map((tag) => ({
+    url: `${BASE_URL}/tags/${tag.slug}`,
+    lastModified: tag.createdAt,
+    changeFrequency: "daily",
+    priority: 0.4,
+  }));
+
+  return [...staticRoutes, ...postRoutes, ...gameRoutes, ...userRoutes, ...tagRoutes];
 }

@@ -317,7 +317,7 @@ export default async function GamePage({ params }: GamePageProps) {
             {game.topTags.length > 0 ? (
               <div className="mt-4 flex flex-wrap gap-2">
                 {game.topTags.map((tag) => (
-                  <Link className="rounded-md bg-muted px-3 py-1 text-sm hover:bg-primary hover:text-primary-foreground" href={`/search?q=tag:${encodeURIComponent(tag.name)} game:${encodeURIComponent(game.name)}`} key={tag.slug}>
+                  <Link className="rounded-md bg-muted px-3 py-1 text-sm hover:bg-primary hover:text-primary-foreground" href={`/tags/${tag.slug}`} key={tag.slug}>
                     #{tag.name} {tag.count}
                   </Link>
                 ))}
