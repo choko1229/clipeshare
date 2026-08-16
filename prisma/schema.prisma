@@ -28,6 +28,12 @@ enum PostStatus {
   DELETED
 }
 
+enum GameFieldInputType {
+  TEXT
+  NUMBER
+  SELECT
+}
+
 enum Visibility {
   PUBLIC
   PRIVATE
@@ -262,7 +268,26 @@ model Game {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  posts Post[]
+  posts  Post[]
+  fields GameField[]
+}
+
+model GameField {
+  id        String             @id @default(cuid())
+  gameId    String
+  key       String
+  label     String
+  inputType GameFieldInputType @default(TEXT)
+  options   Json?
+  sortOrder Int                @default(0)
+  isActive  Boolean            @default(true)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, key])
+  @@index([gameId, sortOrder])
 }
 
 model Tag {

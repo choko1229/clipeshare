@@ -3,8 +3,10 @@ import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { updatePost } from "@/app/c/[id]/edit/actions";
+import { PostVideoReplaceInput } from "@/components/posts/post-video-replace-input";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/db/prisma";
+import { formatBytes, getUploadLimitsForUser } from "@/lib/uploads/account-limits";
 import { joinPostBody } from "@/lib/posts/post-body";
 import { appendMissingHashTags } from "@/lib/posts/slug";
 import { searchParamError } from "@/lib/actions/error-message";
@@ -28,6 +30,15 @@ function getCustomText(value: unknown) {
   return "";
 }
 
+function getCustomFieldValue(value: unknown, key: string) {
+  if (typeof value !== "object" || value === null || !(key in value)) {
+    return "";
+  }
+
+  const fieldValue = (value as Record<string, unknown>)[key];
+  return typeof fieldValue === "string" || typeof fieldValue === "number" ? String(fieldValue) : "";
+}
+
 export default async function EditPostPage({ params, searchParams }: EditPostPageProps) {
   const [{ id }, { error }] = await Promise.all([params, searchParams]);
   const session = await getServerSession(authOptions);
@@ -45,7 +56,18 @@ export default async function EditPostPage({ params, searchParams }: EditPostPag
       },
     },
     include: {
-      game: true,
+      game: {
+        include: {
+          fields: {
+            where: {
+              isActive: true,
+            },
+            orderBy: {
+              sortOrder: "asc",
+            },
+          },
+        },
+      },
       tags: {
         include: {
           tag: true,
@@ -54,6 +76,21 @@ export default async function EditPostPage({ params, searchParams }: EditPostPag
           tag: {
             name: "asc",
           },
+        },
+      },
+      uploadJobs: {
+        where: {
+          status: {
+            in: ["QUEUED", "PROCESSING"],
+          },
+        },
+        select: {
+          id: true,
+        },
+      },
+      _count: {
+        select: {
+          mediaItems: true,
         },
       },
     },
@@ -66,24 +103,28 @@ export default async function EditPostPage({ params, searchParams }: EditPostPag
   const tagNames = post.tags.map(({ tag }) => tag.name);
   const customText = getCustomText(post.customFields);
   const bodyText = appendMissingHashTags(joinPostBody(post.title, post.description), tagNames);
-  const gameSuggestions = await prisma.game.findMany({
-    where: {
-      isActive: true,
-    },
-    select: {
-      id: true,
-      name: true,
-    },
-    orderBy: [{ posts: { _count: "desc" } }, { name: "asc" }],
-    take: 80,
-  });
+  const hasActiveUploadJob = post.uploadJobs.length > 0;
+  const [gameSuggestions, uploadLimits] = await Promise.all([
+    prisma.game.findMany({
+      where: {
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+      orderBy: [{ posts: { _count: "desc" } }, { name: "asc" }],
+      take: 80,
+    }),
+    getUploadLimitsForUser(session.user.id),
+  ]);
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
       <div className="mb-6">
         <h1 className="text-3xl font-bold">投稿編集</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          本文、ゲーム名、タグ、公開設定、追加情報を編集できます。メディア差し替えは次の実装フェーズで追加します。
+          本文、ゲーム名、タグ、公開設定、追加情報、メディアを編集できます。
         </p>
       </div>
 
@@ -131,18 +172,42 @@ export default async function EditPostPage({ params, searchParams }: EditPostPag
           </div>
 
           {post.type === "CLIP" ? (
+            <>
+              <PostVideoReplaceInput disabled={hasActiveUploadJob} />
+
+              <div>
+                <label className="block text-sm font-medium" htmlFor="thumbnail">
+                  動画サムネイル
+                </label>
+                <input
+                  accept="image/jpeg,image/png,image/webp"
+                  className="mt-2 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-foreground"
+                  id="thumbnail"
+                  name="thumbnail"
+                  type="file"
+                />
+                <p className="mt-2 text-xs text-muted-foreground">選択した画像を1280x720のWebPサムネイルへ変換します。動画を差し替えた場合、変換完了後にサムネイルが自動生成し直されます。</p>
+              </div>
+            </>
+          ) : null}
+
+          {post.type === "SCREENSHOT" ? (
             <div>
-              <label className="block text-sm font-medium" htmlFor="thumbnail">
-                動画サムネイル
+              <label className="block text-sm font-medium" htmlFor="media">
+                画像を差し替える
               </label>
               <input
                 accept="image/jpeg,image/png,image/webp"
                 className="mt-2 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-foreground"
-                id="thumbnail"
-                name="thumbnail"
+                id="media"
+                multiple
+                name="media"
                 type="file"
               />
-              <p className="mt-2 text-xs text-muted-foreground">選択した画像を1280x720のWebPサムネイルへ変換します。</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                選択しない場合、画像は変更されません。選択した場合は現在の{post._count.mediaItems}枚をすべて置き換えます(最大
+                {uploadLimits.maxImagesPerPost}枚、{formatBytes(uploadLimits.maxImageSizeBytes)}まで)。
+              </p>
             </div>
           ) : null}
 
@@ -174,9 +239,53 @@ export default async function EditPostPage({ params, searchParams }: EditPostPag
             </div>
           </div>
 
+          {post.game.fields.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {post.game.fields.map((field) => {
+                const fieldName = `customField:${field.key}`;
+                const currentValue = getCustomFieldValue(post.customFields, field.key);
+                const options = Array.isArray(field.options)
+                  ? field.options.filter((option): option is string => typeof option === "string")
+                  : [];
+
+                return (
+                  <div key={field.id}>
+                    <label className="block text-sm font-medium" htmlFor={fieldName}>
+                      {field.label}
+                    </label>
+                    {field.inputType === "SELECT" ? (
+                      <select
+                        className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-ring transition focus:ring-2"
+                        defaultValue={currentValue}
+                        id={fieldName}
+                        name={fieldName}
+                      >
+                        <option value="">未選択</option>
+                        {options.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-ring transition focus:ring-2"
+                        defaultValue={currentValue}
+                        id={fieldName}
+                        maxLength={120}
+                        name={fieldName}
+                        type={field.inputType === "NUMBER" ? "number" : "text"}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+
           <div>
             <label className="block text-sm font-medium" htmlFor="customText">
-              カスタム項目
+              自由メモ
             </label>
             <textarea
               className="mt-2 min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-ring transition focus:ring-2"

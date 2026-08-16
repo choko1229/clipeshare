@@ -991,6 +991,92 @@ export async function updateGameMetadata(formData: FormData) {
   revalidatePath(`/games/${after.slug}`);
 }
 
+const gameFieldInputTypeSchema = z.enum(["TEXT", "NUMBER", "SELECT"]);
+
+export async function createGameField(formData: FormData) {
+  const admin = await requireModerator();
+  const gameId = idSchema.parse(formData.get("gameId"));
+  const key = z
+    .string()
+    .trim()
+    .min(1)
+    .max(60)
+    .regex(/^[a-z0-9_]+$/, "キーは半角英小文字・数字・アンダースコアのみ使用できます。")
+    .parse(formData.get("key"));
+  const label = z.string().trim().min(1).max(60).parse(formData.get("label"));
+  const inputType = gameFieldInputTypeSchema.parse(formData.get("inputType"));
+  const options = inputType === "SELECT" ? parseCsv(formData.get("options")) : undefined;
+
+  if (inputType === "SELECT" && (!options || options.length === 0)) {
+    throw new Error("選択式の項目には選択肢を1つ以上入力してください。");
+  }
+
+  const game = await prisma.game.findUnique({
+    where: { id: gameId },
+  });
+
+  if (!game) {
+    throw new Error("ゲームが見つかりません。");
+  }
+
+  const existingCount = await prisma.gameField.count({
+    where: { gameId },
+  });
+
+  const created = await prisma.gameField.create({
+    data: {
+      gameId,
+      key,
+      label,
+      inputType,
+      options: options ?? undefined,
+      sortOrder: existingCount,
+    },
+  });
+
+  await writeAuditLog({
+    adminId: admin.id,
+    action: "game.create_field",
+    targetType: "game",
+    targetId: gameId,
+    beforeData: null,
+    afterData: created,
+  });
+
+  revalidatePath("/admin/games");
+  revalidatePath(`/games/${game.slug}`);
+}
+
+export async function deleteGameField(formData: FormData) {
+  const admin = await requireModerator();
+  const gameFieldId = idSchema.parse(formData.get("gameFieldId"));
+
+  const before = await prisma.gameField.findUnique({
+    where: { id: gameFieldId },
+    include: { game: true },
+  });
+
+  if (!before) {
+    throw new Error("項目が見つかりません。");
+  }
+
+  await prisma.gameField.delete({
+    where: { id: gameFieldId },
+  });
+
+  await writeAuditLog({
+    adminId: admin.id,
+    action: "game.delete_field",
+    targetType: "game",
+    targetId: before.gameId,
+    beforeData: before,
+    afterData: null,
+  });
+
+  revalidatePath("/admin/games");
+  revalidatePath(`/games/${before.game.slug}`);
+}
+
 export async function syncGameFromIgdb(formData: FormData) {
   const admin = await requireModerator();
   const gameId = idSchema.parse(formData.get("gameId"));

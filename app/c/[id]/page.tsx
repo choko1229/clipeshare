@@ -41,6 +41,15 @@ function getCustomText(value: unknown) {
   return "";
 }
 
+function getCustomFieldValue(value: unknown, key: string) {
+  if (typeof value !== "object" || value === null || !(key in value)) {
+    return "";
+  }
+
+  const fieldValue = (value as Record<string, unknown>)[key];
+  return typeof fieldValue === "string" || typeof fieldValue === "number" ? String(fieldValue) : "";
+}
+
 async function getPublicPost(publicId: string) {
   return prisma.post.findFirst({
     where: {
@@ -185,7 +194,18 @@ async function getVisiblePost(publicId: string, viewerId?: string) {
       ],
     },
     include: {
-      game: true,
+      game: {
+        include: {
+          fields: {
+            where: {
+              isActive: true,
+            },
+            orderBy: {
+              sortOrder: "asc",
+            },
+          },
+        },
+      },
       tags: {
         include: {
           tag: true,
@@ -413,6 +433,9 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
   const isOwner = session?.user?.id === post.userId;
   const nsfwAccess = await getNsfwAccess(post.isNsfw, session?.user?.id);
   const customText = getCustomText(post.customFields);
+  const visibleCustomFields = post.game.fields
+    .map((field) => ({ field, value: getCustomFieldValue(post.customFields, field.key) }))
+    .filter((entry) => entry.value);
   const shareUrl = absoluteUrl(`/c/${post.publicId}`);
   const embedUrl = absoluteUrl(`/embed/c/${post.publicId}`);
   const xShareVideoUrl =
@@ -548,7 +571,7 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
               </div>
             ) : null}
 
-          {post.rankName || post.discordServerName || customText ? (
+          {post.rankName || post.discordServerName || customText || visibleCustomFields.length > 0 ? (
             <div className="mt-5 grid gap-3 rounded-md border border-border bg-card p-4 text-sm sm:grid-cols-2">
               {post.rankName ? (
                 <div>
@@ -562,9 +585,15 @@ export default async function ClipDetailPage({ params }: ClipPageProps) {
                   <p className="mt-1 font-medium">{post.discordServerName}</p>
                 </div>
               ) : null}
+              {visibleCustomFields.map(({ field, value }) => (
+                <div key={field.id}>
+                  <p className="text-xs text-muted-foreground">{field.label}</p>
+                  <p className="mt-1 font-medium">{value}</p>
+                </div>
+              ))}
               {customText ? (
                 <div className="sm:col-span-2">
-                  <p className="text-xs text-muted-foreground">カスタム項目</p>
+                  <p className="text-xs text-muted-foreground">自由メモ</p>
                   <p className="mt-1 whitespace-pre-wrap leading-6">{customText}</p>
                 </div>
               ) : null}

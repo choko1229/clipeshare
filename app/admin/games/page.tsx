@@ -1,10 +1,16 @@
 import Image from "next/image";
 import Link from "next/link";
-import { CheckCircle2, HelpCircle, Search, XCircle } from "lucide-react";
-import { mergeGame, syncGameFromIgdb, syncGameFromRawg, syncGameFromSteam, updateGameMetadata } from "@/app/admin/actions";
+import { CheckCircle2, HelpCircle, Search, Trash2, XCircle } from "lucide-react";
+import { createGameField, deleteGameField, mergeGame, syncGameFromIgdb, syncGameFromRawg, syncGameFromSteam, updateGameMetadata } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/db/prisma";
 import { searchSteamGames } from "@/lib/games/steam";
+
+const gameFieldInputTypeLabels: Record<string, string> = {
+  TEXT: "テキスト",
+  NUMBER: "数値",
+  SELECT: "選択式",
+};
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +68,11 @@ export default async function AdminGamesPage({ searchParams }: AdminGamesPagePro
       _count: {
         select: {
           posts: true,
+        },
+      },
+      fields: {
+        orderBy: {
+          sortOrder: "asc",
         },
       },
     },
@@ -294,6 +305,8 @@ export default async function AdminGamesPage({ searchParams }: AdminGamesPagePro
                         統合
                       </Button>
                     </form>
+
+                    <GameFieldPanel fields={game.fields} gameId={game.id} />
                   </div>
                 </article>
               );
@@ -303,6 +316,64 @@ export default async function AdminGamesPage({ searchParams }: AdminGamesPagePro
           )}
         </div>
       </section>
+    </div>
+  );
+}
+
+function GameFieldPanel({
+  fields,
+  gameId,
+}: {
+  fields: { id: string; key: string; label: string; inputType: string; options: unknown }[];
+  gameId: string;
+}) {
+  return (
+    <div className="rounded-md border border-border bg-background p-3">
+      <p className="text-sm font-medium">カスタム項目</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        このゲームの投稿編集画面に表示される項目です。値は投稿の customFields に保存されます。
+      </p>
+
+      {fields.length > 0 ? (
+        <div className="mt-3 space-y-2">
+          {fields.map((field) => (
+            <div className="flex items-center justify-between gap-3 rounded-md border border-border p-2 text-sm" key={field.id}>
+              <div className="min-w-0">
+                <p className="truncate font-medium">
+                  {field.label} <span className="text-xs text-muted-foreground">({gameFieldInputTypeLabels[field.inputType] ?? field.inputType})</span>
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  key: {field.key}
+                  {Array.isArray(field.options) && field.options.length > 0 ? ` / 選択肢: ${field.options.join(", ")}` : ""}
+                </p>
+              </div>
+              <form action={deleteGameField}>
+                <input name="gameFieldId" type="hidden" value={field.id} />
+                <Button className="size-8 shrink-0 px-0 text-destructive hover:bg-destructive/10" type="submit" variant="ghost">
+                  <Trash2 size={16} />
+                </Button>
+              </form>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-3 text-xs text-muted-foreground">まだ項目がありません。</p>
+      )}
+
+      <form action={createGameField} className="mt-3 grid gap-2 md:grid-cols-[1fr_1fr_auto_1fr_auto]">
+        <input name="gameId" type="hidden" value={gameId} />
+        <input className="h-9 rounded-md border border-input bg-background px-2 text-xs" maxLength={60} name="key" placeholder="key (rank_tier)" required />
+        <input className="h-9 rounded-md border border-input bg-background px-2 text-xs" maxLength={60} name="label" placeholder="表示名(ランク)" required />
+        <select className="h-9 rounded-md border border-input bg-background px-2 text-xs" defaultValue="TEXT" name="inputType">
+          <option value="TEXT">テキスト</option>
+          <option value="NUMBER">数値</option>
+          <option value="SELECT">選択式</option>
+        </select>
+        <input className="h-9 rounded-md border border-input bg-background px-2 text-xs" name="options" placeholder="選択肢(選択式のみ、カンマ区切り)" />
+        <Button className="h-9" type="submit" variant="outline">
+          追加
+        </Button>
+      </form>
     </div>
   );
 }
