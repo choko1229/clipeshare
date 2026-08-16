@@ -5,7 +5,7 @@ set -euo pipefail
 # It assumes scripts/install-ubuntu-24.sh has already created:
 #   /var/www/clipeshare/current
 #   /var/www/clipeshare/shared/.env.production
-#   systemd services: clipeshare, clipeshare-worker
+#   systemd services: clipeshare, clipeshare-worker, (optional) clipeshare-discord-bot
 
 APP_NAME="${APP_NAME:-clipeshare}"
 APP_DIR="${APP_DIR:-/var/www/${APP_NAME}}"
@@ -71,6 +71,9 @@ echo "==> Restarting services"
 sudo systemctl restart "${APP_NAME}.service"
 if systemctl list-unit-files | grep -q "^${APP_NAME}-worker.service"; then
   sudo systemctl restart "${APP_NAME}-worker.service"
+fi
+if systemctl list-unit-files | grep -q "^${APP_NAME}-discord-bot.service"; then
+  sudo systemctl restart "${APP_NAME}-discord-bot.service"
 fi
 
 echo "==> Deployment complete"

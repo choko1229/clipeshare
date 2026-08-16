@@ -243,7 +243,7 @@ async function resolveGameName(input: ResolveGameNameInput) {
   return inferred;
 }
 
-type CreateBasePostInput = {
+export type CreateBasePostInput = {
   publicId: string;
   userId: string;
   gameName: string;
@@ -260,6 +260,8 @@ type CreateBasePostInput = {
   fileSizeBytes: bigint;
   width: number | null;
   height: number | null;
+  sourceDiscordGuildId?: string;
+  sourceDiscordMessageId?: string;
   mediaItems?: {
     type: "CLIP" | "SCREENSHOT";
     sortOrder: number;
@@ -273,7 +275,7 @@ type CreateBasePostInput = {
   }[];
 };
 
-async function createBasePost(input: CreateBasePostInput) {
+export async function createBasePost(input: CreateBasePostInput) {
   return prisma.$transaction(async (tx) => {
     const game = await tx.game.upsert({
       where: { slug: input.gameSlug },
@@ -303,6 +305,8 @@ async function createBasePost(input: CreateBasePostInput) {
         height: input.height,
         isNsfw: input.isNsfw,
         publishedAt: isProcessingClip || input.visibility !== "PUBLIC" ? null : new Date(),
+        sourceDiscordGuildId: input.sourceDiscordGuildId,
+        sourceDiscordMessageId: input.sourceDiscordMessageId,
         mediaItems: input.mediaItems?.length
           ? {
               create: input.mediaItems,

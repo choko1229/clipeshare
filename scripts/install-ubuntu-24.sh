@@ -178,13 +178,36 @@ PrivateTmp=true
 WantedBy=multi-user.target
 EOF
 
+cat > "/etc/systemd/system/${APP_NAME}-discord-bot.service" <<EOF
+[Unit]
+Description=Clipeshare Discord mirror bot
+After=network.target mysql.service
+
+[Service]
+Type=simple
+User=${DEPLOY_USER}
+Group=www-data
+WorkingDirectory=${APP_DIR}/current
+EnvironmentFile=${APP_DIR}/shared/.env.production
+ExecStart=/usr/bin/npm run discord-bot
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 systemctl daemon-reload
 systemctl enable "${APP_NAME}.service"
 systemctl enable "${APP_NAME}-worker.service"
+# discord-bot はDISCORD_BOT_TOKEN発行後に手動でenable/startする(DISCORD_BOT_TOKEN未設定のままだと起動に失敗するため)
+# systemctl enable "${APP_NAME}-discord-bot.service"
 
 echo "==> Allowing deploy user to restart app services"
 cat > "/etc/sudoers.d/${APP_NAME}-deploy" <<EOF
-${DEPLOY_USER} ALL=(root) NOPASSWD: /usr/bin/systemctl restart ${APP_NAME}.service, /usr/bin/systemctl restart ${APP_NAME}-worker.service, /usr/bin/systemctl status ${APP_NAME}.service, /usr/bin/systemctl status ${APP_NAME}-worker.service
+${DEPLOY_USER} ALL=(root) NOPASSWD: /usr/bin/systemctl restart ${APP_NAME}.service, /usr/bin/systemctl restart ${APP_NAME}-worker.service, /usr/bin/systemctl restart ${APP_NAME}-discord-bot.service, /usr/bin/systemctl status ${APP_NAME}.service, /usr/bin/systemctl status ${APP_NAME}-worker.service, /usr/bin/systemctl status ${APP_NAME}-discord-bot.service
 EOF
 chmod 0440 "/etc/sudoers.d/${APP_NAME}-deploy"
 visudo -cf "/etc/sudoers.d/${APP_NAME}-deploy"

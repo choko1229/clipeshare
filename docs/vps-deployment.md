@@ -81,6 +81,8 @@ DATABASE_URL
 AUTH_SECRET
 DISCORD_CLIENT_ID
 DISCORD_CLIENT_SECRET
+DISCORD_BOT_TOKEN
+DISCORD_BOT_INGEST_SECRET
 EMAIL_SERVER_HOST
 EMAIL_SERVER_PORT
 EMAIL_SERVER_USER
@@ -92,6 +94,8 @@ WEB_PUSH_VAPID_PUBLIC_KEY
 WEB_PUSH_VAPID_PRIVATE_KEY
 WEB_PUSH_CONTACT
 ```
+
+`DISCORD_CLIENT_ID`/`DISCORD_CLIENT_SECRET` はDiscordログイン(OAuth)用、`DISCORD_BOT_TOKEN` はDiscord自動ミラーBot用で、それぞれDiscord Developer Portalで別のアプリケーション/Botとして発行します。`DISCORD_BOT_INGEST_SECRET` はBotプロセスとWebアプリ間の内部認証用に自分で生成する任意の乱数文字列です(`openssl rand -hex 32` など)。
 
 MySQLの初期パスワードも必ず変更します。インストールスクリプト内の `CHANGE_ME` は仮値です。
 
@@ -147,11 +151,18 @@ Worker:
 clipeshare-worker.service
 ```
 
+Discord自動ミラーBot(任意):
+
+```txt
+clipeshare-discord-bot.service
+```
+
 ログ確認:
 
 ```bash
 journalctl -u clipeshare -f
 journalctl -u clipeshare-worker -f
+journalctl -u clipeshare-discord-bot -f
 ```
 
 再起動:
@@ -159,7 +170,21 @@ journalctl -u clipeshare-worker -f
 ```bash
 sudo systemctl restart clipeshare
 sudo systemctl restart clipeshare-worker
+sudo systemctl restart clipeshare-discord-bot
 ```
+
+### Discord自動ミラーBotの有効化(既存サーバーへの追加手順)
+
+`scripts/install-ubuntu-24.sh` は `clipeshare-discord-bot.service` のユニットファイルを作成しますが、`DISCORD_BOT_TOKEN` が未設定のまま自動起動すると失敗するため、`enable`/`start` はコメントアウトしてあります。既にセットアップ済みのサーバーに追加する場合は以下を行います。
+
+1. Discord Developer PortalでBotアプリケーションを作成し、Message Content Intentを有効化してトークンを発行する
+2. `.env.production` に `DISCORD_BOT_TOKEN` と `DISCORD_BOT_INGEST_SECRET` を設定する
+3. `scripts/install-ubuntu-24.sh` 内の `clipeshare-discord-bot.service` の部分を参考に、`/etc/systemd/system/clipeshare-discord-bot.service` を作成する(既にインストール済みなら再実行不要、ユニットファイルだけ手動で作成する)
+4. `sudo systemctl daemon-reload && sudo systemctl enable --now clipeshare-discord-bot.service`
+5. 対象のDiscordサーバーにBotを招待し、管理権限を持つユーザーが `!clipshare setup <ゲーム名>` を実行して既定のゲームを設定する
+6. Clipshare側でユーザーが `設定 > プロフィール編集 > Discord連携` から自動保存をONにする(Discordログイン連携済みのユーザーのみ)
+
+以降のデプロイでは `scripts/deploy-server.sh` がユニットの存在を検知して自動的に再起動します。
 
 ## SSL
 

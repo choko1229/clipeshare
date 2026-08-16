@@ -32,12 +32,22 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
         },
         take: 12,
       },
+      accounts: {
+        where: {
+          provider: "discord",
+        },
+        select: {
+          id: true,
+        },
+      },
     },
   });
 
   if (!user) {
     redirect("/login");
   }
+
+  const hasDiscordAccount = user.accounts.length > 0;
 
   const usernameLinks = {
     instagram: extractSocialUsername(user.links.find((link) => link.type === "instagram")?.url, "instagram"),
@@ -184,6 +194,24 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
               <Button asChild className="mt-3" variant="outline">
                 <a href="/settings/age">年齢確認を設定</a>
               </Button>
+            )}
+          </section>
+
+          <section className="rounded-md border border-border bg-background p-4">
+            <h2 className="text-sm font-medium">Discord連携</h2>
+            {hasDiscordAccount ? (
+              <>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  管理者がBotを導入したDiscordサーバーで、あなたが投稿した画像・動画を下書きとしてClipshareへ自動で保存します。公開前に必ずご自身で内容を確認できます。
+                </p>
+                <div className="mt-3">
+                  <VisibilityCheckbox defaultChecked={user.discordAutoMirrorEnabled} label="Discordの投稿を自動で下書き保存する" name="discordAutoMirrorEnabled" />
+                </div>
+              </>
+            ) : (
+              <p className="mt-1 text-xs text-muted-foreground">
+                この機能を使うにはDiscordアカウントでのログイン連携が必要です。一度ログアウトし、ログイン画面で「Discordでログイン」を選ぶと連携できます。
+              </p>
             )}
           </section>
 
