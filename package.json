@@ -12,6 +12,7 @@
     "prisma": "prisma",
     "admin:promote": "node scripts/promote-admin.mjs",
     "cleanup:media": "node scripts/cleanup-media.mjs",
+    "cleanup:quick-share": "node scripts/cleanup-quickshare.mjs",
     "requeue:share-video": "node scripts/requeue-missing-share-video.mjs",
     "webpush:keys": "node scripts/generate-web-push-keys.mjs",
     "worker": "node scripts/video-worker.mjs",

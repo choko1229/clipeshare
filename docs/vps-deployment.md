@@ -186,6 +186,26 @@ sudo systemctl restart clipeshare-discord-bot
 
 以降のデプロイでは `scripts/deploy-server.sh` がユニットの存在を検知して自動的に再起動します。
 
+### クイック共有(/qick)の期限切れメディア自動削除
+
+`/qick` からアップロードされた画像/動画は `QuickShare` テーブルの `expiresAt` を過ぎると `scripts/cleanup-quickshare.mjs`(`npm run cleanup:quick-share`)で物理削除されます。`scripts/install-ubuntu-24.sh` は `clipeshare-cleanup-quickshare.service`/`.timer`(10分おきに実行)を作成し自動的に有効化しますが、既にセットアップ済みのサーバーに追加する場合は以下を行います。
+
+1. `scripts/install-ubuntu-24.sh` 内の `clipeshare-cleanup-quickshare.service`/`clipeshare-cleanup-quickshare.timer` の部分を参考に、`/etc/systemd/system/` に同名のユニットファイルを作成する
+2. `sudo systemctl daemon-reload && sudo systemctl enable --now clipeshare-cleanup-quickshare.timer`
+3. `sudo systemctl list-timers clipeshare-cleanup-quickshare.timer` で稼働を確認する
+
+ログ確認:
+
+```bash
+journalctl -u clipeshare-cleanup-quickshare -f
+```
+
+手動実行(動作確認用、削除せず対象だけ確認する場合は `--dry-run` を付ける):
+
+```bash
+cd /var/www/clipeshare/current && npm run cleanup:quick-share -- --dry-run
+```
+
 ## SSL
 
 SSLはLet's Encryptで発行します。

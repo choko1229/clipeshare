@@ -199,9 +199,39 @@ PrivateTmp=true
 WantedBy=multi-user.target
 EOF
 
+cat > "/etc/systemd/system/${APP_NAME}-cleanup-quickshare.service" <<EOF
+[Unit]
+Description=Clipeshare quick-share expired media cleanup
+After=network.target mysql.service
+
+[Service]
+Type=oneshot
+User=${DEPLOY_USER}
+Group=www-data
+WorkingDirectory=${APP_DIR}/current
+EnvironmentFile=${APP_DIR}/shared/.env.production
+ExecStart=/usr/bin/npm run cleanup:quick-share
+NoNewPrivileges=true
+PrivateTmp=true
+EOF
+
+cat > "/etc/systemd/system/${APP_NAME}-cleanup-quickshare.timer" <<EOF
+[Unit]
+Description=Run Clipeshare quick-share cleanup periodically
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
 systemctl daemon-reload
 systemctl enable "${APP_NAME}.service"
 systemctl enable "${APP_NAME}-worker.service"
+systemctl enable --now "${APP_NAME}-cleanup-quickshare.timer"
 # discord-bot はDISCORD_BOT_TOKEN発行後に手動でenable/startする(DISCORD_BOT_TOKEN未設定のままだと起動に失敗するため)
 # systemctl enable "${APP_NAME}-discord-bot.service"
 

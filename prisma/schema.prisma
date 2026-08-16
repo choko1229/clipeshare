@@ -87,6 +87,11 @@ enum ProfileLayout {
   GROUPED_BY_GAME
 }
 
+enum QuickShareKind {
+  IMAGE
+  VIDEO
+}
+
 model User {
   id              String    @id @default(cuid())
   username        String?   @unique
@@ -146,6 +151,7 @@ model User {
 
   following       Follow[] @relation("Follower")
   followers       Follow[] @relation("Following")
+  quickShares     QuickShare[]
 }
 
 model Account {
@@ -577,4 +583,27 @@ model SiteSetting {
   description      String?  @db.Text
   updatedByAdminId String?
   updatedAt        DateTime @updatedAt
+}
+
+model QuickShare {
+  id            String         @id @default(cuid())
+  publicId      String         @unique
+  deleteToken   String
+  kind          QuickShareKind
+  mediaUrl      String         @db.Text
+  mimeType      String
+  fileSizeBytes BigInt
+  width         Int?
+  height        Int?
+  userId        String?
+  ipHash        String?
+  createdAt     DateTime       @default(now())
+  expiresAt     DateTime
+  deletedAt     DateTime?
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([expiresAt, deletedAt])
+  @@index([userId, createdAt])
+  @@index([ipHash, createdAt])
 }

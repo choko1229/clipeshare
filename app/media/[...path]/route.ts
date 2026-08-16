@@ -148,5 +148,17 @@ function contentType(filePath: string) {
   if (filePath.endsWith(".mp4")) {
     return "video/mp4";
   }
+  if (filePath.endsWith(".webm")) {
+    return "video/webm";
+  }
+  if (filePath.endsWith(".mov")) {
+    return "video/quicktime";
+  }
+  if (filePath.endsWith(".mkv")) {
+    return "video/x-matroska";
+  }
+  if (filePath.endsWith(".avi")) {
+    return "video/x-msvideo";
+  }
   return "application/octet-stream";
 }

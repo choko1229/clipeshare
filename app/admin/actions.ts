@@ -11,6 +11,7 @@ import { fetchRawgGameMetadata } from "@/lib/games/rawg";
 import { fetchSteamGameMetadata } from "@/lib/games/steam";
 import { storageSettingKeys } from "@/lib/media/retention";
 import { slugify } from "@/lib/posts/slug";
+import { quickShareSettingKeys } from "@/lib/quick-share/settings";
 import { siteSettingKeys } from "@/lib/seo/settings";
 
 const idSchema = z.string().min(1);
@@ -924,6 +925,50 @@ export async function updateSeoSettings(formData: FormData) {
   });
 
   revalidatePath("/admin/seo");
+}
+
+export async function updateQuickShareSettings(formData: FormData) {
+  const admin = await requireAdmin();
+  const maxImageBytes = z.coerce.number().int().positive().parse(formData.get("maxImageBytes"));
+  const maxVideoBytes = z.coerce.number().int().positive().parse(formData.get("maxVideoBytes"));
+  const retentionHours = z.coerce.number().int().positive().max(168).parse(formData.get("retentionHours"));
+  const anonymousDailyLimit = z.coerce.number().int().positive().parse(formData.get("anonymousDailyLimit"));
+
+  const entries = [
+    { key: quickShareSettingKeys.maxImageBytes, value: String(maxImageBytes) },
+    { key: quickShareSettingKeys.maxVideoBytes, value: String(maxVideoBytes) },
+    { key: quickShareSettingKeys.retentionHours, value: String(retentionHours) },
+    { key: quickShareSettingKeys.anonymousDailyLimit, value: String(anonymousDailyLimit) },
+  ];
+
+  const before = await prisma.siteSetting.findMany({
+    where: {
+      key: {
+        in: entries.map((entry) => entry.key),
+      },
+    },
+  });
+
+  const after = await prisma.$transaction(
+    entries.map((entry) =>
+      prisma.siteSetting.upsert({
+        where: { key: entry.key },
+        update: { value: entry.value, updatedByAdminId: admin.id },
+        create: { key: entry.key, value: entry.value, updatedByAdminId: admin.id },
+      }),
+    ),
+  );
+
+  await writeAuditLog({
+    adminId: admin.id,
+    action: "site_setting.update_quick_share",
+    targetType: "site_setting",
+    targetId: "quick_share",
+    beforeData: before,
+    afterData: after,
+  });
+
+  revalidatePath("/admin/quick-share");
 }
 
 export async function updateGameMetadata(formData: FormData) {
