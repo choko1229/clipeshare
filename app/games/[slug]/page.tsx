@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Calendar, ExternalLink, Gamepad2, Layers, Star, Tags, TrendingUp, UsersRound } from "lucide-react";
+import { Calendar, ExternalLink, Gamepad2, Layers, Share2, Star, Tags, TrendingUp, UsersRound } from "lucide-react";
 import { PostCard } from "@/components/posts/post-card";
 import { prisma } from "@/lib/db/prisma";
 
@@ -74,7 +74,8 @@ async function getGame(slug: string) {
     return null;
   }
 
-  const [recentPosts, popularPosts, tagRows, contributors] = await Promise.all([
+  const weekStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const [recentPosts, popularPosts, weeklyTopPosts, tagRows, contributors] = await Promise.all([
     prisma.post.findMany({
       where: publicPostWhere(game.id),
       include: {
@@ -102,6 +103,24 @@ async function getGame(slug: string) {
       },
       orderBy: [{ likeCount: "desc" }, { commentCount: "desc" }, { viewCount: "desc" }, { publishedAt: "desc" }],
       take: 6,
+    }),
+    prisma.post.findMany({
+      where: {
+        ...publicPostWhere(game.id),
+        publishedAt: {
+          gte: weekStart,
+        },
+      },
+      include: {
+        game: true,
+        _count: {
+          select: {
+            mediaItems: true,
+          },
+        },
+      },
+      orderBy: [{ likeCount: "desc" }, { commentCount: "desc" }, { viewCount: "desc" }, { publishedAt: "desc" }],
+      take: 5,
     }),
     prisma.postTag.findMany({
       where: {
@@ -147,6 +166,7 @@ async function getGame(slug: string) {
     ...game,
     recentPosts,
     popularPosts,
+    weeklyTopPosts,
     topTags: Array.from(tagCounts.values())
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
       .slice(0, 12),
@@ -217,6 +237,11 @@ export default async function GamePage({ params }: GamePageProps) {
   const heroImage = game.heroUrl ?? game.steamHeaderUrl ?? game.rawgBackgroundUrl ?? game.coverUrl ?? game.steamCapsuleUrl;
   const coverImage = game.coverUrl ?? game.steamCapsuleUrl ?? game.heroUrl ?? game.steamHeaderUrl ?? game.rawgBackgroundUrl;
   const steamUrl = game.steamAppId ? `https://store.steampowered.com/app/${game.steamAppId}` : null;
+  const gamePageUrl = absoluteUrl(`/games/${game.slug}`);
+  const weeklyDigestXShareUrl = `https://twitter.com/intent/tweet?${new URLSearchParams({
+    text: `今週の${game.name}人気クリップまとめ`,
+    url: gamePageUrl,
+  }).toString()}`;
 
   return (
     <main>
@@ -299,10 +324,28 @@ export default async function GamePage({ params }: GamePageProps) {
 
       <div className="grid gap-8 px-4 py-8 sm:px-6 lg:px-8 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-10">
+          {game.weeklyTopPosts.length > 0 ? (
+            <PostSection
+              description="直近7日間に投稿され、反応が多かった投稿です。共有すると最新のランキングが表示されます。"
+              headerAction={
+                <Link
+                  className="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-background px-3 text-sm font-medium hover:bg-muted"
+                  href={weeklyDigestXShareUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  <Share2 size={15} />
+                  Xで共有
+                </Link>
+              }
+              posts={game.weeklyTopPosts}
+              prioritizeFirst
+              title="今週のトップ"
+            />
+          ) : null}
           <PostSection
             description="いいね、コメント、再生数をもとに、このゲームで反応が多い投稿を表示します。"
             posts={game.popularPosts}
-            prioritizeFirst
             title="人気投稿"
           />
           <PostSection description="このゲームに紐づく公開投稿を新着順で表示します。" posts={game.recentPosts} title="最近の投稿" />
@@ -383,11 +426,13 @@ function ExternalButton({ href, label }: { href: string; label: string }) {
 
 function PostSection({
   description,
+  headerAction,
   posts,
   title,
   prioritizeFirst = false,
 }: {
   description: string;
+  headerAction?: React.ReactNode;
   posts: GamePost[];
   title: string;
   prioritizeFirst?: boolean;
@@ -397,11 +442,12 @@ function PostSection({
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 text-2xl font-bold">
-            {title === "人気投稿" ? <TrendingUp size={24} /> : null}
+            {title === "人気投稿" || title === "今週のトップ" ? <TrendingUp size={24} /> : null}
             {title}
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         </div>
+        {headerAction}
       </div>
 
       {posts.length > 0 ? (
