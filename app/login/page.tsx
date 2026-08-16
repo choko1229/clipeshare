@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { LoginActions } from "@/components/auth/login-actions";
 
+export const dynamic = "force-dynamic";
+
 export default async function LoginPage() {
   const session = await getServerSession(authOptions);
 

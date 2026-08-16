@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "利用規約",
   description: "Clipeshareの利用規約ドラフトです。",

@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/db/prisma";
 import { escapeXml } from "@/lib/seo/xml";
 
+// ビルド時の静的生成を避け、リクエストごとに最新の投稿一覧で生成する。
+export const dynamic = "force-dynamic";
+
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 // Google動画検索向けの video sitemap 拡張。Next.jsのsitemap()規約は

@@ -1,6 +1,10 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/db/prisma";
 
+// ビルド時の静的生成(=ビルド環境のDB接続に依存し、以降内容が固定化される)を避け、
+// リクエストごとに最新の投稿一覧で生成する。
+export const dynamic = "force-dynamic";
+
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 // Googleのsitemap 1ファイル上限(5万URL)を踏まえた安全マージン。
