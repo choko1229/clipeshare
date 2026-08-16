@@ -11,6 +11,7 @@ import { fetchRawgGameMetadata } from "@/lib/games/rawg";
 import { fetchSteamGameMetadata } from "@/lib/games/steam";
 import { storageSettingKeys } from "@/lib/media/retention";
 import { slugify } from "@/lib/posts/slug";
+import { siteSettingKeys } from "@/lib/seo/settings";
 
 const idSchema = z.string().min(1);
 const reportStatusSchema = z.enum(["OPEN", "REVIEWING", "ACTION_TAKEN", "REJECTED", "CLOSED"]);
@@ -881,6 +882,48 @@ export async function updateStorageRetentionSettings(formData: FormData) {
   });
 
   revalidatePath("/admin/account-levels");
+}
+
+export async function updateSeoSettings(formData: FormData) {
+  const admin = await requireAdmin();
+  const googleSiteVerification = z.string().trim().max(255).optional().parse(formData.get("googleSiteVerification") || undefined) ?? "";
+  const bingSiteVerification = z.string().trim().max(255).optional().parse(formData.get("bingSiteVerification") || undefined) ?? "";
+  const gaMeasurementId = z.string().trim().max(255).optional().parse(formData.get("gaMeasurementId") || undefined) ?? "";
+
+  const entries = [
+    { key: siteSettingKeys.googleSiteVerification, value: googleSiteVerification },
+    { key: siteSettingKeys.bingSiteVerification, value: bingSiteVerification },
+    { key: siteSettingKeys.gaMeasurementId, value: gaMeasurementId },
+  ];
+
+  const before = await prisma.siteSetting.findMany({
+    where: {
+      key: {
+        in: entries.map((entry) => entry.key),
+      },
+    },
+  });
+
+  const after = await prisma.$transaction(
+    entries.map((entry) =>
+      prisma.siteSetting.upsert({
+        where: { key: entry.key },
+        update: { value: entry.value, updatedByAdminId: admin.id },
+        create: { key: entry.key, value: entry.value, updatedByAdminId: admin.id },
+      }),
+    ),
+  );
+
+  await writeAuditLog({
+    adminId: admin.id,
+    action: "site_setting.update_seo",
+    targetType: "site_setting",
+    targetId: "seo",
+    beforeData: before,
+    afterData: after,
+  });
+
+  revalidatePath("/admin/seo");
 }
 
 export async function updateGameMetadata(formData: FormData) {

@@ -15,47 +15,50 @@ import { ThemeProvider } from "@/components/theme/theme-provider";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { GlobalPostDrop } from "@/components/uploads/global-post-drop";
 import { prisma } from "@/lib/db/prisma";
+import { getSeoSettings } from "@/lib/seo/settings";
 
-export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
-  title: {
-    default: "Clipshare",
-    template: "%s | Clipshare",
-  },
-  description: "ゲームクリップとスクリーンショットを共有するメディアサイト",
-  applicationName: "Clipshare",
-  manifest: "/manifest.webmanifest",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Clipshare",
-  },
-  formatDetection: {
-    telephone: false,
-  },
-  alternates: {
-    types: {
-      "application/rss+xml": "/feed.xml",
+export async function generateMetadata(): Promise<Metadata> {
+  const seoSettings = await getSeoSettings();
+
+  return {
+    metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
+    title: {
+      default: "Clipshare",
+      template: "%s | Clipshare",
     },
-  },
-  verification: {
-    google: process.env.GOOGLE_SITE_VERIFICATION || undefined,
-    other: process.env.BING_SITE_VERIFICATION
-      ? { "msvalidate.01": process.env.BING_SITE_VERIFICATION }
-      : undefined,
-  },
-  openGraph: {
-    type: "website",
-    siteName: "Clipshare",
-    title: "Clipshare",
     description: "ゲームクリップとスクリーンショットを共有するメディアサイト",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Clipshare",
-    description: "ゲームクリップとスクリーンショットを共有するメディアサイト",
-  },
-};
+    applicationName: "Clipshare",
+    manifest: "/manifest.webmanifest",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "black-translucent",
+      title: "Clipshare",
+    },
+    formatDetection: {
+      telephone: false,
+    },
+    alternates: {
+      types: {
+        "application/rss+xml": "/feed.xml",
+      },
+    },
+    verification: {
+      google: seoSettings.googleSiteVerification || undefined,
+      other: seoSettings.bingSiteVerification ? { "msvalidate.01": seoSettings.bingSiteVerification } : undefined,
+    },
+    openGraph: {
+      type: "website",
+      siteName: "Clipshare",
+      title: "Clipshare",
+      description: "ゲームクリップとスクリーンショットを共有するメディアサイト",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "Clipshare",
+      description: "ゲームクリップとスクリーンショットを共有するメディアサイト",
+    },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#07080d",
@@ -82,7 +85,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await getServerSession(authOptions);
+  const [session, seoSettings] = await Promise.all([getServerSession(authOptions), getSeoSettings()]);
   const user = session?.user?.id
     ? await prisma.user.findUnique({
         where: {
@@ -111,7 +114,7 @@ export default async function RootLayout({
   return (
     <html data-theme={initialTheme} lang="ja" suppressHydrationWarning>
       <body>
-        <GoogleAnalytics />
+        <GoogleAnalytics measurementId={seoSettings.gaMeasurementId} />
         <ThemeProvider initialTheme={initialTheme} persistToDatabase={Boolean(session?.user?.id)}>
           <ServiceWorkerRegister />
           <PwaModeEnhancer />

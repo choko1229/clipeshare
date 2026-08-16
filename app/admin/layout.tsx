@@ -12,6 +12,7 @@ const adminNav = [
   { href: "/admin/users", label: "ユーザー" },
   { href: "/admin/admins", label: "管理者" },
   { href: "/admin/account-levels", label: "アカウントレベル" },
+  { href: "/admin/seo", label: "SEO" },
   { href: "/admin/audit-logs", label: "操作ログ" },
 ];
 

@@ -1,9 +1,9 @@
 import Script from "next/script";
 
-export function GoogleAnalytics() {
-  const measurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+const SAFE_MEASUREMENT_ID = /^[A-Za-z0-9_-]+$/;
 
-  if (!measurementId) {
+export function GoogleAnalytics({ measurementId }: { measurementId: string | null }) {
+  if (!measurementId || !SAFE_MEASUREMENT_ID.test(measurementId)) {
     return null;
   }
 

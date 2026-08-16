@@ -522,3 +522,12 @@ model StorageSetting {
   updatedByAdminId String?
   updatedAt        DateTime @updatedAt
 }
+
+model SiteSetting {
+  id               String   @id @default(cuid())
+  key              String   @unique
+  value            String   @db.Text
+  description      String?  @db.Text
+  updatedByAdminId String?
+  updatedAt        DateTime @updatedAt
+}
