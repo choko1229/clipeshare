@@ -49,10 +49,14 @@ pathDefaults:
     -H 'x-live-hook-secret: __LIVE_MEDIA_HOOK_SECRET__'
     -d '{"path":"$MTX_PATH"}'
 
+# MediaMTXは既定で「設定されていないパス名」への配信・読み取りを一切許可しない。
+# all_othersは「他のどのpathsエントリにもマッチしなかったパス」に対する特別な予約キーで、
+# これが無いと live/{streamKey} のような動的な名前は 'is not configured' で即座に拒否される。
 # 視聴用パス(live/{viewToken})はNext.js側のwebhookが
-# POST /v3/config/paths/add/live/{viewToken} で動的に追加・削除する(lib/live/media-control.ts参照)。
-# pathDefaultsの設定(runOnOffline含む)を継承するので、ここでも個別定義は不要。
-paths: {}
+# POST /v3/config/paths/add/live/{viewToken} で動的に追加・削除する(lib/live/media-control.ts参照)が、
+# それらもここを経由せず追加された時点でpathDefaultsを継承するので、個別定義は不要。
+paths:
+  all_others: {}
 
 # VRChat向け低ビットレート出力(video 2Mbps / audio 320kbps程度が目安、lib/live/settings.tsのデフォルト値と合わせる)は
 # 別プロセスのffmpegでvrchat/{viewToken}パスへ再エンコードして送り込む構成を想定。
