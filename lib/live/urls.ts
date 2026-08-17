@@ -12,7 +12,10 @@ export function webViewUrl(viewToken: string) {
 }
 
 export function vrchatRtspUrl(viewToken: string) {
-  return `rtsp://${liveMediaHost()}/live/${viewToken}`;
+  // RTSPの既定ポートは554だが、MediaMTXはrtspAddress: :8554で待ち受けている
+  // (mediamtx.yml.example参照)ため、ポート番号を省略するとVLC/VRChatが554へ
+  // 接続しようとして失敗する。
+  return `rtsp://${liveMediaHost()}:8554/live/${viewToken}`;
 }
 
 export function vrchatMpegTsUrl(viewToken: string) {
