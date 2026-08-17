@@ -2,6 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // next build内蔵の型チェックは別ワーカープロセスで動き、NODE_OPTIONSのヒープ上限指定が
+  // 引き継がれず低メモリVPSでOOMしやすい。scripts/deploy-server.shでtscを単一プロセスとして
+  // 事前に実行しているため、ビルド本体側では二重チェックしない。
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "512mb",

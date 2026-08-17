@@ -64,7 +64,15 @@ if [[ -f "prisma/schema.prisma" ]]; then
   npx prisma db seed
 fi
 
+echo "==> Type-checking"
+NODE_OPTIONS="${BUILD_NODE_OPTIONS}" npx tsc --noEmit
+
+echo "==> Linting"
+NODE_OPTIONS="${BUILD_NODE_OPTIONS}" npx eslint .
+
 echo "==> Building application"
+# next build内蔵の型チェック/lintはnext.config.tsでスキップ設定済み(上のtsc/eslintで代替済みのため)。
+# ビルド自体のワーカープロセスにもヒープ上限を渡す。
 NODE_OPTIONS="${BUILD_NODE_OPTIONS}" npm run build
 
 echo "==> Linking shared storage"
