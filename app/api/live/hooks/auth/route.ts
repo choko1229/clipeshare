@@ -6,16 +6,23 @@ import { notifyFollowersOfLiveStart } from "@/lib/live/notify";
 import { getLiveSettings } from "@/lib/live/settings";
 
 const bodySchema = z.object({
-  streamKey: z.string().min(1),
+  action: z.string(),
+  path: z.string().optional().default(""),
 });
 
+function streamKeyFromPath(path: string) {
+  return path.replace(/^live\//, "");
+}
+
 /**
- * MediaMTXのrunOnPublish(配信開始)フックから呼ばれる。
- * ストリームキーを検証し、同時配信数上限を超えていなければLIVEへ遷移させる。
- * 401/403以外を返すとMediaMTXはpublishを拒否する(具体的な連携方法はdocs/vps-deployment.md参照)。
+ * MediaMTXの組み込み認証(authHTTPAddress)から、publish/read/api等すべてのアクションについて呼ばれる。
+ * publish以外は無条件に許可し、publishのみストリームキーと同時配信数上限を検証する。
+ * authHTTPAddressはカスタムヘッダーを付けられないため、共有シークレットはURLのクエリ文字列で渡す
+ * (mediamtx.yml側で authHTTPAddress に ?secret=... を埋め込む。docs/vps-deployment.md参照)。
  */
 export async function POST(request: Request) {
-  const secret = request.headers.get("x-live-hook-secret");
+  const url = new URL(request.url);
+  const secret = url.searchParams.get("secret");
   if (!process.env.LIVE_MEDIA_HOOK_SECRET || secret !== process.env.LIVE_MEDIA_HOOK_SECRET) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
@@ -25,8 +32,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_body" }, { status: 400 });
   }
 
+  if (parsed.data.action !== "publish") {
+    return NextResponse.json({ ok: true });
+  }
+
+  const streamKey = streamKeyFromPath(parsed.data.path);
   const stream = await prisma.liveStream.findUnique({
-    where: { streamKey: parsed.data.streamKey },
+    where: { streamKey },
   });
 
   if (!stream) {

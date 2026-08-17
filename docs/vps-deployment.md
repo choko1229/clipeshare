@@ -294,7 +294,7 @@ LIVE_CHAT_SERVER_PORT=8081
 NEXT_PUBLIC_LIVE_WS_URL=wss://live.clipshare.link/ws
 ```
 
-`LIVE_MEDIA_HOOK_SECRET` は `mediamtx.yml` の `runOnPublish`/`runOnPublishEnd` に埋め込んだ値と一致させます。`LIVE_CHAT_TOKEN_SECRET` は `clipeshare-live-chat.service` 側でも同じ値を読み込みます(`.env.production` を共有しているため追加設定は不要)。
+`LIVE_MEDIA_HOOK_SECRET` は `mediamtx.yml` の `authHTTPAddress`(クエリ文字列)と `runOnOffline` に埋め込んだ値と一致させます。`LIVE_CHAT_TOKEN_SECRET` は `clipeshare-live-chat.service` 側でも同じ値を読み込みます(`.env.production` を共有しているため追加設定は不要)。
 
 #### 4. clipeshare-live-chatサービスの有効化
 

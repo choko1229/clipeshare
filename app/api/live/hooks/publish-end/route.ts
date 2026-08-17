@@ -3,11 +3,15 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 
 const bodySchema = z.object({
-  streamKey: z.string().min(1),
+  path: z.string().min(1),
 });
 
+function streamKeyFromPath(path: string) {
+  return path.replace(/^live\//, "");
+}
+
 /**
- * MediaMTXのrunOnPublishEnd(配信切断)フックから呼ばれる。
+ * MediaMTXのrunOnOffline(配信ソースが切断された)フックから呼ばれる。
  * ここでは即座にOFFLINEへは倒さず、disconnectedAtを記録するだけに留める。
  * 実際のOFFLINE確定はscripts/live-chat-server.mjsの定期スイープ(猶予時間経過後)が行う。
  */
@@ -22,8 +26,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_body" }, { status: 400 });
   }
 
+  const streamKey = streamKeyFromPath(parsed.data.path);
   const stream = await prisma.liveStream.findUnique({
-    where: { streamKey: parsed.data.streamKey },
+    where: { streamKey },
     select: { id: true, status: true },
   });
 

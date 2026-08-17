@@ -11,6 +11,14 @@ logLevel: info
 api: yes
 apiAddress: 127.0.0.1:9997
 
+# publish(配信開始)の認証はMediaMTX組み込みのHTTP認証を使う。
+# authHTTPAddressはカスタムヘッダーを付けられないため、共有シークレットはクエリ文字列で渡す。
+# app/api/live/hooks/auth/route.ts 側でこの値を検証する。publish以外のaction(read/api等)は
+# そちら側で無条件に許可しているので、view-relayパスの読み取りやMediaMTX自身のControl API
+# 呼び出しがブロックされることはない。
+authMethod: http
+authHTTPAddress: __APP_URL__/api/live/hooks/auth?secret=__LIVE_MEDIA_HOOK_SECRET__
+
 rtmp: yes
 rtmpAddress: :1935
 
@@ -30,20 +38,17 @@ protocols: [tcp]
 
 paths:
   # OBSからの入稿パス。ストリームキーがそのままパス名になる(rtmp://.../live/{streamKey})。
-  # publish/publish-end時にNext.jsのwebhookへ通知し、認証・ステータス更新・同時配信数チェックを行う。
+  # 認証はauthHTTPAddressが担当するため、ここでは切断時の通知(runOnOffline)だけ行う。
+  # runOnOfflineは「配信ソースがオンラインでなくなった」時に発火する(接続開始側の
+  # runOnOnlineに対応する切断イベント)。ここでは即座にOFFLINEへは倒さず、Next.js側で
+  # disconnectedAtを記録するだけに留め、実際のOFFLINE確定はscripts/live-chat-server.mjsの
+  # 定期スイープ(猶予時間経過後)に任せる。
   live/~^.+$:
-    runOnPublish: >
-      curl -s -o /dev/null -w '%{http_code}' -X POST __APP_URL__/api/live/hooks/publish
-      -H 'content-type: application/json'
-      -H 'x-live-hook-secret: __LIVE_MEDIA_HOOK_SECRET__'
-      -d '{"streamKey":"$MTX_PATH"}'
-      | grep -q '^200$'
-    runOnPublishRestart: yes
-    runOnPublishEnd: >
+    runOnOffline: >
       curl -s -o /dev/null -X POST __APP_URL__/api/live/hooks/publish-end
       -H 'content-type: application/json'
       -H 'x-live-hook-secret: __LIVE_MEDIA_HOOK_SECRET__'
-      -d '{"streamKey":"$MTX_PATH"}'
+      -d '{"path":"$MTX_PATH"}'
 
   # 視聴用パス(live/{viewToken})はNext.js側のwebhookが
   # POST /v3/config/paths/add/live/{viewToken} で動的に追加・削除する(lib/live/media-control.ts参照)。
