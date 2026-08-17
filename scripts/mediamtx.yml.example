@@ -26,7 +26,7 @@ rtmpAddress: :1935
 # NginxからHTTPSでリバースプロキシする(直接インターネットに公開しない)。
 hls: yes
 hlsAddress: 127.0.0.1:8888
-hlsAllowOrigin: "*"
+hlsAllowOrigins: ["*"]
 hlsVariant: lowLatency
 hlsSegmentCount: 4
 hlsSegmentDuration: 1s
@@ -34,25 +34,25 @@ hlsPartDuration: 200ms
 
 rtsp: yes
 rtspAddress: :8554
-protocols: [tcp]
+rtspTransports: [tcp]
 
-paths:
-  # OBSからの入稿パス。ストリームキーがそのままパス名になる(rtmp://.../live/{streamKey})。
-  # 認証はauthHTTPAddressが担当するため、ここでは切断時の通知(runOnOffline)だけ行う。
-  # runOnOfflineは「配信ソースがオンラインでなくなった」時に発火する(接続開始側の
-  # runOnOnlineに対応する切断イベント)。ここでは即座にOFFLINEへは倒さず、Next.js側で
-  # disconnectedAtを記録するだけに留め、実際のOFFLINE確定はscripts/live-chat-server.mjsの
-  # 定期スイープ(猶予時間経過後)に任せる。
-  live/~^.+$:
-    runOnOffline: >
-      curl -s -o /dev/null -X POST __APP_URL__/api/live/hooks/publish-end
-      -H 'content-type: application/json'
-      -H 'x-live-hook-secret: __LIVE_MEDIA_HOOK_SECRET__'
-      -d '{"path":"$MTX_PATH"}'
+# すべてのパス(事前定義していないパスも含む)に共通で適用される設定。
+# OBSからの入稿パス(live/{streamKey})はここに書かれた設定を自動的に継承して動的に作られるので、
+# 個々のストリームキーごとにpathsへ明示的なエントリを用意する必要はない。
+# runOnOfflineは「配信ソースがオンラインでなくなった」時に発火する切断通知フック。
+# ここでは即座にOFFLINEへは倒さず、Next.js側でdisconnectedAtを記録するだけに留め、
+# 実際のOFFLINE確定はscripts/live-chat-server.mjsの定期スイープ(猶予時間経過後)に任せる。
+pathDefaults:
+  runOnOffline: >
+    curl -s -o /dev/null -X POST __APP_URL__/api/live/hooks/publish-end
+    -H 'content-type: application/json'
+    -H 'x-live-hook-secret: __LIVE_MEDIA_HOOK_SECRET__'
+    -d '{"path":"$MTX_PATH"}'
 
-  # 視聴用パス(live/{viewToken})はNext.js側のwebhookが
-  # POST /v3/config/paths/add/live/{viewToken} で動的に追加・削除する(lib/live/media-control.ts参照)。
-  # ここでは雛形として何も定義しない。
+# 視聴用パス(live/{viewToken})はNext.js側のwebhookが
+# POST /v3/config/paths/add/live/{viewToken} で動的に追加・削除する(lib/live/media-control.ts参照)。
+# pathDefaultsの設定(runOnOffline含む)を継承するので、ここでも個別定義は不要。
+paths: {}
 
 # VRChat向け低ビットレート出力(video 2Mbps / audio 320kbps程度が目安、lib/live/settings.tsのデフォルト値と合わせる)は
 # 別プロセスのffmpegでvrchat/{viewToken}パスへ再エンコードして送り込む構成を想定。
