@@ -323,9 +323,12 @@ server {
         return 200 "clipshare live media server\n";
     }
 
-    # HLS(Web視聴・VRChat MPEG-TS向け)
-    location /hls/ {
-        proxy_pass http://127.0.0.1:8888/;
+    # HLS(Web視聴・VRChat MPEG-TS向け)。MediaMTXは内部的に"cookieCheck"付きの302リダイレクトを
+    # /live/{name}/... という絶対パスで返すため、ここでプレフィックスを剥がして中継してしまうと
+    # リダイレクト後のパスがどのlocationにもマッチしなくなる。proxy_passにURIを付けず、
+    # location側のプレフィックス(/live/)をそのまま透過させることで実際のMediaMTXのパスと一致させる。
+    location /live/ {
+        proxy_pass http://127.0.0.1:8888;
         proxy_set_header Host $host;
         add_header Access-Control-Allow-Origin *;
     }
@@ -381,8 +384,8 @@ server {
         return 200 "clipshare live media server\n";
     }
 
-    location /hls/ {
-        proxy_pass http://127.0.0.1:8888/;
+    location /live/ {
+        proxy_pass http://127.0.0.1:8888;
         proxy_set_header Host $host;
         add_header Access-Control-Allow-Origin *;
     }

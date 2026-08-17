@@ -80,7 +80,7 @@ export default async function LiveViewerPage({ params }: ViewerPageProps) {
   }
 
   const mediaDomain = process.env.LIVE_MEDIA_DOMAIN ?? "live.clipshare.link";
-  const hlsSrc = `https://${mediaDomain}/hls/live/${stream.viewToken}/index.m3u8`;
+  const hlsSrc = `https://${mediaDomain}/live/${stream.viewToken}/index.m3u8`;
 
   return (
     <main className="px-4 py-8 sm:px-6 lg:px-8">
