@@ -340,6 +340,50 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
+証明書自体の取得(ACMEチャレンジ)は成功しても、`location`ブロックしか持たないシンプルなserver blockだと、certbotのnginxパーサーが対象を見つけられず `Could not automatically find a matching server block` で自動組み込みだけ失敗することがある。その場合も証明書ファイルは `/etc/letsencrypt/live/live.clipshare.link/` に保存済みなので、以下のように手動でHTTPS設定を書けばよい(`/etc/letsencrypt/options-ssl-nginx.conf`と`ssl-dhparams.pem`はメインドメインのcertbotセットアップ時に既に作られているはず)。
+
+```bash
+sudo tee /etc/nginx/sites-available/clipeshare-live > /dev/null <<'EOF'
+server {
+    listen 80;
+    listen [::]:80;
+    server_name live.clipshare.link;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name live.clipshare.link;
+
+    ssl_certificate /etc/letsencrypt/live/live.clipshare.link/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/live.clipshare.link/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    location = / {
+        default_type text/plain;
+        return 200 "clipshare live media server\n";
+    }
+
+    location /hls/ {
+        proxy_pass http://127.0.0.1:8888/;
+        proxy_set_header Host $host;
+        add_header Access-Control-Allow-Origin *;
+    }
+
+    location /ws/ {
+        proxy_pass http://127.0.0.1:8081/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 3600s;
+    }
+}
+EOF
+sudo nginx -t && sudo systemctl reload nginx
+```
+
 RTMP(1935)とRTSP(8554)はNginxを経由せず、MediaMTXへ直接到達させます(UFWで許可)。
 
 ```bash
