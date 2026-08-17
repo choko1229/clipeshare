@@ -302,6 +302,12 @@ server {
     listen [::]:80;
     server_name live.clipshare.link;
 
+    # このサブドメインにホームページは無いため、疎通確認用に固定レスポンスを返す。
+    location = / {
+        default_type text/plain;
+        return 200 "clipshare live media server\n";
+    }
+
     # HLS(Web視聴・VRChat MPEG-TS向け)
     location /hls/ {
         proxy_pass http://127.0.0.1:8888/;
