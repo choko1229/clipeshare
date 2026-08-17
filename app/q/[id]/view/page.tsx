@@ -3,8 +3,9 @@ import { cookies } from "next/headers";
 import { getServerSession } from "next-auth";
 import { deleteQuickShare } from "@/app/qick/actions";
 import { authOptions } from "@/auth";
-import { QuickShareViewer } from "@/components/quick-share/quick-share-viewer";
+import { QuickShareItemViewer } from "@/components/quick-share/quick-share-item-viewer";
 import { prisma } from "@/lib/db/prisma";
+import { getStoredUploads } from "@/lib/quick-share/upload-cookie";
 
 export const dynamic = "force-dynamic";
 
@@ -15,13 +16,13 @@ export const metadata: Metadata = {
   },
 };
 
-type QuickSharePageProps = {
+type QuickShareViewPageProps = {
   params: Promise<{
     id: string;
   }>;
 };
 
-export default async function QuickSharePage({ params }: QuickSharePageProps) {
+export default async function QuickShareViewPage({ params }: QuickShareViewPageProps) {
   const { id } = await params;
 
   const [quickShare, cookieStore, session] = await Promise.all([
@@ -41,22 +42,28 @@ export default async function QuickSharePage({ params }: QuickSharePageProps) {
     );
   }
 
-  const canDelete = cookieStore.get(`qs_del_${id}`)?.value === quickShare.deleteToken;
-  const isLoggedIn = Boolean(session?.user?.id);
+  const userId = session?.user?.id ?? null;
+  const isOwnerBySession = Boolean(userId) && quickShare.userId === userId;
+  const isOwnerByCookie = getStoredUploads(cookieStore).some(
+    (item) => item.id === id && item.token === quickShare.deleteToken,
+  );
+  const canDelete = isOwnerBySession || isOwnerByCookie;
+
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const shareUrl = `${baseUrl}/q/${id}`;
   const expiresAtLabel = quickShare.expiresAt.toLocaleString("ja-JP");
 
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-2xl flex-col justify-center px-4 py-10">
-      <QuickShareViewer
+      <QuickShareItemViewer
         canDelete={canDelete}
         deleteAction={deleteQuickShare.bind(null, id)}
+        errorMessage={quickShare.errorMessage}
         expiresAtLabel={expiresAtLabel}
-        isLoggedIn={isLoggedIn}
+        isLoggedIn={Boolean(userId)}
         kind={quickShare.kind}
-        mediaUrl={quickShare.mediaUrl}
         shareUrl={shareUrl}
+        status={quickShare.status}
       />
     </main>
   );

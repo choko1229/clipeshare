@@ -6,6 +6,7 @@ export const mediaPaths = {
   tempRoot: path.join(/*turbopackIgnore: true*/ process.cwd(), "storage", "temp"),
   deletedRoot: path.join(/*turbopackIgnore: true*/ process.cwd(), "storage", "deleted"),
   quickShareRoot: path.join(/*turbopackIgnore: true*/ process.cwd(), "storage", "uploads", "processed", "quick"),
+  quickShareOriginalRoot: path.join(/*turbopackIgnore: true*/ process.cwd(), "storage", "uploads", "originals", "quick"),
 };
 
 export function assertInside(root: string, target: string) {

@@ -92,6 +92,12 @@ enum QuickShareKind {
   VIDEO
 }
 
+enum QuickShareStatus {
+  PROCESSING
+  READY
+  FAILED
+}
+
 model User {
   id              String    @id @default(cuid())
   username        String?   @unique
@@ -528,7 +534,8 @@ model AdminAuditLog {
 
 model UploadJob {
   id           String          @id @default(cuid())
-  postId       String
+  postId       String?
+  quickShareId String?
   status       UploadJobStatus @default(QUEUED)
   inputPath    String          @db.Text
   outputPath   String?         @db.Text
@@ -539,7 +546,10 @@ model UploadJob {
   finishedAt   DateTime?
   createdAt    DateTime        @default(now())
 
-  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  post       Post?       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  quickShare QuickShare? @relation(fields: [quickShareId], references: [id], onDelete: Cascade)
+
+  @@index([quickShareId])
 }
 
 model MediaRetentionFile {
@@ -586,22 +596,27 @@ model SiteSetting {
 }
 
 model QuickShare {
-  id            String         @id @default(cuid())
-  publicId      String         @unique
+  id            String           @id @default(cuid())
+  publicId      String           @unique
   deleteToken   String
   kind          QuickShareKind
-  mediaUrl      String         @db.Text
+  status        QuickShareStatus @default(READY)
+  mediaUrl      String?          @db.Text
+  thumbnailUrl  String?          @db.Text
+  originalPath  String?          @db.Text
+  errorMessage  String?          @db.Text
   mimeType      String
   fileSizeBytes BigInt
   width         Int?
   height        Int?
   userId        String?
   ipHash        String?
-  createdAt     DateTime       @default(now())
+  createdAt     DateTime         @default(now())
   expiresAt     DateTime
   deletedAt     DateTime?
 
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  uploadJobs UploadJob[]
 
   @@index([expiresAt, deletedAt])
   @@index([userId, createdAt])

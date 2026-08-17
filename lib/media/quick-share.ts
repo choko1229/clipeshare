@@ -28,6 +28,12 @@ type StoreQuickShareVideoOptions = {
   maxVideoSizeBytes: number;
 };
 
+export type StoredQuickShareVideoOriginal = {
+  mimeType: string;
+  originalPath: string;
+  size: number;
+};
+
 export async function storeQuickShareImage(
   file: File,
   publicId: string,
@@ -70,11 +76,11 @@ export async function storeQuickShareImage(
   };
 }
 
-export async function storeQuickShareVideo(
+export async function storeQuickShareVideoOriginal(
   file: File,
   publicId: string,
   options: StoreQuickShareVideoOptions,
-): Promise<StoredQuickShareMedia> {
+): Promise<StoredQuickShareVideoOriginal> {
   if (!isAllowedVideo(file)) {
     throw new Error("対応していない動画形式です。mp4, mov, webm, mkv, aviを選択してください。");
   }
@@ -85,7 +91,7 @@ export async function storeQuickShareVideo(
 
   const bytes = Buffer.from(await file.arrayBuffer());
   const extension = extensionFromFile(file);
-  const dir = path.join(mediaPaths.quickShareRoot, "videos");
+  const dir = path.join(mediaPaths.quickShareOriginalRoot, "videos");
   await mkdir(dir, { recursive: true });
 
   const fileName = `${publicId}.${extension}`;
@@ -93,11 +99,9 @@ export async function storeQuickShareVideo(
   await writeFile(filePath, bytes, { flag: "wx" });
 
   return {
-    mediaUrl: `/media/quick/videos/${fileName}`,
     mimeType: file.type || mimeFromExtension(extension),
+    originalPath: filePath,
     size: file.size,
-    width: null,
-    height: null,
   };
 }
 

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { ImagePlus, Plus } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import "./globals.css";
@@ -131,6 +131,14 @@ export default async function RootLayout({
 
                 <nav className="flex min-w-0 items-center justify-end gap-2">
                   <HeaderSearch />
+                  <Button asChild className="size-10 px-0 sm:hidden" variant="ghost">
+                    <Link aria-label="クイック共有" href="/qick" title="クイック共有">
+                      <ImagePlus size={20} />
+                    </Link>
+                  </Button>
+                  <Button asChild className="hidden sm:inline-flex" variant="ghost">
+                    <Link href="/qick">クイック共有</Link>
+                  </Button>
                   <ThemeToggle />
                   {session?.user ? (
                     <>

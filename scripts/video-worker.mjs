@@ -34,11 +34,17 @@ async function tick() {
             },
           },
         },
+        quickShare: true,
       },
       orderBy: { createdAt: "asc" },
     });
 
     if (!job) {
+      return;
+    }
+
+    if (job.quickShareId) {
+      await processQuickShareJob(job);
       return;
     }
 
@@ -194,6 +200,126 @@ async function processJob(job) {
           status: "FAILED",
           errorMessage: message,
           finishedAt: new Date(),
+        },
+      });
+    });
+  }
+}
+
+async function processQuickShareJob(job) {
+  console.log(`Processing quick-share job ${job.id} for ${job.quickShare.publicId}`);
+
+  await prisma.uploadJob.update({
+    where: { id: job.id },
+    data: { status: "PROCESSING", startedAt: new Date(), errorMessage: null },
+  });
+
+  try {
+    const metadata = await probeVideo(job.inputPath);
+
+    const videoDir = path.join(processedRoot, "quick", "videos");
+    const thumbnailDir = path.join(processedRoot, "quick", "thumbnails");
+    await Promise.all([mkdir(videoDir, { recursive: true }), mkdir(thumbnailDir, { recursive: true })]);
+
+    const thumbnailPath = path.join(thumbnailDir, `${job.quickShare.publicId}.webp`);
+    const videoPath = path.join(videoDir, `${job.quickShare.publicId}.mp4`);
+
+    await run("ffmpeg", [
+      "-y",
+      "-i",
+      job.inputPath,
+      "-vf",
+      "thumbnail,scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720",
+      "-frames:v",
+      "1",
+      "-c:v",
+      "libwebp",
+      "-quality",
+      "82",
+      thumbnailPath,
+    ]);
+
+    await run("ffmpeg", [
+      "-y",
+      "-i",
+      job.inputPath,
+      "-vf",
+      "scale='if(gte(iw,ih),min(1280,iw),-2)':'if(gte(iw,ih),-2,min(1280,ih))',scale='trunc(iw/2)*2:trunc(ih/2)*2'",
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast",
+      "-crf",
+      "26",
+      "-maxrate",
+      "2500k",
+      "-bufsize",
+      "5000k",
+      "-profile:v",
+      "main",
+      "-pix_fmt",
+      "yuv420p",
+      "-tag:v",
+      "avc1",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "128k",
+      "-movflags",
+      "+faststart",
+      videoPath,
+    ]);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.quickShare.update({
+        where: { id: job.quickShareId },
+        data: {
+          status: "READY",
+          mediaUrl: `/media/quick/videos/${job.quickShare.publicId}.mp4`,
+          thumbnailUrl: `/media/quick/thumbnails/${job.quickShare.publicId}.webp`,
+          width: metadata.width,
+          height: metadata.height,
+        },
+      });
+      await tx.uploadJob.update({
+        where: { id: job.id },
+        data: {
+          status: "COMPLETED",
+          outputPath: videoPath,
+          finishedAt: new Date(),
+        },
+      });
+      await tx.mediaRetentionFile.create({
+        data: {
+          path: job.inputPath,
+          reason: "QUICK_SHARE_ORIGINAL",
+          deleteAfter: daysFromNow(1),
+        },
+      });
+    });
+
+    console.log(`Completed quick-share job ${job.id}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Failed quick-share job ${job.id}: ${message}`);
+    await prisma.$transaction(async (tx) => {
+      await tx.quickShare.update({
+        where: { id: job.quickShareId },
+        data: { status: "FAILED", errorMessage: message },
+      });
+      await tx.uploadJob.update({
+        where: { id: job.id },
+        data: {
+          status: "FAILED",
+          errorMessage: message,
+          finishedAt: new Date(),
+        },
+      });
+      await tx.mediaRetentionFile.create({
+        data: {
+          path: job.inputPath,
+          reason: "QUICK_SHARE_ORIGINAL",
+          deleteAfter: daysFromNow(1),
         },
       });
     });

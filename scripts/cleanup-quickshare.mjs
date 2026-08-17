@@ -29,30 +29,26 @@ try {
   }
 
   for (const item of items) {
-    const filePath = resolveMediaPath(item.mediaUrl);
+    const filePaths = [resolveMediaPath(item.mediaUrl), resolveMediaPath(item.thumbnailUrl), item.originalPath].filter(
+      (value) => typeof value === "string" && value.length > 0,
+    );
 
-    if (!filePath) {
-      console.warn(`Skipping quick share with invalid mediaUrl: ${item.mediaUrl}`);
-      if (!dryRun) {
-        await prisma.quickShare.update({
-          where: { id: item.id },
-          data: { deletedAt: new Date() },
-        });
+    if (dryRun) {
+      for (const filePath of filePaths) {
+        console.log(`[dry-run] quick-share ${filePath}`);
       }
       continue;
     }
 
-    if (dryRun) {
-      console.log(`[dry-run] quick-share ${filePath}`);
-      continue;
+    for (const filePath of filePaths) {
+      await rm(filePath, { force: true });
     }
 
-    await rm(filePath, { force: true });
     await prisma.quickShare.update({
       where: { id: item.id },
       data: { deletedAt: new Date() },
     });
-    console.log(`Deleted quick-share ${filePath}`);
+    console.log(`Deleted quick-share ${item.publicId} (${filePaths.length} file(s))`);
   }
 } finally {
   await prisma.$disconnect();
