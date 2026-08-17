@@ -291,11 +291,15 @@ sudo systemctl enable --now clipeshare-live-chat.service
 
 #### 5. Nginxの追加設定
 
+certbotの`--nginx`プラグインは、対象ドメインの**既存の80番ポートのserver block**を見つけてSSL設定を後付けする仕組みです。そのため、最初はSSLなし(80番のみ)の設定を作り、`nginx -t`が通る状態にしてからcertbotを実行します。順番を逆にする(いきなり`listen 443 ssl`を書く)と証明書が無い状態でNginxが起動できず失敗します。
+
 `live.clipshare.link` 用のserver blockを追加します(既存の`${APP_NAME}`設定とは別ファイルにします)。
 
-```nginx
+```bash
+sudo tee /etc/nginx/sites-available/clipeshare-live > /dev/null <<'EOF'
 server {
-    listen 443 ssl http2;
+    listen 80;
+    listen [::]:80;
     server_name live.clipshare.link;
 
     # HLS(Web視聴・VRChat MPEG-TS向け)
@@ -314,6 +318,20 @@ server {
         proxy_read_timeout 3600s;
     }
 }
+EOF
+sudo ln -sfn /etc/nginx/sites-available/clipeshare-live /etc/nginx/sites-enabled/clipeshare-live
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+`nginx -t`が`syntax is ok` / `test is successful`になっていることを確認してから次に進みます。80/443番ポートは`${APP_NAME}.service`セットアップ時に`ufw allow 'Nginx Full'`で既に開放済みのはずなので、追加のUFW設定は不要です(未実施の場合のみ`sudo ufw allow 'Nginx Full'`を実行)。
+
+DNSが反映されていること(`dig live.clipshare.link`でVPSのIPが返ること)を確認したうえで、certbotを実行します。`--nginx`プラグインが自動的に`listen 443 ssl`とHTTPS証明書のパス、80→443のリダイレクトを既存のserver blockに追記します。
+
+```bash
+sudo certbot --nginx -d live.clipshare.link --email "${EMAIL}" --agree-tos --non-interactive --redirect
+sudo nginx -t
+sudo systemctl reload nginx
 ```
 
 RTMP(1935)とRTSP(8554)はNginxを経由せず、MediaMTXへ直接到達させます(UFWで許可)。
@@ -321,7 +339,6 @@ RTMP(1935)とRTSP(8554)はNginxを経由せず、MediaMTXへ直接到達させ�
 ```bash
 sudo ufw allow 1935/tcp
 sudo ufw allow 8554/tcp
-sudo certbot --nginx -d live.clipshare.link --email "${EMAIL}" --agree-tos --non-interactive --redirect
 ```
 
 #### 6. 動作確認
