@@ -6,6 +6,8 @@ import { WebSocketServer } from "ws";
 
 const prisma = new PrismaClient();
 const port = Number(process.env.LIVE_CHAT_SERVER_PORT ?? 8081);
+// Nginxの/ws/リバースプロキシ経由でのみアクセスされる想定なのでループバックのみに束縛する。
+const host = process.env.LIVE_CHAT_SERVER_HOST ?? "127.0.0.1";
 const chatTokenSecret = process.env.LIVE_CHAT_TOKEN_SECRET;
 const sweepIntervalMs = Number(process.env.LIVE_OFFLINE_SWEEP_INTERVAL_MS ?? 10_000);
 const settingsRefreshMs = 30_000;
@@ -366,6 +368,6 @@ async function sweepOfflineStreams() {
 
 setInterval(() => void sweepOfflineStreams(), sweepIntervalMs);
 
-server.listen(port, () => {
-  console.log(`Clipshare live chat server listening on :${port}`);
+server.listen(port, host, () => {
+  console.log(`Clipshare live chat server listening on ${host}:${port}`);
 });
