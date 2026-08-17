@@ -10,6 +10,9 @@ set -euo pipefail
 APP_NAME="${APP_NAME:-clipeshare}"
 APP_DIR="${APP_DIR:-/var/www/${APP_NAME}}"
 BRANCH="${BRANCH:-main}"
+# 小規模VPS(物理RAMが少なくswap依存になる環境)でnext buildがヒープ不足でクラッシュするのを防ぐ。
+# 必要に応じてVPS_HOST等と同様にGitHub Actions側の環境変数で上書きできる。
+BUILD_NODE_OPTIONS="${BUILD_NODE_OPTIONS:---max-old-space-size=3072}"
 
 CURRENT_DIR="${APP_DIR}/current"
 ENV_FILE="${APP_DIR}/shared/.env.production"
@@ -62,7 +65,7 @@ if [[ -f "prisma/schema.prisma" ]]; then
 fi
 
 echo "==> Building application"
-npm run build
+NODE_OPTIONS="${BUILD_NODE_OPTIONS}" npm run build
 
 echo "==> Linking shared storage"
 ln -sfn "${APP_DIR}/storage" "${CURRENT_DIR}/storage"

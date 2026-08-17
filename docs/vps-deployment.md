@@ -371,3 +371,26 @@ sudo certbot renew --dry-run
 - FFmpeg同時変換数は初期1にします
 - HLSセグメントはService Workerのキャッシュ対象外にします
 - `/media/` は公開ファイルだけを置く場所にします
+
+### ビルド時のメモリ不足(next buildがOOMで落ちる場合)
+
+物理RAMが1〜2GB程度の小規模VPSでは、`next build`のTypeScriptチェック工程でNode.jsのデフォルトヒープ上限(物理RAM基準で自動計算される)に達し、`JavaScript heap out of memory`でビルドが失敗することがあります(「推奨スペック」の4GBを下回る環境で特に起きやすい)。
+
+`scripts/deploy-server.sh` はデフォルトで `NODE_OPTIONS=--max-old-space-size=3072` を付けてビルドを実行し、swap経由でヒープを確保できるようにしています。この上限値は `BUILD_NODE_OPTIONS` 環境変数(GitHub Actions の Secrets/Variables、または `.env.production` ではなくデプロイ実行時の環境)で上書きできます。
+
+```bash
+# 例: ヒープ上限を2GBに下げる場合
+BUILD_NODE_OPTIONS="--max-old-space-size=2048" bash scripts/deploy-server.sh
+```
+
+前提として、`swapon --show` でswapが有効になっている必要があります。swapが無い場合は以下で追加します(例: 2GB)。
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+swap経由のビルドは通常より時間がかかります。恒常的に発生する場合はVPSのメモリプラン自体を「推奨スペック」章の目安まで引き上げることを検討してください。
