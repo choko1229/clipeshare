@@ -64,6 +64,13 @@ if [[ -f "prisma/schema.prisma" ]]; then
   npx prisma db seed
 fi
 
+echo "==> Clearing stale Next.js build output"
+# .next/types はNext.jsがルートファイルの型を検査するために前回のビルドから生成した
+# 派生ファイル群で、ソースでファイルをリネーム/削除すると存在しないファイルを指したまま残る。
+# 先にtscを走らせる構成だとビルドが一度も走らないうちは更新されず、tscが毎回誤って
+# 失敗し続ける(ビルドが動かないと直らない、が先にtscで止まる)ため、tscの前に必ず消す。
+rm -rf .next
+
 echo "==> Type-checking"
 NODE_OPTIONS="${BUILD_NODE_OPTIONS}" npx tsc --noEmit
 
