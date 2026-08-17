@@ -22,8 +22,9 @@ export default async function AdminReportsPage() {
   const postIds = reports.filter((report) => report.targetType === "POST").map((report) => report.targetId);
   const commentIds = reports.filter((report) => report.targetType === "COMMENT").map((report) => report.targetId);
   const userIds = reports.filter((report) => report.targetType === "USER").map((report) => report.targetId);
+  const liveStreamIds = reports.filter((report) => report.targetType === "LIVE_STREAM").map((report) => report.targetId);
 
-  const [posts, comments, users] = await Promise.all([
+  const [posts, comments, users, liveStreams] = await Promise.all([
     postIds.length
       ? prisma.post.findMany({
           where: {
@@ -58,11 +59,24 @@ export default async function AdminReportsPage() {
           },
         })
       : [],
+    liveStreamIds.length
+      ? prisma.liveStream.findMany({
+          where: {
+            id: {
+              in: liveStreamIds,
+            },
+          },
+          include: {
+            user: true,
+          },
+        })
+      : [],
   ]);
 
   const postById = new Map(posts.map((post) => [post.id, post]));
   const commentById = new Map(comments.map((comment) => [comment.id, comment]));
   const userById = new Map(users.map((user) => [user.id, user]));
+  const liveStreamById = new Map(liveStreams.map((liveStream) => [liveStream.id, liveStream]));
 
   return (
     <section className="rounded-md border border-border bg-card">
@@ -76,8 +90,15 @@ export default async function AdminReportsPage() {
             const targetPost = report.targetType === "POST" ? postById.get(report.targetId) : null;
             const targetComment = report.targetType === "COMMENT" ? commentById.get(report.targetId) : null;
             const targetUser = report.targetType === "USER" ? userById.get(report.targetId) : null;
-            const targetOwner = targetPost?.user ?? targetComment?.user ?? targetUser ?? null;
-            const targetUrl = targetPost ? `/c/${targetPost.publicId}` : targetComment ? `/c/${targetComment.post.publicId}#comment-${targetComment.id}` : null;
+            const targetLiveStream = report.targetType === "LIVE_STREAM" ? liveStreamById.get(report.targetId) : null;
+            const targetOwner = targetPost?.user ?? targetComment?.user ?? targetUser ?? targetLiveStream?.user ?? null;
+            const targetUrl = targetPost
+              ? `/c/${targetPost.publicId}`
+              : targetComment
+                ? `/c/${targetComment.post.publicId}#comment-${targetComment.id}`
+                : targetLiveStream
+                  ? `/l/${targetLiveStream.viewToken}`
+                  : null;
             const canAct = report.status !== "ACTION_TAKEN" && report.status !== "CLOSED";
 
             return (

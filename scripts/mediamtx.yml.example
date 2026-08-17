@@ -1,0 +1,53 @@
+# MediaMTX設定テンプレート(clipshareライブ配信機能用)
+#
+# 使い方: /opt/mediamtx/mediamtx.yml としてコピーし、以下のプレースホルダーを実際の値に置き換える。
+#   __LIVE_MEDIA_HOOK_SECRET__ : Next.js側の LIVE_MEDIA_HOOK_SECRET と同じ値
+#   __APP_URL__                : 例 https://clipshare.link
+#
+# 詳細な導入手順は docs/vps-deployment.md の「ライブ配信機能の有効化」を参照。
+
+logLevel: info
+api: yes
+apiAddress: 127.0.0.1:9997
+
+rtmp: yes
+rtmpAddress: :1935
+
+# Web視聴(HLS)、VRChat向けMPEG-TS配信をこのHTTPサーバーで提供する。
+# NginxからHTTPSでリバースプロキシする(直接インターネットに公開しない)。
+hls: yes
+hlsAddress: 127.0.0.1:8888
+hlsAllowOrigin: "*"
+hlsVariant: lowLatency
+hlsSegmentCount: 4
+hlsSegmentDuration: 1s
+hlsPartDuration: 200ms
+
+rtsp: yes
+rtspAddress: :8554
+protocols: [tcp]
+
+paths:
+  # OBSからの入稿パス。ストリームキーがそのままパス名になる(rtmp://.../live/{streamKey})。
+  # publish/publish-end時にNext.jsのwebhookへ通知し、認証・ステータス更新・同時配信数チェックを行う。
+  live/~^.+$:
+    runOnPublish: >
+      curl -s -o /dev/null -w '%{http_code}' -X POST __APP_URL__/api/live/hooks/publish
+      -H 'content-type: application/json'
+      -H 'x-live-hook-secret: __LIVE_MEDIA_HOOK_SECRET__'
+      -d '{"streamKey":"$MTX_PATH"}'
+      | grep -q '^200$'
+    runOnPublishRestart: yes
+    runOnPublishEnd: >
+      curl -s -o /dev/null -X POST __APP_URL__/api/live/hooks/publish-end
+      -H 'content-type: application/json'
+      -H 'x-live-hook-secret: __LIVE_MEDIA_HOOK_SECRET__'
+      -d '{"streamKey":"$MTX_PATH"}'
+
+  # 視聴用パス(live/{viewToken})はNext.js側のwebhookが
+  # POST /v3/config/paths/add/live/{viewToken} で動的に追加・削除する(lib/live/media-control.ts参照)。
+  # ここでは雛形として何も定義しない。
+
+# VRChat向け低ビットレート出力(video 2Mbps / audio 320kbps程度が目安、lib/live/settings.tsのデフォルト値と合わせる)は
+# 別プロセスのffmpegでvrchat/{viewToken}パスへ再エンコードして送り込む構成を想定。
+# 具体的な自動化(configされたビットレート上限をffmpegコマンドへ反映する部分)は今後の実装課題。

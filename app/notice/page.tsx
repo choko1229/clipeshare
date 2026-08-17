@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bell, CheckCheck, Heart, MessageCircle, UserPlus, UserRound } from "lucide-react";
+import { Bell, CheckCheck, Heart, MessageCircle, Radio, UserPlus, UserRound } from "lucide-react";
 import { markAllNotificationsRead } from "@/app/notice/actions";
 import { toggleFollow } from "@/app/users/[username]/actions";
 import { Button } from "@/components/ui/button";
@@ -97,6 +97,8 @@ export default async function NoticePage() {
                       <UserRound size={18} />
                     ) : notification.type === "LIKE_ON_POST" ? (
                       <Heart size={18} />
+                    ) : notification.type === "LIVE_STREAM_STARTED" ? (
+                      <Radio size={18} />
                     ) : (
                       <Bell size={18} />
                     )}
@@ -150,6 +152,10 @@ function notificationTitle(type: string, actorName: string) {
 
   if (type === "FOLLOW") {
     return `${actorName} さんがあなたをフォローしました`;
+  }
+
+  if (type === "LIVE_STREAM_STARTED") {
+    return `${actorName} さんがライブ配信を開始しました`;
   }
 
   return "新しい通知があります";

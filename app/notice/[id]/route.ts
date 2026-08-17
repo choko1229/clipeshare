@@ -66,6 +66,21 @@ export async function GET(_request: Request, { params }: NoticeRouteProps) {
     }
   }
 
+  if (notification.targetType === "LIVE_STREAM") {
+    const liveStream = await prisma.liveStream.findUnique({
+      where: {
+        id: notification.targetId,
+      },
+      select: {
+        viewToken: true,
+      },
+    });
+
+    if (liveStream?.viewToken) {
+      redirect(`/l/${liveStream.viewToken}`);
+    }
+  }
+
   if (notification.targetType === "USER") {
     const targetUser = await prisma.user.findUnique({
       where: {

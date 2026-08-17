@@ -75,5 +75,8 @@ fi
 if systemctl list-unit-files | grep -q "^${APP_NAME}-discord-bot.service"; then
   sudo systemctl restart "${APP_NAME}-discord-bot.service"
 fi
+if systemctl list-unit-files | grep -q "^${APP_NAME}-live-chat.service"; then
+  sudo systemctl restart "${APP_NAME}-live-chat.service"
+fi
 
 echo "==> Deployment complete"

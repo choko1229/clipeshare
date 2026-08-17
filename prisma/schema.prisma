@@ -43,6 +43,7 @@ enum ReportTargetType {
   POST
   COMMENT
   USER
+  LIVE_STREAM
 }
 
 enum ReportStatus {
@@ -60,12 +61,25 @@ enum NotificationType {
   COMMENT_REPLY
   COMMENT_MENTION
   DISCORD_MIRROR_SAVED
+  LIVE_STREAM_STARTED
 }
 
 enum NotificationTargetType {
   POST
   COMMENT
   USER
+  LIVE_STREAM
+}
+
+enum LiveVisibility {
+  PUBLIC
+  FOLLOWERS_ONLY
+  PRIVATE
+}
+
+enum LiveStreamStatus {
+  OFFLINE
+  LIVE
 }
 
 enum UploadJobStatus {
@@ -158,6 +172,10 @@ model User {
   following       Follow[] @relation("Follower")
   followers       Follow[] @relation("Following")
   quickShares     QuickShare[]
+
+  liveStream        LiveStream?
+  liveChatMessages  LiveChatMessage[]
+  liveLikes         LiveLike[]
 }
 
 model Account {
@@ -593,6 +611,62 @@ model SiteSetting {
   description      String?  @db.Text
   updatedByAdminId String?
   updatedAt        DateTime @updatedAt
+}
+
+model LiveStream {
+  id             String           @id @default(cuid())
+  userId         String           @unique
+  streamKey      String           @unique
+  viewToken      String           @unique
+  visibility     LiveVisibility   @default(PUBLIC)
+  status         LiveStreamStatus @default(OFFLINE)
+  disconnectedAt DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions LiveSession[]
+
+  @@index([status])
+}
+
+model LiveSession {
+  id           String    @id @default(cuid())
+  liveStreamId String
+  startedAt    DateTime  @default(now())
+  endedAt      DateTime?
+  likeCount    Int       @default(0)
+
+  liveStream   LiveStream        @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
+  chatMessages LiveChatMessage[]
+  likes        LiveLike[]
+
+  @@index([liveStreamId, startedAt])
+}
+
+model LiveChatMessage {
+  id            String     @id @default(cuid())
+  liveSessionId String
+  userId        String
+  body          String     @db.Text
+  status        PostStatus @default(PUBLISHED)
+  createdAt     DateTime   @default(now())
+
+  liveSession LiveSession @relation(fields: [liveSessionId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([liveSessionId, createdAt])
+}
+
+model LiveLike {
+  userId        String
+  liveSessionId String
+  createdAt     DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  liveSession LiveSession @relation(fields: [liveSessionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, liveSessionId])
 }
 
 model QuickShare {

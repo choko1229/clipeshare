@@ -9,6 +9,7 @@ import { fetchIgdbGameMetadata } from "@/lib/games/igdb";
 import { preserveExistingGameMetadata } from "@/lib/games/metadata-merge";
 import { fetchRawgGameMetadata } from "@/lib/games/rawg";
 import { fetchSteamGameMetadata } from "@/lib/games/steam";
+import { stopUserLiveStream } from "@/lib/live/stream";
 import { storageSettingKeys } from "@/lib/media/retention";
 import { slugify } from "@/lib/posts/slug";
 import { quickShareSettingKeys } from "@/lib/quick-share/settings";
@@ -336,6 +337,14 @@ export async function takeReportAction(formData: FormData) {
     targetUserId = comment?.userId ?? null;
   }
 
+  if (report.targetType === "LIVE_STREAM") {
+    const liveStream = await prisma.liveStream.findUnique({
+      where: { id: report.targetId },
+      select: { userId: true },
+    });
+    targetUserId = liveStream?.userId ?? null;
+  }
+
   if (!targetUserId) {
     throw new Error("BAN対象ユーザーが見つかりません。");
   }
@@ -368,6 +377,8 @@ export async function takeReportAction(formData: FormData) {
     return updatedUser;
   });
 
+  await stopUserLiveStream(targetUserId);
+
   await writeAuditLog({
     adminId: admin.id,
     action: "report.action.ban_target_user",
@@ -381,6 +392,7 @@ export async function takeReportAction(formData: FormData) {
   revalidatePath("/admin");
   revalidatePath("/admin/reports");
   revalidatePath("/admin/users");
+  revalidatePath("/live");
 }
 
 export async function hidePost(formData: FormData) {
@@ -564,6 +576,8 @@ export async function banUser(formData: FormData) {
     },
   });
 
+  await stopUserLiveStream(userId);
+
   await writeAuditLog({
     adminId: admin.id,
     action: "user.ban",
@@ -575,6 +589,7 @@ export async function banUser(formData: FormData) {
   });
 
   revalidatePath("/admin/users");
+  revalidatePath("/live");
 }
 
 export async function updateUserRole(formData: FormData) {
