@@ -21,8 +21,9 @@ export async function GET(request: Request, context: RouteContext) {
   const isGone = !quickShare || quickShare.deletedAt !== null || quickShare.expiresAt <= new Date();
 
   if (isBrowserNavigation) {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
     const target = isGone ? "/qick?expired=1" : `/q/${id}/view`;
-    return NextResponse.redirect(new URL(target, request.url));
+    return NextResponse.redirect(new URL(target, baseUrl));
   }
 
   if (isGone || quickShare.status === "FAILED") {
