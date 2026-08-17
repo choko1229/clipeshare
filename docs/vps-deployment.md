@@ -227,14 +227,29 @@ cd /var/www/clipeshare/current && npm run cleanup:quick-share -- --dry-run
 MediaMTXはUbuntuの標準パッケージには無いため、[GitHub Releases](https://github.com/bluenviron/mediamtx/releases)からバイナリを取得します。
 
 ```bash
-MEDIAMTX_VERSION=v1.9.3
+MEDIAMTX_VERSION=v1.20.0
 curl -L -o /tmp/mediamtx.tar.gz \
   "https://github.com/bluenviron/mediamtx/releases/download/${MEDIAMTX_VERSION}/mediamtx_${MEDIAMTX_VERSION}_linux_amd64.tar.gz"
 sudo mkdir -p /opt/mediamtx
 sudo tar -xzf /tmp/mediamtx.tar.gz -C /opt/mediamtx
 ```
 
-`scripts/mediamtx.yml.example` を `/opt/mediamtx/mediamtx.yml` としてコピーし、`__LIVE_MEDIA_HOOK_SECRET__` と `__APP_URL__` を実際の値に置き換えます。
+バージョンは[Releases](https://github.com/bluenviron/mediamtx/releases)で最新を確認して読み替えてください。
+
+`scripts/mediamtx.yml.example`(`${APP_DIR}/current/scripts/`配下にデプロイ済み)を`/opt/mediamtx/mediamtx.yml`としてコピーし、`__LIVE_MEDIA_HOOK_SECRET__`と`__APP_URL__`を実際の値に置き換えます。`__APP_URL__`は同一サーバー上のNext.jsへ直接届けるため`http://127.0.0.1:3000`を使います(公開ドメイン経由だとNginx/DNS/TLSに不要に依存するため)。
+
+```bash
+LIVE_MEDIA_HOOK_SECRET=$(openssl rand -hex 32)
+LIVE_CHAT_TOKEN_SECRET=$(openssl rand -hex 32)
+echo "LIVE_MEDIA_HOOK_SECRET=${LIVE_MEDIA_HOOK_SECRET}"
+echo "LIVE_CHAT_TOKEN_SECRET=${LIVE_CHAT_TOKEN_SECRET}"
+
+sudo cp /var/www/clipeshare/current/scripts/mediamtx.yml.example /opt/mediamtx/mediamtx.yml
+sudo sed -i "s|__LIVE_MEDIA_HOOK_SECRET__|${LIVE_MEDIA_HOOK_SECRET}|g" /opt/mediamtx/mediamtx.yml
+sudo sed -i "s|__APP_URL__|http://127.0.0.1:3000|g" /opt/mediamtx/mediamtx.yml
+```
+
+表示された`LIVE_MEDIA_HOOK_SECRET`と`LIVE_CHAT_TOKEN_SECRET`の値は、この後`.env.production`に設定する値と同じものなので控えておきます。
 
 ```bash
 sudo tee /etc/systemd/system/clipeshare-mediamtx.service > /dev/null <<'EOF'

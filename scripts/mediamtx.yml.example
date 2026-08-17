@@ -2,7 +2,8 @@
 #
 # 使い方: /opt/mediamtx/mediamtx.yml としてコピーし、以下のプレースホルダーを実際の値に置き換える。
 #   __LIVE_MEDIA_HOOK_SECRET__ : Next.js側の LIVE_MEDIA_HOOK_SECRET と同じ値
-#   __APP_URL__                : 例 https://clipshare.link
+#   __APP_URL__                : 同一サーバー上のNext.jsへ直接届けるため http://127.0.0.1:3000 を推奨
+#                                 (公開ドメイン経由にするとNginx/DNS/TLSに不要に依存するため)
 #
 # 詳細な導入手順は docs/vps-deployment.md の「ライブ配信機能の有効化」を参照。
 
