@@ -27,8 +27,10 @@ rtmpAddress: :1935
 hls: yes
 hlsAddress: 127.0.0.1:8888
 hlsAllowOrigins: ["*"]
+# Low-Latency HLSはhlsSegmentCountが7未満だとmuxerが作成直後に自壊する
+# ("Low-Latency HLS requires at least 7 segments")ため7を下限にする。
 hlsVariant: lowLatency
-hlsSegmentCount: 4
+hlsSegmentCount: 7
 hlsSegmentDuration: 1s
 hlsPartDuration: 200ms
 
