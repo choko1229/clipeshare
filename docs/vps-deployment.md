@@ -381,8 +381,11 @@ server {
     }
 }
 EOF
+sudo ln -sfn /etc/nginx/sites-available/clipeshare-live /etc/nginx/sites-enabled/clipeshare-live
 sudo nginx -t && sudo systemctl reload nginx
 ```
+
+`sudo ls -la /etc/nginx/sites-enabled/` で `clipeshare` と `clipshare-live` の両方のリンクが存在することを必ず確認してください。`sites-available`にファイルを置くだけでは有効化されず、`sites-enabled`にリンクが無いと(この場合はポート443のserver blockが実質1つだけになり)Host/SNIに関係なく既存のメインサイトへ全リクエストが流れてしまいます。
 
 RTMP(1935)とRTSP(8554)はNginxを経由せず、MediaMTXへ直接到達させます(UFWで許可)。
 
