@@ -29,10 +29,14 @@ hlsAddress: 127.0.0.1:8888
 hlsAllowOrigins: ["*"]
 # Low-Latency HLSはhlsSegmentCountが7未満だとmuxerが作成直後に自壊する
 # ("Low-Latency HLS requires at least 7 segments")ため7を下限にする。
+# セグメント1秒/パート200msは低遅延だがライブエッジの余裕が薄く、わずかな配信/回線の
+# 揺らぎでもすぐバッファ枯渇してカクつく原因になっていたため、セグメント2秒/パート500msに
+# 緩めてDVRウィンドウ(hlsSegmentCount×hlsSegmentDuration=14秒)を広げ安定性を優先する。
+# OBS側のキーフレーム間隔もこの値(2秒)に合わせること(ズレるとセグメント境界が乱れる)。
 hlsVariant: lowLatency
 hlsSegmentCount: 7
-hlsSegmentDuration: 1s
-hlsPartDuration: 200ms
+hlsSegmentDuration: 2s
+hlsPartDuration: 500ms
 
 rtsp: yes
 rtspAddress: :8554

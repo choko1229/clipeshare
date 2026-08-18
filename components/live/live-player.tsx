@@ -8,6 +8,8 @@ type LivePlayerProps = {
   src: string;
 };
 
+const RECONNECT_DELAY_MS = 4000;
+
 export function LivePlayer({ src }: LivePlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isMuted, setIsMuted] = useState(true);
@@ -28,12 +30,51 @@ export function LivePlayer({ src }: LivePlayerProps) {
       return;
     }
 
-    const hls = new Hls({ liveSyncDurationCount: 3 });
-    hls.loadSource(src);
-    hls.attachMedia(video);
+    let hls: Hls | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let stopped = false;
+
+    function setup() {
+      // liveSyncDurationCountを既定(3)から広げ、ライブエッジからのバッファ余裕を増やす。
+      // セグメントの揺らぎやネットワークの一瞬の遅延でもすぐバッファ枯渇=カクつきに
+      // 直結していたため、多少レイテンシーが伸びても安定性を優先する。
+      hls = new Hls({ liveSyncDurationCount: 6, liveMaxLatencyDurationCount: 10 });
+      hls.loadSource(src);
+      hls.attachMedia(video!);
+
+      // 以前はエラーハンドリングが無く、fatalエラー発生時にhls.jsが自動復旧を試みず
+      // 再生がそのまま止まっていた。hls.js公式推奨の復旧パターンに加え、復旧不能な
+      // fatalエラーの場合はインスタンスを作り直して再接続を試みる。
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (!data.fatal) {
+          return;
+        }
+
+        switch (data.type) {
+          case Hls.ErrorTypes.NETWORK_ERROR:
+            hls?.startLoad();
+            break;
+          case Hls.ErrorTypes.MEDIA_ERROR:
+            hls?.recoverMediaError();
+            break;
+          default:
+            hls?.destroy();
+            hls = null;
+            if (!stopped) {
+              reconnectTimer = setTimeout(setup, RECONNECT_DELAY_MS);
+            }
+        }
+      });
+    }
+
+    setup();
 
     return () => {
-      hls.destroy();
+      stopped = true;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+      }
+      hls?.destroy();
     };
   }, [src]);
 
