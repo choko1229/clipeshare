@@ -17,7 +17,8 @@
     "webpush:keys": "node scripts/generate-web-push-keys.mjs",
     "worker": "node scripts/video-worker.mjs",
     "discord-bot": "node scripts/discord-bot.mjs",
-    "live-chat": "node scripts/live-chat-server.mjs"
+    "live-chat": "node scripts/live-chat-server.mjs",
+    "live-mpegts": "node scripts/live-mpegts-relay.mjs"
   },
   "dependencies": {
     "@next-auth/prisma-adapter": "^1.0.7",

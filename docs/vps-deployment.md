@@ -170,6 +170,7 @@ journalctl -u clipeshare -f
 journalctl -u clipeshare-worker -f
 journalctl -u clipeshare-discord-bot -f
 journalctl -u clipeshare-live-chat -f
+journalctl -u clipeshare-live-mpegts -f
 ```
 
 再起動:
@@ -179,6 +180,7 @@ sudo systemctl restart clipeshare
 sudo systemctl restart clipeshare-worker
 sudo systemctl restart clipeshare-discord-bot
 sudo systemctl restart clipeshare-live-chat
+sudo systemctl restart clipeshare-live-mpegts
 ```
 
 ### Discord自動ミラーBotの有効化(既存サーバーへの追加手順)
@@ -216,7 +218,7 @@ cd /var/www/clipeshare/current && npm run cleanup:quick-share -- --dry-run
 
 ### ライブ配信機能の有効化(既存サーバーへの追加手順)
 
-`/live`・`/l/{token}` のライブ配信機能を有効化するには、Next.js本体に加えて (1) RTMP/HLS/RTSPを扱うメディアサーバー(MediaMTX)と (2) チャット/視聴者数/オフライン検知を行う `clipeshare-live-chat.service` が必要です。詳しい仕様は `docs/live-feature-spec.md`、技術選定の背景は `docs/live-feature-feasibility.md` を参照してください。
+`/live`・`/l/{token}` のライブ配信機能を有効化するには、Next.js本体に加えて (1) RTMP/HLS/RTSPを扱うメディアサーバー(MediaMTX)、(2) チャット/視聴者数/オフライン検知を行う `clipeshare-live-chat.service`、(3) VRChat Quest等スタンドアロン向けにMPEG-TSへ再エンコード中継する `clipeshare-live-mpegts.service` が必要です。(3)は任意で、PC版VRChat(RTSP)とWeb視聴(HLS)だけで良ければ省略できます。詳しい仕様は `docs/live-feature-spec.md`、技術選定の背景は `docs/live-feature-feasibility.md` を参照してください。
 
 #### 1. DNSとサブドメイン
 
@@ -291,18 +293,23 @@ LIVE_MEDIA_HOOK_SECRET=(openssl rand -hex 32 などで生成)
 LIVE_CHAT_TOKEN_SECRET=(openssl rand -hex 32 などで生成)
 LIVE_MEDIAMTX_API_URL=http://127.0.0.1:9997
 LIVE_CHAT_SERVER_PORT=8081
+LIVE_MPEGTS_SERVER_PORT=8082
+LIVE_MPEGTS_MAX_CONCURRENT=2
 NEXT_PUBLIC_LIVE_WS_URL=wss://live.clipshare.link/ws
 ```
 
-`LIVE_MEDIA_HOOK_SECRET` は `mediamtx.yml` の `authHTTPAddress`(クエリ文字列)と `runOnOffline` に埋め込んだ値と一致させます。`LIVE_CHAT_TOKEN_SECRET` は `clipeshare-live-chat.service` 側でも同じ値を読み込みます(`.env.production` を共有しているため追加設定は不要)。
+`LIVE_MEDIA_HOOK_SECRET` は `mediamtx.yml` の `authHTTPAddress`(クエリ文字列)と `runOnOffline` に埋め込んだ値と一致させます。`LIVE_CHAT_TOKEN_SECRET` は `clipeshare-live-chat.service` 側でも同じ値を読み込みます(`.env.production` を共有しているため追加設定は不要)。`LIVE_MPEGTS_MAX_CONCURRENT` は同時に走らせるffmpeg再エンコードの本数上限です(1配信=1プロセス、視聴者数は無関係)。CPUに余裕が無いVPSでは1に絞ることを検討してください。
 
-#### 4. clipeshare-live-chatサービスの有効化
+#### 4. clipeshare-live-chat / clipeshare-live-mpegtsサービスの有効化
 
-`scripts/install-ubuntu-24.sh` は `clipeshare-live-chat.service` のユニットファイルを作成しますが、`LIVE_CHAT_TOKEN_SECRET` が未設定のまま自動起動すると失敗するため `enable`/`start` はコメントアウトしてあります。上記の環境変数を設定したうえで以下を実行します。
+`scripts/install-ubuntu-24.sh` は両サービスのユニットファイルを作成しますが、`LIVE_CHAT_TOKEN_SECRET` が未設定のまま自動起動すると失敗するため `enable`/`start` はコメントアウトしてあります。上記の環境変数を設定したうえで以下を実行します。`clipeshare-live-mpegts.service` はPC版RTSP・Web視聴だけで良ければ省略可能です(その場合`/l/{token}`のRTSP/Web視聴には影響しません)。
 
 ```bash
 sudo systemctl enable --now clipeshare-live-chat.service
+sudo systemctl enable --now clipeshare-live-mpegts.service
 ```
+
+`clipeshare-live-mpegts.service` はffmpegでの再エンコードを行うため(`scripts/install-ubuntu-24.sh` でインストール済みのffmpegに依存)、起動直後は視聴者が来るまでffmpegプロセスは立ち上がりません(初回リクエスト時に遅延スポーンします)。
 
 #### 5. Nginxの追加設定
 
@@ -339,6 +346,15 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
+        proxy_read_timeout 3600s;
+    }
+
+    # VRChat Quest等スタンドアロン向けMPEG-TS中継(clipeshare-live-mpegts.service、任意)。
+    # 生MPEG-TSを流しっぱなしにする長時間接続なのでバッファリングを切り、read timeoutを伸ばす。
+    location /ts/ {
+        proxy_pass http://127.0.0.1:8082/;
+        proxy_set_header Host $host;
+        proxy_buffering off;
         proxy_read_timeout 3600s;
     }
 }

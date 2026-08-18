@@ -96,5 +96,8 @@ fi
 if systemctl list-unit-files | grep -q "^${APP_NAME}-live-chat.service"; then
   sudo systemctl restart "${APP_NAME}-live-chat.service"
 fi
+if systemctl list-unit-files | grep -q "^${APP_NAME}-live-mpegts.service"; then
+  sudo systemctl restart "${APP_NAME}-live-mpegts.service"
+fi
 
 echo "==> Deployment complete"

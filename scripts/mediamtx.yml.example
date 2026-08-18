@@ -38,6 +38,12 @@ rtsp: yes
 rtspAddress: :8554
 rtspTransports: [tcp]
 
+# WebRTC/SRTはclipshareのライブ機能では使わない(RTMP入稿・HLS/RTSP出力のみで完結する)。
+# 明示的にoffにしないとMediaMTXは既定で両方ともポートを開けてしまう
+# (webrtc: 8189/UDP・TCP, 8889/HTTP、srt: 8890/UDP)ため、未使用の待受ポートを閉じておく。
+webrtc: no
+srt: no
+
 # すべてのパス(事前定義していないパスも含む)に共通で適用される設定。
 # OBSからの入稿パス(live/{streamKey})はここに書かれた設定を自動的に継承して動的に作られるので、
 # 個々のストリームキーごとにpathsへ明示的なエントリを用意する必要はない。
@@ -60,6 +66,9 @@ pathDefaults:
 paths:
   all_others: {}
 
-# VRChat向け低ビットレート出力(video 2Mbps / audio 320kbps程度が目安、lib/live/settings.tsのデフォルト値と合わせる)は
-# 別プロセスのffmpegでvrchat/{viewToken}パスへ再エンコードして送り込む構成を想定。
-# 具体的な自動化(configされたビットレート上限をffmpegコマンドへ反映する部分)は今後の実装課題。
+# VRChat Quest等スタンドアロン向けの低ビットレートMPEG-TS出力(video 2Mbps / audio 320kbps程度が目安、
+# lib/live/settings.tsのデフォルト値と合わせる)は、MediaMTX本体ではなく別プロセス
+# scripts/live-mpegts-relay.mjs (systemdサービス clipeshare-live-mpegts) が担当する。
+# このプロセスがここで登録済みの視聴用パス(live/{viewToken}、上のRTSP出力と同じソース)を
+# rtsp://127.0.0.1:8554/live/{viewToken} でpullし、ffmpegで再エンコードしてHTTP経由の
+# 生MPEG-TSとしてクライアントへ配信する(Nginxの/ts/でリバースプロキシ、docs/vps-deployment.md参照)。

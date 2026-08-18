@@ -108,6 +108,7 @@ TopazChatと同様に、VRChatワールド内の動画プレイヤー(AVPro Vide
 - Prismaスキーマ: `LiveStream`/`LiveSession`/`LiveChatMessage`/`LiveLike` を追加(`prisma/schema.prisma`)
 - リアルタイム基盤: `scripts/live-chat-server.mjs`(WebSocket)がチャット・視聴者数・いいね・オフライン自動遷移(定期スイープ)を担当
 - 配信キーと視聴トークンの分離: MediaMTX上は入稿パス`live/{streamKey}`と視聴パス`live/{viewToken}`を分け、Next.js側のwebhookがControl API経由で視聴パスを動的に登録/削除する(`lib/live/media-control.ts`)
+- VRChat Quest等スタンドアロン向けMPEG-TS出力: 別プロセス`scripts/live-mpegts-relay.mjs`(systemdサービス`clipeshare-live-mpegts`、任意)が視聴パス(`rtsp://127.0.0.1:8554/live/{viewToken}`)をffmpegでVRChat向けビットレート上限に再エンコードし、`https://live.clipshare.link/ts/{viewToken}`でHTTP配信する。視聴者が来るまでffmpegは起動せず(遅延スポーン)、最後の視聴者切断後15秒で停止する。同時に走らせる本数は`LIVE_MPEGTS_MAX_CONCURRENT`で上限を設ける(既定2)。
 
 ## 15. UI仕様
 
