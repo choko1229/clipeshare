@@ -21,12 +21,14 @@ export function LivePlayer({ src }: LivePlayerProps) {
       return;
     }
 
-    if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = src;
-      return;
-    }
-
     if (!Hls.isSupported()) {
+      // hls.js未対応(=実質Safariのみ)の場合だけネイティブ<video src>にフォールバックする。
+      // 以前はcanPlayType()を先に見ていたが、近年のChromeがHLSに対して"maybe"を返す
+      // (実際には正しく再生できない)ようになり、誤ってこちらの分岐に入って真っ黒のまま
+      // 何も再生されない不具合があった。hls.js対応ブラウザでは常にhls.js(MSE)を使う。
+      if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        video.src = src;
+      }
       return;
     }
 
