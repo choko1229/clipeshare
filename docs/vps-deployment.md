@@ -337,7 +337,10 @@ server {
     location /live/ {
         proxy_pass http://127.0.0.1:8888;
         proxy_set_header Host $host;
-        add_header Access-Control-Allow-Origin *;
+        # add_headerはalwaysを付けないと4xx/5xxレスポンスに適用されない。MediaMTXのHLSは
+        # muxer初期化中など一瞬503を返すことがあり、その際にCORSヘッダーが無いと
+        # ブラウザがレスポンスをまるごとブロックしてhls.js側は原因不明のエラーになる。
+        add_header Access-Control-Allow-Origin * always;
     }
 
     # チャット/視聴者数WebSocket
@@ -403,7 +406,10 @@ server {
     location /live/ {
         proxy_pass http://127.0.0.1:8888;
         proxy_set_header Host $host;
-        add_header Access-Control-Allow-Origin *;
+        # add_headerはalwaysを付けないと4xx/5xxレスポンスに適用されない。MediaMTXのHLSは
+        # muxer初期化中など一瞬503を返すことがあり、その際にCORSヘッダーが無いと
+        # ブラウザがレスポンスをまるごとブロックしてhls.js側は原因不明のエラーになる。
+        add_header Access-Control-Allow-Origin * always;
     }
 
     location /ws/ {
