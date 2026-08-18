@@ -40,7 +40,19 @@ export function LivePlayer({ src }: LivePlayerProps) {
       // liveSyncDurationCountを既定(3)から広げ、ライブエッジからのバッファ余裕を増やす。
       // セグメントの揺らぎやネットワークの一瞬の遅延でもすぐバッファ枯渇=カクつきに
       // 直結していたため、多少レイテンシーが伸びても安定性を優先する。
-      hls = new Hls({ liveSyncDurationCount: 6, liveMaxLatencyDurationCount: 10 });
+      hls = new Hls({
+        liveSyncDurationCount: 6,
+        liveMaxLatencyDurationCount: 10,
+        // MediaMTXのHLSはCookie(hlsSession)でmuxerの読み取りセッションを維持している。
+        // 視聴ページ(clipshare.link)と配信サーバー(live.clipshare.link)は別オリジンなので、
+        // withCredentialsを明示しないとブラウザがCookieを送らずセッションが維持できず、
+        // 何度リクエストしても再生が始まらない(黒画面のまま)状態になっていた。
+        // サーバー側もAccess-Control-Allow-Originをワイルドカードではなく本番オリジンに固定し、
+        // Access-Control-Allow-Credentials: trueを返す必要がある(docs/vps-deployment.md参照)。
+        xhrSetup: (xhr) => {
+          xhr.withCredentials = true;
+        },
+      });
       hls.loadSource(src);
       hls.attachMedia(video!);
 

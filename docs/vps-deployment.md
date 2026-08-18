@@ -340,7 +340,15 @@ server {
         # add_headerはalwaysを付けないと4xx/5xxレスポンスに適用されない。MediaMTXのHLSは
         # muxer初期化中など一瞬503を返すことがあり、その際にCORSヘッダーが無いと
         # ブラウザがレスポンスをまるごとブロックしてhls.js側は原因不明のエラーになる。
-        add_header Access-Control-Allow-Origin * always;
+        #
+        # MediaMTXのHLSはCookie(hlsSession)でmuxerの読み取りセッションを維持する。視聴ページ
+        # (clipshare.link)とこのメディアサーバー(live.clipshare.link)は別オリジンなので、
+        # hls.js側でwithCredentials=trueにしてもCookie付きクロスオリジンリクエストは
+        # Access-Control-Allow-Originがワイルドカード(*)だとブラウザに拒否される。
+        # そのため本番オリジンを明示し、Access-Control-Allow-Credentialsも返す
+        # (他ドメインに埋め込む予定が無い前提。埋め込みたい場合は動的にオリジンを反映する設定に変更する)。
+        add_header Access-Control-Allow-Origin "https://clipshare.link" always;
+        add_header Access-Control-Allow-Credentials true always;
     }
 
     # チャット/視聴者数WebSocket
@@ -409,7 +417,15 @@ server {
         # add_headerはalwaysを付けないと4xx/5xxレスポンスに適用されない。MediaMTXのHLSは
         # muxer初期化中など一瞬503を返すことがあり、その際にCORSヘッダーが無いと
         # ブラウザがレスポンスをまるごとブロックしてhls.js側は原因不明のエラーになる。
-        add_header Access-Control-Allow-Origin * always;
+        #
+        # MediaMTXのHLSはCookie(hlsSession)でmuxerの読み取りセッションを維持する。視聴ページ
+        # (clipshare.link)とこのメディアサーバー(live.clipshare.link)は別オリジンなので、
+        # hls.js側でwithCredentials=trueにしてもCookie付きクロスオリジンリクエストは
+        # Access-Control-Allow-Originがワイルドカード(*)だとブラウザに拒否される。
+        # そのため本番オリジンを明示し、Access-Control-Allow-Credentialsも返す
+        # (他ドメインに埋め込む予定が無い前提。埋め込みたい場合は動的にオリジンを反映する設定に変更する)。
+        add_header Access-Control-Allow-Origin "https://clipshare.link" always;
+        add_header Access-Control-Allow-Credentials true always;
     }
 
     location /ws/ {
