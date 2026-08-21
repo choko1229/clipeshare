@@ -4,6 +4,7 @@ import { ImagePlus, Plus } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import "./globals.css";
+import { GoogleAdsense } from "@/components/analytics/google-adsense";
 import { GoogleAnalytics } from "@/components/analytics/google-analytics";
 import { Button } from "@/components/ui/button";
 import { HeaderProfile } from "@/components/layout/header-profile";
@@ -115,6 +116,7 @@ export default async function RootLayout({
     <html data-theme={initialTheme} lang="ja" suppressHydrationWarning>
       <body>
         <GoogleAnalytics measurementId={seoSettings.gaMeasurementId} />
+        <GoogleAdsense clientId={seoSettings.adsenseClientId} />
         <ThemeProvider initialTheme={initialTheme} persistToDatabase={Boolean(session?.user?.id)}>
           <ServiceWorkerRegister />
           <PwaModeEnhancer />

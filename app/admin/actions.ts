@@ -905,11 +905,13 @@ export async function updateSeoSettings(formData: FormData) {
   const googleSiteVerification = z.string().trim().max(255).optional().parse(formData.get("googleSiteVerification") || undefined) ?? "";
   const bingSiteVerification = z.string().trim().max(255).optional().parse(formData.get("bingSiteVerification") || undefined) ?? "";
   const gaMeasurementId = z.string().trim().max(255).optional().parse(formData.get("gaMeasurementId") || undefined) ?? "";
+  const adsenseClientId = z.string().trim().max(255).optional().parse(formData.get("adsenseClientId") || undefined) ?? "";
 
   const entries = [
     { key: siteSettingKeys.googleSiteVerification, value: googleSiteVerification },
     { key: siteSettingKeys.bingSiteVerification, value: bingSiteVerification },
     { key: siteSettingKeys.gaMeasurementId, value: gaMeasurementId },
+    { key: siteSettingKeys.adsenseClientId, value: adsenseClientId },
   ];
 
   const before = await prisma.siteSetting.findMany({

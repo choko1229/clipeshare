@@ -56,6 +56,20 @@ export default async function AdminSeoPage() {
             <span className="text-xs text-muted-foreground">未設定の場合、GA4の計測タグはページに出力されません。</span>
           </label>
 
+          <label className="grid gap-2 text-sm">
+            <span className="font-medium">Google AdSense クライアントID</span>
+            <input
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              defaultValue={settings.adsenseClientId ?? ""}
+              name="adsenseClientId"
+              placeholder="例: ca-pub-3831752005062500"
+              type="text"
+            />
+            <span className="text-xs text-muted-foreground">
+              未設定の場合、AdSenseの広告タグはページに出力されません。「ca-pub-」から始まるIDのみを貼り付けてください。
+            </span>
+          </label>
+
           <div>
             <Button type="submit">保存</Button>
           </div>
