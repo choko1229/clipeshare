@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { getServerSession } from "next-auth";
-import { createQuickShare } from "@/app/qick/actions";
 import { authOptions } from "@/auth";
 import { QuickShareList } from "@/components/quick-share/quick-share-list";
 import { QuickShareUploadForm } from "@/components/quick-share/quick-share-upload-form";
@@ -86,7 +85,7 @@ export default async function QickPage({ searchParams }: QickPageProps) {
           1ファイル選択するだけで自動アップロードされ、共有用URLが発行されます。
         </p>
       </div>
-      <QuickShareUploadForm action={createQuickShare} errorMessage={searchParamError(error)} hint={hint} />
+      <QuickShareUploadForm errorMessage={searchParamError(error)} hint={hint} />
       {expired ? <p className="mt-4 text-center text-sm text-muted-foreground">指定されたメディアは有効期限切れです。</p> : null}
       <QuickShareList
         highlightId={highlightId}

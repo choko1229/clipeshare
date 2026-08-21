@@ -15,19 +15,22 @@ const acceptTypes = [
   "video/x-msvideo",
 ].join(",");
 
+type Phase = "idle" | "uploading" | "processing";
+
 type QuickShareUploadFormProps = {
-  action: (formData: FormData) => void | Promise<void>;
   errorMessage: string | null;
   hint: string;
 };
 
-export function QuickShareUploadForm({ action, errorMessage, hint }: QuickShareUploadFormProps) {
-  const formRef = useRef<HTMLFormElement>(null);
+export function QuickShareUploadForm({ errorMessage, hint }: QuickShareUploadFormProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [progress, setProgress] = useState(0);
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+
+  const isBusy = phase !== "idle";
 
   function submitFile(file: File) {
     if (!detectMediaKind(file)) {
@@ -37,26 +40,61 @@ export function QuickShareUploadForm({ action, errorMessage, hint }: QuickShareU
 
     setLocalError(null);
     setSelectedName(file.name);
+    setPhase("uploading");
+    setProgress(0);
 
-    const transfer = new DataTransfer();
-    transfer.items.add(file);
-    if (inputRef.current) {
-      inputRef.current.files = transfer.files;
-    }
+    const formData = new FormData();
+    formData.append("media", file);
 
-    setIsUploading(true);
-    formRef.current?.requestSubmit();
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/qick/upload");
+
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) {
+        return;
+      }
+      setProgress(Math.round((event.loaded / event.total) * 100));
+      if (event.loaded >= event.total) {
+        setPhase("processing");
+      }
+    };
+
+    xhr.onload = () => {
+      let payload: { redirectUrl?: string; error?: string } = {};
+      try {
+        payload = JSON.parse(xhr.responseText);
+      } catch {
+        // レスポンスがJSONでない場合は下のエラーメッセージにフォールバック
+      }
+
+      if (xhr.status >= 200 && xhr.status < 300 && payload.redirectUrl) {
+        window.location.href = payload.redirectUrl;
+        return;
+      }
+
+      setPhase("idle");
+      setProgress(0);
+      setLocalError(payload.error ?? "アップロードに失敗しました。");
+    };
+
+    xhr.onerror = () => {
+      setPhase("idle");
+      setProgress(0);
+      setLocalError("アップロードに失敗しました。通信環境をご確認ください。");
+    };
+
+    xhr.send(formData);
   }
 
   const displayError = localError ?? errorMessage;
 
   return (
-    <form action={action} className="space-y-4" ref={formRef}>
+    <div className="space-y-4">
       <div
         className={`flex min-h-56 flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
           isDragging ? "border-primary bg-primary/5" : "border-border bg-card"
         }`}
-        onClick={() => !isUploading && inputRef.current?.click()}
+        onClick={() => !isBusy && inputRef.current?.click()}
         onDragLeave={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -72,28 +110,46 @@ export function QuickShareUploadForm({ action, errorMessage, hint }: QuickShareU
           event.stopPropagation();
           setIsDragging(false);
           const file = event.dataTransfer.files?.[0];
-          if (file && !isUploading) {
+          if (file && !isBusy) {
             submitFile(file);
           }
         }}
         role="button"
         tabIndex={0}
       >
-        <UploadCloud className="text-muted-foreground" size={40} />
-        <p className="font-medium">{isUploading ? "アップロード中..." : "ここに画像・動画をドラッグ&ドロップ"}</p>
-        {isUploading ? null : <p className="text-sm text-muted-foreground">またはクリックしてファイルを選択</p>}
-        {selectedName ? <p className="text-xs text-muted-foreground">{selectedName}</p> : null}
+        {isBusy ? (
+          <div className="w-full max-w-xs space-y-2">
+            <p className="text-sm font-medium">
+              {phase === "uploading" ? `アップロード中... ${progress}%` : "処理中...(圧縮・変換しています)"}
+            </p>
+            <div className="h-2 overflow-hidden rounded-full bg-muted">
+              {phase === "uploading" ? (
+                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
+              ) : (
+                <div className="submit-progress-bar h-full w-1/3 rounded-full bg-primary" />
+              )}
+            </div>
+            {selectedName ? <p className="truncate text-xs text-muted-foreground">{selectedName}</p> : null}
+          </div>
+        ) : (
+          <>
+            <UploadCloud className="text-muted-foreground" size={40} />
+            <p className="font-medium">ここに画像・動画をドラッグ&ドロップ</p>
+            <p className="text-sm text-muted-foreground">またはクリックしてファイルを選択</p>
+          </>
+        )}
       </div>
       <input
         accept={acceptTypes}
         className="hidden"
-        disabled={isUploading}
+        disabled={isBusy}
         name="media"
         onChange={(event) => {
           const file = event.currentTarget.files?.[0];
           if (file) {
             submitFile(file);
           }
+          event.currentTarget.value = "";
         }}
         ref={inputRef}
         type="file"
@@ -102,6 +158,6 @@ export function QuickShareUploadForm({ action, errorMessage, hint }: QuickShareU
       {displayError ? (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">{displayError}</div>
       ) : null}
-    </form>
+    </div>
   );
 }

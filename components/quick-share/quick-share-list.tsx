@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Check, Copy, Trash2, Video, X } from "lucide-react";
 import { deleteQuickShare } from "@/app/qick/actions";
 import { Button } from "@/components/ui/button";
@@ -24,9 +25,20 @@ type QuickShareListProps = {
 };
 
 export function QuickShareList({ highlightId, isLoggedIn, items, showLoginPromptInitially }: QuickShareListProps) {
+  const router = useRouter();
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showLoginPrompt, setShowLoginPrompt] = useState(showLoginPromptInitially);
   const [dismissed, setDismissed] = useState(false);
+
+  const hasProcessing = items.some((item) => item.status === "PROCESSING");
+
+  useEffect(() => {
+    if (!hasProcessing) {
+      return;
+    }
+    const interval = window.setInterval(() => router.refresh(), 5000);
+    return () => window.clearInterval(interval);
+  }, [hasProcessing, router]);
 
   async function handleCopy(shareUrl: string, id: string) {
     await navigator.clipboard.writeText(shareUrl);
@@ -71,7 +83,12 @@ export function QuickShareList({ highlightId, isLoggedIn, items, showLoginPrompt
           <div className="min-w-0 flex-1">
             <input className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs" readOnly value={item.shareUrl} />
             {item.status === "PROCESSING" ? (
-              <p className="mt-1 text-xs text-muted-foreground">圧縮中...(URLは発行済みで、そのまま使用できます)</p>
+              <div className="mt-1 space-y-1">
+                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div className="submit-progress-bar h-full w-1/3 rounded-full bg-primary" />
+                </div>
+                <p className="text-xs text-muted-foreground">圧縮中...(URLは発行済みで、そのまま使用できます)</p>
+              </div>
             ) : item.status === "FAILED" ? (
               <p className="mt-1 text-xs text-destructive">圧縮に失敗しました</p>
             ) : (

@@ -59,8 +59,8 @@ export async function storeQuickShareImage(
 
   await image
     .resize({
-      width: 3840,
-      height: 2160,
+      width: 2000,
+      height: 2000,
       fit: "inside",
       withoutEnlargement: true,
     })
