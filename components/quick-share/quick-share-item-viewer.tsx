@@ -46,7 +46,7 @@ export function QuickShareItemViewer({
 
   return (
     <div className="w-full">
-      <div className="group relative overflow-hidden rounded-lg border border-border bg-card">
+      <div className="relative overflow-hidden rounded-lg border border-border bg-card">
         {status === "FAILED" ? (
           <div className="flex min-h-40 flex-col items-center justify-center gap-2 p-8 text-center">
             <p className="font-medium text-destructive">圧縮処理に失敗しました</p>
@@ -66,13 +66,13 @@ export function QuickShareItemViewer({
         ) : null}
 
         {status !== "FAILED" ? (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-3 opacity-0 transition-opacity group-hover:bg-black/40 group-hover:opacity-100">
-            <Button className="pointer-events-auto" onClick={handleCopy} type="button">
+          <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center justify-center gap-2 bg-gradient-to-t from-black/70 via-black/40 to-transparent p-3">
+            <Button onClick={handleCopy} type="button">
               {copied ? <Check size={16} /> : <Copy size={16} />}
               {copied ? "コピーしました" : "URLをコピー"}
             </Button>
             {canDelete ? (
-              <form action={deleteAction} className="pointer-events-auto">
+              <form action={deleteAction}>
                 <Button type="submit" variant="destructive">
                   <Trash2 size={16} />
                   削除

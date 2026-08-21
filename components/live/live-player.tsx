@@ -131,7 +131,7 @@ export function LivePlayer({ src }: LivePlayerProps) {
       ) : null}
       <button
         aria-label={isMuted ? "ミュート解除" : "ミュート"}
-        className="absolute bottom-3 right-3 z-10 grid size-9 place-items-center rounded-md bg-black/55 text-white opacity-0 transition group-hover:opacity-100"
+        className="absolute bottom-3 right-3 z-10 grid size-9 place-items-center rounded-md bg-black/55 text-white transition hover:bg-black/70"
         onClick={() => setIsMuted((current) => !current)}
         type="button"
       >
