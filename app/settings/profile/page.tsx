@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { Button } from "@/components/ui/button";
+import { SettingsModal } from "@/components/settings/settings-modal";
 import { ProfileBackgroundBlurInput } from "@/components/profile/profile-background-blur-input";
 import { ProfileImageCropInput } from "@/components/profile/profile-image-crop-input";
 import { ProfileOpacityInput } from "@/components/profile/profile-opacity-input";
@@ -66,205 +67,261 @@ export default async function ProfileSettingsPage({ searchParams }: ProfileSetti
     : "";
 
   return (
-    <main className="px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">プロフィール編集</h1>
-        <p className="mt-2 text-sm text-muted-foreground">公開プロフィールに表示する情報を設定します。</p>
-      </div>
-
-      <section className="max-w-3xl rounded-md border border-border bg-card p-5">
-        <form action={updateProfile} className="space-y-5">
-          <ActionError message={searchParamError(error)} />
-          <section className="rounded-md border border-border bg-background p-4">
-            <h2 className="text-sm font-semibold">基本プロフィール</h2>
-            <div className="mt-4 grid gap-4">
-              <ProfileImageCropInput
-                aspectRatio={3}
-                defaultPreviewUrl={user.profileHeaderUrl}
-                description="3:1でクロップします。横位置、縦位置、ズームを調整できます。"
-                label="ヘッダー画像"
-                name="profileHeader"
-                outputHeight={512}
-                outputWidth={1536}
-              />
-              <ProfileImageCropInput
-                aspectRatio={1}
-                defaultPreviewUrl={user.avatarUrl ?? user.image}
-                description="1:1でクロップします。プロフィールアイコンとして表示されます。"
-                label="アイコン"
-                name="avatar"
-                outputHeight={512}
-                outputWidth={512}
-              />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <TextInput defaultValue={user.displayName ?? user.name ?? user.email ?? ""} id="displayName" label="名前" maxLength={60} name="displayName" required />
-                <TextInput
-                  defaultValue={user.username ?? ""}
-                  id="username"
-                  label="ユーザーID"
-                  maxLength={30}
-                  minLength={3}
-                  name="username"
-                  pattern="[a-zA-Z0-9_]+"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium" htmlFor="bio">
-                  自己紹介
-                </label>
-                <textarea
-                  className="mt-2 min-h-32 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-ring transition focus:ring-2"
-                  defaultValue={user.bio ?? ""}
-                  id="bio"
-                  maxLength={500}
-                  name="bio"
-                  placeholder="改行、リンク、**太字**、*斜体*、- リストが使えます"
-                />
-                <p className="mt-2 text-xs text-muted-foreground">HTMLは使用できません。安全なMarkdownだけ表示します。</p>
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-md border border-border bg-background p-4">
-            <h2 className="text-sm font-semibold">プロフィール画面</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <ProfileImageCropInput
-              aspectRatio={16 / 9}
-              defaultPreviewUrl={user.profileBackgroundUrl}
-              description="16:9でクロップします。プロフィール画面の背景に使います。"
-              label="背景画像"
-              name="profileBackground"
-              outputHeight={1080}
-              outputWidth={1920}
-            />
-              <ProfileBackgroundBlurInput defaultValue={user.profileBackgroundBlur} />
-              <ColorInput defaultValue={user.profileAccentColor ?? "#7c5cff"} id="profileAccentColor" label="アクセントカラー" name="profileAccentColor" />
-              <ColorInput defaultValue={user.profileButtonColor ?? "#7c5cff"} id="profileButtonColor" label="ボタンカラー" name="profileButtonColor" />
-              <ColorInput defaultValue={user.profileOverlayColor ?? user.profileAccentColor ?? "#10131b"} id="profileOverlayColor" label="背景画像オーバーレイ開始色" name="profileOverlayColor" />
-              <ColorInput defaultValue={user.profileOverlayColorEnd ?? user.profileOverlayColor ?? "#10131b"} id="profileOverlayColorEnd" label="背景画像オーバーレイ終了色" name="profileOverlayColorEnd" />
-              <ProfileOpacityInput defaultValue={user.profileOverlayOpacity} />
-              <SelectInput
-                defaultValue={user.profileThemePreference}
-                id="profileThemePreference"
-                label="テーマカラー"
-                name="profileThemePreference"
-                options={[
-                  ["SYSTEM", "閲覧者設定に従う"],
-                  ["DARK", "ダークで上書き"],
-                  ["LIGHT", "ライトで上書き"],
-                ]}
-              />
-              <SelectInput
-                defaultValue={user.profileDefaultView}
-                id="profileDefaultView"
-                label="初期表示のレイアウト"
-                name="profileDefaultView"
-                options={[
-                  ["CARD", "カード"],
-                  ["TILE", "タイル"],
-                  ["GROUPED_BY_GAME", "ゲームごと"],
-                ]}
-              />
-              <VisibilityCheckbox defaultChecked={user.profileGroupGames} label="ゲームごとにカードをまとめる" name="profileGroupGames" />
-            </div>
-          </section>
-
-          <section className="rounded-md border border-border bg-background p-4">
-            <h2 className="text-sm font-medium">プロフィール表示</h2>
-            <p className="mt-1 text-xs text-muted-foreground">公開プロフィールに表示する情報を選択します。</p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <VisibilityCheckbox defaultChecked={user.showProfileGames} label="よく投稿するゲームを表示" name="showProfileGames" />
-              <VisibilityCheckbox defaultChecked={user.showFollowingCount} label="フォロー数を表示" name="showFollowingCount" />
-              <VisibilityCheckbox defaultChecked={user.showFollowersCount} label="フォロワー数を表示" name="showFollowersCount" />
-              <VisibilityCheckbox defaultChecked={user.showBirthDate} label="生年月日を表示" name="showBirthDate" />
-              <VisibilityCheckbox defaultChecked={user.showAgeVerified} label="年齢確認済みを表示" name="showAgeVerified" />
-            </div>
-          </section>
-
-          <section className="rounded-md border border-border bg-background p-4">
-            <h2 className="text-sm font-medium">生年月日</h2>
-            {birthDateText ? (
-              <div className="mt-2 rounded-md border border-border bg-card p-3 text-sm">
-                <p className="font-medium">年齢確認済み</p>
-                <p className="mt-1 text-muted-foreground">生年月日: {birthDateText}</p>
-                <p className="mt-2 text-xs text-muted-foreground">一度入力した生年月日は変更できません。変更が必要な場合は運営へ依頼してください。</p>
-              </div>
-            ) : (
-              <Button asChild className="mt-3" variant="outline">
-                <a href="/settings/age">年齢確認を設定</a>
-              </Button>
-            )}
-          </section>
-
-          <section className="rounded-md border border-border bg-background p-4">
-            <h2 className="text-sm font-medium">Discord連携</h2>
-            {hasDiscordAccount ? (
-              <>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  管理者がBotを導入したDiscordサーバーで、あなたが投稿した画像・動画を下書きとしてClipshareへ自動で保存します。公開前に必ずご自身で内容を確認できます。
-                </p>
-                <div className="mt-3">
-                  <VisibilityCheckbox defaultChecked={user.discordAutoMirrorEnabled} label="Discordの投稿を自動で下書き保存する" name="discordAutoMirrorEnabled" />
-                </div>
-              </>
-            ) : (
-              <p className="mt-1 text-xs text-muted-foreground">
-                この機能を使うにはDiscordアカウントでのログイン連携が必要です。一度ログアウトし、ログイン画面で「Discordでログイン」を選ぶと連携できます。
-              </p>
-            )}
-          </section>
-
-          <section className="rounded-md border border-border bg-background p-4">
-            <h2 className="text-sm font-semibold">SNSリンク</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              主要SNSはユーザー名だけで登録できます。その他はURLから自動判定します。「ピン留め」を選んだ1件がプロフィールの一番上に大きく表示されます。
-            </p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <TextInput defaultValue={usernameLinks.youtube} id="youtubeUsername" label="YouTube" name="youtubeUsername" placeholder="@channel" />
-                <PinRadioOption defaultChecked={defaultPinnedKey === "youtube"} value="youtube" />
-              </div>
-              <div className="space-y-2">
-                <TextInput defaultValue={usernameLinks.x} id="xUsername" label="X" name="xUsername" placeholder="username" />
-                <PinRadioOption defaultChecked={defaultPinnedKey === "x"} value="x" />
-              </div>
-              <div className="space-y-2">
-                <TextInput defaultValue={usernameLinks.twitch} id="twitchUsername" label="Twitch" name="twitchUsername" placeholder="username" />
-                <PinRadioOption defaultChecked={defaultPinnedKey === "twitch"} value="twitch" />
-              </div>
-              <div className="space-y-2">
-                <TextInput defaultValue={usernameLinks.instagram} id="instagramUsername" label="Instagram" name="instagramUsername" placeholder="username" />
-                <PinRadioOption defaultChecked={defaultPinnedKey === "instagram"} value="instagram" />
-              </div>
-            </div>
-            <div className="mt-4 space-y-3">
-              {linkRows.map((link, index) => (
-                <div className="grid gap-2 rounded-md border border-border p-3" key={link?.id ?? index}>
-                  <input
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                    defaultValue={link?.url ?? ""}
-                    maxLength={500}
-                    name="linkUrl"
-                    placeholder="https://..."
-                    type="url"
+    <main className="min-h-screen bg-background">
+      <form action={updateProfile}>
+        <SettingsModal
+          description="公開プロフィールに表示する情報を設定します。"
+          errorMessage={<ActionError message={searchParamError(error)} />}
+          footer={<Button type="submit">保存</Button>}
+          title="プロフィール編集"
+          tabs={[
+            {
+              id: "basic",
+              label: "基本情報",
+              content: (
+                <div className="grid gap-4">
+                  <ProfileImageCropInput
+                    aspectRatio={3}
+                    defaultPreviewUrl={user.profileHeaderUrl}
+                    description="3:1でクロップします。横位置、縦位置、ズームを調整できます。"
+                    label="ヘッダー画像"
+                    name="profileHeader"
+                    outputHeight={512}
+                    outputWidth={1536}
                   />
-                  <input
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                    defaultValue={link?.label ?? ""}
-                    maxLength={80}
-                    name="linkLabel"
-                    placeholder="表示名 任意"
+                  <ProfileImageCropInput
+                    aspectRatio={1}
+                    defaultPreviewUrl={user.avatarUrl ?? user.image}
+                    description="1:1でクロップします。プロフィールアイコンとして表示されます。"
+                    label="アイコン"
+                    name="avatar"
+                    outputHeight={512}
+                    outputWidth={512}
                   />
-                  <PinRadioOption defaultChecked={defaultPinnedKey === `custom:${index}`} value={`custom:${index}`} />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <TextInput
+                      defaultValue={user.displayName ?? user.name ?? user.email ?? ""}
+                      id="displayName"
+                      label="名前"
+                      maxLength={60}
+                      name="displayName"
+                      required
+                    />
+                    <TextInput
+                      defaultValue={user.username ?? ""}
+                      id="username"
+                      label="ユーザーID"
+                      maxLength={30}
+                      minLength={3}
+                      name="username"
+                      pattern="[a-zA-Z0-9_]+"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium" htmlFor="bio">
+                      自己紹介
+                    </label>
+                    <textarea
+                      className="mt-2 min-h-32 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-ring transition focus:ring-2"
+                      defaultValue={user.bio ?? ""}
+                      id="bio"
+                      maxLength={500}
+                      name="bio"
+                      placeholder="改行、リンク、**太字**、*斜体*、- リストが使えます"
+                    />
+                    <p className="mt-2 text-xs text-muted-foreground">HTMLは使用できません。安全なMarkdownだけ表示します。</p>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </section>
+              ),
+            },
+            {
+              id: "design",
+              label: "デザイン",
+              content: (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <ProfileImageCropInput
+                    aspectRatio={16 / 9}
+                    defaultPreviewUrl={user.profileBackgroundUrl}
+                    description="16:9でクロップします。プロフィール画面の背景に使います。"
+                    label="背景画像"
+                    name="profileBackground"
+                    outputHeight={1080}
+                    outputWidth={1920}
+                  />
+                  <ProfileBackgroundBlurInput defaultValue={user.profileBackgroundBlur} />
+                  <ColorInput
+                    defaultValue={user.profileAccentColor ?? "#7c5cff"}
+                    id="profileAccentColor"
+                    label="アクセントカラー"
+                    name="profileAccentColor"
+                  />
+                  <ColorInput
+                    defaultValue={user.profileButtonColor ?? "#7c5cff"}
+                    id="profileButtonColor"
+                    label="ボタンカラー"
+                    name="profileButtonColor"
+                  />
+                  <ColorInput
+                    defaultValue={user.profileOverlayColor ?? user.profileAccentColor ?? "#10131b"}
+                    id="profileOverlayColor"
+                    label="背景画像オーバーレイ開始色"
+                    name="profileOverlayColor"
+                  />
+                  <ColorInput
+                    defaultValue={user.profileOverlayColorEnd ?? user.profileOverlayColor ?? "#10131b"}
+                    id="profileOverlayColorEnd"
+                    label="背景画像オーバーレイ終了色"
+                    name="profileOverlayColorEnd"
+                  />
+                  <ProfileOpacityInput defaultValue={user.profileOverlayOpacity} />
+                  <SelectInput
+                    defaultValue={user.profileThemePreference}
+                    id="profileThemePreference"
+                    label="テーマカラー"
+                    name="profileThemePreference"
+                    options={[
+                      ["SYSTEM", "閲覧者設定に従う"],
+                      ["DARK", "ダークで上書き"],
+                      ["LIGHT", "ライトで上書き"],
+                    ]}
+                  />
+                  <SelectInput
+                    defaultValue={user.profileDefaultView}
+                    id="profileDefaultView"
+                    label="初期表示のレイアウト"
+                    name="profileDefaultView"
+                    options={[
+                      ["CARD", "カード"],
+                      ["TILE", "タイル"],
+                      ["GROUPED_BY_GAME", "ゲームごと"],
+                    ]}
+                  />
+                  <VisibilityCheckbox defaultChecked={user.profileGroupGames} label="ゲームごとにカードをまとめる" name="profileGroupGames" />
+                </div>
+              ),
+            },
+            {
+              id: "visibility",
+              label: "表示設定",
+              content: (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-sm font-medium">プロフィール表示</h2>
+                    <p className="mt-1 text-xs text-muted-foreground">公開プロフィールに表示する情報を選択します。</p>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <VisibilityCheckbox defaultChecked={user.showProfileGames} label="よく投稿するゲームを表示" name="showProfileGames" />
+                      <VisibilityCheckbox defaultChecked={user.showFollowingCount} label="フォロー数を表示" name="showFollowingCount" />
+                      <VisibilityCheckbox defaultChecked={user.showFollowersCount} label="フォロワー数を表示" name="showFollowersCount" />
+                      <VisibilityCheckbox defaultChecked={user.showBirthDate} label="生年月日を表示" name="showBirthDate" />
+                      <VisibilityCheckbox defaultChecked={user.showAgeVerified} label="年齢確認済みを表示" name="showAgeVerified" />
+                    </div>
+                  </div>
 
-          <Button type="submit">保存</Button>
-        </form>
-      </section>
+                  <div>
+                    <h2 className="text-sm font-medium">生年月日</h2>
+                    {birthDateText ? (
+                      <div className="mt-2 rounded-md border border-border bg-background p-3 text-sm">
+                        <p className="font-medium">年齢確認済み</p>
+                        <p className="mt-1 text-muted-foreground">生年月日: {birthDateText}</p>
+                        <p className="mt-2 text-xs text-muted-foreground">一度入力した生年月日は変更できません。変更が必要な場合は運営へ依頼してください。</p>
+                      </div>
+                    ) : (
+                      <Button asChild className="mt-3" variant="outline">
+                        <a href="/settings/age">年齢確認を設定</a>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ),
+            },
+            {
+              id: "links",
+              label: "SNSリンク",
+              content: (
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    主要SNSはユーザー名だけで登録できます。その他はURLから自動判定します。「ピン留め」を選んだ1件がプロフィールの一番上に大きく表示されます。
+                  </p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <TextInput defaultValue={usernameLinks.youtube} id="youtubeUsername" label="YouTube" name="youtubeUsername" placeholder="@channel" />
+                      <PinRadioOption defaultChecked={defaultPinnedKey === "youtube"} value="youtube" />
+                    </div>
+                    <div className="space-y-2">
+                      <TextInput defaultValue={usernameLinks.x} id="xUsername" label="X" name="xUsername" placeholder="username" />
+                      <PinRadioOption defaultChecked={defaultPinnedKey === "x"} value="x" />
+                    </div>
+                    <div className="space-y-2">
+                      <TextInput defaultValue={usernameLinks.twitch} id="twitchUsername" label="Twitch" name="twitchUsername" placeholder="username" />
+                      <PinRadioOption defaultChecked={defaultPinnedKey === "twitch"} value="twitch" />
+                    </div>
+                    <div className="space-y-2">
+                      <TextInput
+                        defaultValue={usernameLinks.instagram}
+                        id="instagramUsername"
+                        label="Instagram"
+                        name="instagramUsername"
+                        placeholder="username"
+                      />
+                      <PinRadioOption defaultChecked={defaultPinnedKey === "instagram"} value="instagram" />
+                    </div>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {linkRows.map((link, index) => (
+                      <div className="grid gap-2 rounded-md border border-border p-3" key={link?.id ?? index}>
+                        <input
+                          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                          defaultValue={link?.url ?? ""}
+                          maxLength={500}
+                          name="linkUrl"
+                          placeholder="https://..."
+                          type="url"
+                        />
+                        <input
+                          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                          defaultValue={link?.label ?? ""}
+                          maxLength={80}
+                          name="linkLabel"
+                          placeholder="表示名 任意"
+                        />
+                        <PinRadioOption defaultChecked={defaultPinnedKey === `custom:${index}`} value={`custom:${index}`} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ),
+            },
+            {
+              id: "discord",
+              label: "Discord連携",
+              content: (
+                <div>
+                  <h2 className="text-sm font-medium">Discord連携</h2>
+                  {hasDiscordAccount ? (
+                    <>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        管理者がBotを導入したDiscordサーバーで、あなたが投稿した画像・動画を下書きとしてClipshareへ自動で保存します。公開前に必ずご自身で内容を確認できます。
+                      </p>
+                      <div className="mt-3">
+                        <VisibilityCheckbox
+                          defaultChecked={user.discordAutoMirrorEnabled}
+                          label="Discordの投稿を自動で下書き保存する"
+                          name="discordAutoMirrorEnabled"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      この機能を使うにはDiscordアカウントでのログイン連携が必要です。一度ログアウトし、ログイン画面で「Discordでログイン」を選ぶと連携できます。
+                    </p>
+                  )}
+                </div>
+              ),
+            },
+          ]}
+        />
+      </form>
     </main>
   );
 }
