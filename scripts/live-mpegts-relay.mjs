@@ -55,10 +55,17 @@ function createRelay(viewToken, videoKbps, audioKbps) {
     "tcp",
     "-i",
     `rtsp://127.0.0.1:8554/live/${viewToken}`,
+    // VPSのCPUが非力だと"veryfast"かつ入力そのまま(例:1080p)の再エンコードはリアルタイムに
+    // 追いつかず、ffmpeg内部にフレームが溜まって数秒おきにまとめて吐き出される
+    // (VRChat側では数秒ごとの更新にしか見えない)。低ビットレート(2Mbps程度)出力なので
+    // 元々1080pの解像度は不要であり、1280px相当に縮小しつつ"ultrafast"にしてエンコードの
+    // CPUコストそのものを下げる。fpsも30に揃えてエンコード回数を減らす。
+    "-vf",
+    "scale='min(1280,iw)':-2,fps=30",
     "-c:v",
     "libx264",
     "-preset",
-    "veryfast",
+    "ultrafast",
     "-tune",
     "zerolatency",
     "-profile:v",
