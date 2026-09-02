@@ -4,6 +4,8 @@ import sharp from "sharp";
 import { mediaPaths } from "@/lib/media/paths";
 
 const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const adBannerPath = path.join(process.cwd(), "public", "images", "quick-share-ad-banner.png");
+const adBannerMaxHeight = 65;
 const allowedVideoTypes = new Set([
   "video/mp4",
   "video/quicktime",
@@ -55,15 +57,40 @@ export async function storeQuickShareImage(
   const filePath = path.join(dir, fileName);
 
   const image = sharp(bytes, { failOn: "none" }).rotate();
-  const metadata = await image.metadata();
 
-  await image
+  const resizedMain = await image
     .resize({
       width: 2000,
-      height: 2000,
+      height: 2000 - adBannerMaxHeight,
       fit: "inside",
       withoutEnlargement: true,
     })
+    .toBuffer();
+  const mainMetadata = await sharp(resizedMain).metadata();
+  const mainWidth = mainMetadata.width ?? 2000;
+  const mainHeight = mainMetadata.height ?? 0;
+
+  const banner = await sharp(adBannerPath)
+    .resize({ width: mainWidth, withoutEnlargement: true })
+    .toBuffer();
+  const bannerMetadata = await sharp(banner).metadata();
+  const bannerHeight = bannerMetadata.height ?? 0;
+
+  const width = mainWidth;
+  const height = mainHeight + bannerHeight;
+
+  await sharp({
+    create: {
+      width,
+      height,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .composite([
+      { input: resizedMain, left: 0, top: 0 },
+      { input: banner, left: 0, top: mainHeight },
+    ])
     .webp({ quality: 88 })
     .toFile(filePath);
 
@@ -71,8 +98,8 @@ export async function storeQuickShareImage(
     mediaUrl: `/media/quick/images/${fileName}`,
     mimeType: "image/webp",
     size: file.size,
-    width: metadata.width ?? null,
-    height: metadata.height ?? null,
+    width,
+    height,
   };
 }
 
