@@ -69,7 +69,10 @@ export function QuickShareList({ highlightId, isLoggedIn, items, showLoginPrompt
           }`}
           key={item.publicId}
         >
-          <div className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
+          <a
+            className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted"
+            href={item.shareUrl}
+          >
             {item.kind === "IMAGE" && item.mediaUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img alt="" className="size-full object-cover" src={item.mediaUrl} />
@@ -79,7 +82,7 @@ export function QuickShareList({ highlightId, isLoggedIn, items, showLoginPrompt
             ) : (
               <Video className="text-muted-foreground" size={20} />
             )}
-          </div>
+          </a>
           <div className="min-w-0 flex-1">
             <input className="h-9 w-full rounded-md border border-input bg-background px-2 text-xs" readOnly value={item.shareUrl} />
             {item.status === "PROCESSING" ? (
