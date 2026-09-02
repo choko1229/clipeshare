@@ -75,7 +75,7 @@ export function QuickShareList({ highlightId, isLoggedIn, items, showLoginPrompt
           >
             {item.kind === "IMAGE" && item.mediaUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img alt="" className="size-full object-cover" src={item.mediaUrl} />
+              <img alt="" className="size-full object-cover" src={item.shareUrl} />
             ) : item.thumbnailUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img alt="" className="size-full object-cover" src={item.thumbnailUrl} />
