@@ -4,6 +4,7 @@ import { requireModerator } from "@/lib/admin/auth";
 const adminNav = [
   { href: "/admin", label: "概要" },
   { href: "/admin/reports", label: "通報" },
+  { href: "/admin/contact", label: "お問い合わせ" },
   { href: "/admin/posts", label: "投稿" },
   { href: "/admin/comments", label: "コメント" },
   { href: "/admin/moderation", label: "モデレーション" },

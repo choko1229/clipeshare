@@ -5,15 +5,15 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "利用規約",
-  description: "Clipeshareの利用規約ドラフトです。",
+  description: "Clipeshareの利用条件、禁止行為、モデレーション方針を定めた利用規約です。",
 };
 
 export default function TermsPage() {
   return (
     <LegalDocument
-      lead="この利用規約(以下「本規約」といいます)は、Clipeshare(以下「本サービス」といいます)の利用条件を定めるものです。本サービスを利用するすべての方(以下「ユーザー」といいます)は、本規約に同意したうえで本サービスを利用するものとします。本ページは正式公開前のドラフトであり、内容は運用開始までに変更される可能性があります。"
+      lead="この利用規約(以下「本規約」といいます)は、Clipeshare(以下「本サービス」といいます)の利用条件を定めるものです。本サービスを利用するすべての方(以下「ユーザー」といいます)は、本規約に同意したうえで本サービスを利用するものとします。"
       title="利用規約"
-      updatedNote="ドラフト版"
+      updatedNote="最終更新日: 2026年9月2日"
     >
       <LegalArticle index="1" title="サービス内容">
         <p>
@@ -125,7 +125,15 @@ export default function TermsPage() {
 
       <LegalArticle index="16" title="お問い合わせ">
         <p>
-          本規約に関するお問い合わせは、専用のお問い合わせフォームまたはメールアドレスにて受け付けます(準備中。設置後に本ページへ追記します)。
+          本規約に関するお問い合わせは、
+          <a className="text-primary hover:underline" href="/contact">
+            お問い合わせフォーム
+          </a>
+          または{" "}
+          <a className="text-primary hover:underline" href="mailto:chokops4twitter@gmail.com">
+            chokops4twitter@gmail.com
+          </a>{" "}
+          にて受け付けます。
         </p>
       </LegalArticle>
     </LegalDocument>

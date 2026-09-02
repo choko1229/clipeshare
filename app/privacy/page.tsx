@@ -5,15 +5,15 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "プライバシーポリシー",
-  description: "Clipeshareのプライバシーポリシードラフトです。",
+  description: "Clipeshareが取得する情報の種類、利用目的、第三者提供の方針などを定めたプライバシーポリシーです。",
 };
 
 export default function PrivacyPage() {
   return (
     <LegalDocument
-      lead="このプライバシーポリシー(以下「本ポリシー」といいます)は、Clipeshare(以下「本サービス」といいます)の運営者(以下「運営者」といいます)が、本サービスの利用に関して取得するユーザーの情報の取り扱いについて定めるものです。本ページは正式公開前のドラフトであり、内容は運用開始までに変更される可能性があります。"
+      lead="このプライバシーポリシー(以下「本ポリシー」といいます)は、Clipeshare(以下「本サービス」といいます)の運営者(以下「運営者」といいます)が、本サービスの利用に関して取得するユーザーの情報の取り扱いについて定めるものです。"
       title="プライバシーポリシー"
-      updatedNote="ドラフト版"
+      updatedNote="最終更新日: 2026年9月2日"
     >
       <LegalArticle index="1" title="取得する情報">
         <p>本サービスでは、以下の情報を取得・保存することがあります。</p>
@@ -112,7 +112,15 @@ export default function PrivacyPage() {
 
       <LegalArticle index="12" title="お問い合わせ">
         <p>
-          本ポリシーおよび個人情報の取り扱いに関するお問い合わせは、専用のお問い合わせフォームまたはメールアドレスにて受け付けます(準備中。設置後に本ページへ追記します)。
+          本ポリシーおよび個人情報の取り扱いに関するお問い合わせ、開示・訂正・利用停止等の請求は、
+          <a className="text-primary hover:underline" href="/contact">
+            お問い合わせフォーム
+          </a>
+          または{" "}
+          <a className="text-primary hover:underline" href="mailto:chokops4twitter@gmail.com">
+            chokops4twitter@gmail.com
+          </a>{" "}
+          にて受け付けます。
         </p>
       </LegalArticle>
     </LegalDocument>

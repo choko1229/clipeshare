@@ -17,6 +17,7 @@ import { siteSettingKeys } from "@/lib/seo/settings";
 
 const idSchema = z.string().min(1);
 const reportStatusSchema = z.enum(["OPEN", "REVIEWING", "ACTION_TAKEN", "REJECTED", "CLOSED"]);
+const contactStatusSchema = z.enum(["OPEN", "IN_PROGRESS", "CLOSED"]);
 const reportActionSchema = z.enum(["HIDE_POST", "DELETE_COMMENT", "BAN_TARGET_USER"]);
 const moderationRuleTypeSchema = z.enum(["ng_word", "blocked_url", "blocked_pattern"]);
 const moderationRuleActionSchema = z.enum(["block", "report"]);
@@ -183,6 +184,43 @@ export async function updateReportStatus(formData: FormData) {
 
   revalidatePath("/admin");
   revalidatePath("/admin/reports");
+}
+
+export async function updateContactMessageStatus(formData: FormData) {
+  const admin = await requireModerator();
+  const contactMessageId = idSchema.parse(formData.get("contactMessageId"));
+  const status = contactStatusSchema.parse(formData.get("status"));
+  const adminNote = z.string().trim().max(1000).optional().parse(formData.get("adminNote") || undefined);
+
+  const before = await prisma.contactMessage.findUnique({
+    where: { id: contactMessageId },
+  });
+
+  if (!before) {
+    throw new Error("お問い合わせが見つかりません。");
+  }
+
+  const after = await prisma.contactMessage.update({
+    where: { id: contactMessageId },
+    data: {
+      status,
+      adminNote: adminNote || before.adminNote,
+      handledByAdminId: admin.id,
+      handledAt: new Date(),
+    },
+  });
+
+  await writeAuditLog({
+    adminId: admin.id,
+    action: "contact_message.update_status",
+    targetType: "contact_message",
+    targetId: contactMessageId,
+    beforeData: before,
+    afterData: after,
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/contact");
 }
 
 export async function takeReportAction(formData: FormData) {

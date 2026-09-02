@@ -11,9 +11,9 @@ export const metadata: Metadata = {
 export default function GuidelinesPage() {
   return (
     <LegalDocument
-      lead="Clipeshareは、ゲーム中心のクリップ動画・スクリーンショットを安心して共有するためのサービスです。本ページは、利用規約を補足する運用方針のドラフトであり、内容は運用開始までに変更される可能性があります。本ガイドラインは、投稿・コメント・ライブ配信・一時共有機能など、本サービス上のすべてのコンテンツに適用されます。"
+      lead="Clipeshareは、ゲーム中心のクリップ動画・スクリーンショットを安心して共有するためのサービスです。本ページは、利用規約を補足する運用方針を定めるものです。本ガイドラインは、投稿・コメント・ライブ配信・一時共有機能など、本サービス上のすべてのコンテンツに適用されます。"
       title="コミュニティガイドライン"
-      updatedNote="ドラフト版"
+      updatedNote="最終更新日: 2026年9月2日"
     >
       <LegalArticle title="投稿できるもの">
         <ul>
@@ -69,7 +69,11 @@ export default function GuidelinesPage() {
 
       <LegalArticle title="異議申立て">
         <p>
-          投稿の非公開化やアカウントの利用制限・停止について、対応に誤りがあると考える場合は、問い合わせ窓口から異議を申し立てることができます。運営者は内容を確認し、必要に応じて対応を見直します。
+          投稿の非公開化やアカウントの利用制限・停止について、対応に誤りがあると考える場合は、
+          <a className="text-primary hover:underline" href="/contact">
+            お問い合わせフォーム
+          </a>
+          から異議を申し立てることができます。運営者は内容を確認し、必要に応じて対応を見直します。
         </p>
       </LegalArticle>
 
@@ -81,7 +85,11 @@ export default function GuidelinesPage() {
 
       <LegalArticle title="著作権侵害の申立て">
         <p>
-          自身の著作物が無断で投稿されていると考える権利者は、問い合わせ窓口から削除を申し立てることができます。申立ての内容を確認のうえ、必要な対応を行います。詳細な手続きはプライバシーポリシーおよび利用規約もあわせてご確認ください。
+          自身の著作物が無断で投稿されていると考える権利者は、
+          <a className="text-primary hover:underline" href="/contact">
+            お問い合わせフォーム
+          </a>
+          から削除を申し立てることができます。申立ての内容を確認のうえ、必要な対応を行います。詳細な手続きはプライバシーポリシーおよび利用規約もあわせてご確認ください。
         </p>
       </LegalArticle>
     </LegalDocument>

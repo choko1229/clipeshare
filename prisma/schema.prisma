@@ -54,6 +54,20 @@ enum ReportStatus {
   CLOSED
 }
 
+enum ContactCategory {
+  GENERAL
+  COPYRIGHT
+  PRIVACY
+  BUG
+  OTHER
+}
+
+enum ContactStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
+
 enum NotificationType {
   COMMENT_ON_POST
   LIKE_ON_POST
@@ -176,6 +190,9 @@ model User {
   liveStream        LiveStream?
   liveChatMessages  LiveChatMessage[]
   liveLikes         LiveLike[]
+
+  contactMessages        ContactMessage[] @relation("ContactMessageUser")
+  handledContactMessages ContactMessage[] @relation("ContactMessageHandler")
 }
 
 model Account {
@@ -694,5 +711,27 @@ model QuickShare {
 
   @@index([expiresAt, deletedAt])
   @@index([userId, createdAt])
+  @@index([ipHash, createdAt])
+}
+
+model ContactMessage {
+  id        String          @id @default(cuid())
+  category  ContactCategory @default(GENERAL)
+  name      String
+  email     String
+  subject   String
+  message   String          @db.Text
+  status    ContactStatus   @default(OPEN)
+  ipHash    String?
+  userId    String?
+  createdAt DateTime        @default(now())
+  handledAt DateTime?
+  handledByAdminId String?
+  adminNote String?         @db.Text
+
+  user         User?  @relation("ContactMessageUser", fields: [userId], references: [id], onDelete: SetNull)
+  handledByAdmin User? @relation("ContactMessageHandler", fields: [handledByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
   @@index([ipHash, createdAt])
 }
