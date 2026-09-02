@@ -45,7 +45,7 @@ export function QuickShareItemViewer({
   }
 
   return (
-    <div className="w-full">
+    <div className="mx-auto w-full max-w-[2000px]">
       <div className="relative overflow-hidden rounded-lg border border-border bg-card">
         {status === "FAILED" ? (
           <div className="flex min-h-40 flex-col items-center justify-center gap-2 p-8 text-center">
@@ -91,6 +91,9 @@ export function QuickShareItemViewer({
           </div>
         ) : null}
       </div>
+
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img alt="clipshare.link" className="mt-3 w-full rounded-lg" src="/images/quick-share-ad-banner.png" />
 
       <div className="mt-4 flex items-center gap-2">
         <input className="h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm" readOnly value={shareUrl} />
