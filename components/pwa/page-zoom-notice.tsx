@@ -34,11 +34,6 @@ function readDismissed() {
 
 function readSnapshot() {
   const root = document.documentElement;
-  // PWAでは DisplayScale が倍率を打ち消しているので案内は不要。
-  if (root.dataset.forcedZoom) {
-    return "";
-  }
-
   const ratio = readPageZoomRatio();
   if (ratio === null || isNormalPageZoom(ratio)) {
     return "";

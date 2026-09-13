@@ -229,10 +229,8 @@ html[data-pwa="standalone"] a img {
   padding-bottom: var(--tab-bar-inset);
 }
 
-/* PWAでページ拡大/縮小を zoom で打ち消しているとき、100dvh は画面の高さからずれる。
-   --viewport-unit-scale は components/pwa/display-scale.tsx が実測した補正値。 */
 .shorts-viewport {
-  height: calc(100dvh * var(--viewport-unit-scale, 1) - var(--header-height) - var(--tab-bar-height));
+  height: calc(100dvh - var(--header-height) - var(--tab-bar-height));
 }
 
 .above-tab-bar {
