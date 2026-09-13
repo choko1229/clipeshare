@@ -46,7 +46,7 @@ export function CookieNotice() {
   return (
     <div
       aria-label="Cookieの利用について"
-      className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-40 flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2.5 text-xs shadow-2xl sm:inset-x-auto sm:right-4 sm:max-w-md sm:text-sm xl:bottom-4"
+      className="above-tab-bar fixed inset-x-3 z-40 flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2.5 text-xs shadow-2xl sm:inset-x-auto sm:right-4 sm:max-w-md sm:text-sm"
       role="region"
     >
       <p className="min-w-0 flex-1 leading-5 text-muted-foreground">

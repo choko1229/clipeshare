@@ -130,8 +130,8 @@ export default async function RootLayout({
           <Suspense fallback={null}>
             <NavigationProgress />
           </Suspense>
-          {/* 1280px未満は下部タブを固定表示するため、その高さぶん本文とフッターを持ち上げる。 */}
-          <div className="min-h-dvh bg-background pb-[calc(4rem+env(safe-area-inset-bottom))] text-foreground xl:pb-0">
+          {/* app-shell: 1280px未満は下部タブを固定表示するため、その高さぶん本文とフッターを持ち上げる(globals.css)。 */}
+          <div className="app-shell min-h-dvh bg-background text-foreground">
             <header className="app-header sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur">
               <div className="app-header-inner flex min-h-16 w-full items-center justify-between gap-4 px-4">
                 <Link className="flex shrink-0 items-center gap-3" href="/">

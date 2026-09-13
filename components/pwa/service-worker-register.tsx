@@ -11,6 +11,8 @@ export function ServiceWorkerRegister() {
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("/sw.js", {
         scope: "/",
+        // 更新確認時にHTTPキャッシュを使わず、デプロイ直後から新しいService Workerを取り込む。
+        updateViaCache: "none",
       });
     });
   }, []);

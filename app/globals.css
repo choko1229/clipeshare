@@ -131,8 +131,75 @@ html[data-pwa="standalone"] [contenteditable="true"] {
   user-select: text;
 }
 
-html[data-pwa="standalone"] .app-header {
+/* ヘッダー・下部タブの寸法。本文の余白、縦動画の高さ、下部タブ上に浮かせる要素の位置はすべてここから計算する。
+   env(safe-area-inset-*) は通常のブラウザ表示では0、iPhoneのPWAではステータスバー/ホームバーの高さになる。 */
+:root {
+  --header-height: calc(4rem + 1px + env(safe-area-inset-top));
+  /* ホームバーの高さが取れない環境でも、タブがホームバーに触れないよう最低限の余白を確保する。 */
+  --tab-bar-inset: max(env(safe-area-inset-bottom), 0.75rem);
+  --tab-bar-height: calc(4.25rem + 1px + var(--tab-bar-inset));
+}
+
+@media (min-width: 1280px) {
+  :root {
+    --tab-bar-height: 0px;
+  }
+}
+
+/* iPhoneの標準本文は17px。スマートフォン幅ではTailwindの文字サイズを一段大きくする。 */
+@media (max-width: 767px) {
+  :root {
+    --text-xs: 0.8125rem;
+    --text-xs--line-height: calc(1.125 / 0.8125);
+    --text-sm: 0.9375rem;
+    --text-sm--line-height: calc(1.375 / 0.9375);
+    --text-base: 1.0625rem;
+    --text-base--line-height: calc(1.625 / 1.0625);
+  }
+
+  /* iOS Safariは16px未満の入力欄にフォーカスすると画面を自動で拡大してしまう。 */
+  input,
+  textarea,
+  select {
+    font-size: max(1rem, 16px);
+  }
+}
+
+/* PWA判定(クライアント側で後から付く data-pwa)を待たずに常に付ける。判定前の一瞬や判定失敗時に
+   ヘッダーがステータスバーの下へ潜り込むのを防ぐ。通常のブラウザでは値が0なので影響しない。 */
+.app-header {
   padding-top: env(safe-area-inset-top);
+}
+
+.app-shell {
+  padding-bottom: var(--tab-bar-height);
+}
+
+.mobile-tab-bar {
+  padding-bottom: var(--tab-bar-inset);
+}
+
+.shorts-viewport {
+  height: calc(100dvh - var(--header-height) - var(--tab-bar-height));
+}
+
+.above-tab-bar {
+  bottom: calc(var(--tab-bar-height) + 0.75rem);
+}
+
+@media (min-width: 1280px) {
+  .above-tab-bar {
+    bottom: 1rem;
+  }
+}
+
+/* iPhoneのPWAではガラス表現を強めにかけているが、ヘッダーと下部タブまで透けると
+   ステータスバーの白い文字の背後にぼかした画面が映り、時刻やアイコンが読めなくなる。 */
+html[data-pwa="standalone"][data-apple-device="true"] header.app-header,
+html[data-pwa="standalone"][data-apple-device="true"] nav.mobile-tab-bar {
+  background-color: rgba(7, 9, 18, 0.96);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  backdrop-filter: blur(12px) saturate(1.2);
 }
 
 html[data-pwa="standalone"] .app-header-inner {

@@ -50,41 +50,41 @@ export function MobileTabBar({ isLoggedIn, profileHref, unreadCount }: MobileTab
   return (
     <nav
       aria-label="メインメニュー"
-      className="mobile-tab-bar fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur xl:hidden"
+      className="mobile-tab-bar fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-background/95 backdrop-blur xl:hidden"
     >
-      <ul className="mx-auto grid h-16 max-w-2xl grid-cols-5">
+      <ul className="mx-auto grid h-[4.25rem] max-w-2xl grid-cols-5 px-1">
         {tabs.map((tab) => {
           const isActive = tab.isActive(pathname);
           const Icon = tab.icon;
           const badgeLabel = tab.badge && tab.badge > 99 ? "99+" : String(tab.badge ?? 0);
 
           return (
-            <li key={tab.label}>
+            <li className="min-w-0" key={tab.label}>
               <Link
                 aria-current={isActive ? "page" : undefined}
                 aria-label={tab.badge ? `${tab.label} 未読${badgeLabel}件` : tab.label}
                 className={cn(
-                  "relative flex h-full flex-col items-center justify-center gap-1 text-[11px] font-medium transition",
+                  "relative flex h-full flex-col items-center justify-center gap-1 text-xs font-medium transition active:scale-95",
                   isActive ? "text-primary" : "text-muted-foreground hover:text-foreground",
                 )}
                 href={tab.href}
               >
                 {tab.isPrimary ? (
-                  <span className="grid size-11 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/25 transition active:scale-95">
-                    <Icon size={24} strokeWidth={2.4} />
+                  <span className="grid size-12 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/30">
+                    <Icon size={26} strokeWidth={2.4} />
                   </span>
                 ) : (
                   <>
-                    {isActive ? <span className="absolute inset-x-5 top-0 h-0.5 rounded-full bg-primary" /> : null}
+                    {isActive ? <span className="absolute inset-x-4 top-0 h-0.5 rounded-full bg-primary" /> : null}
                     <span className="relative">
-                      <Icon size={22} strokeWidth={isActive ? 2.4 : 2} />
+                      <Icon size={24} strokeWidth={isActive ? 2.4 : 2} />
                       {tab.badge ? (
-                        <span className="absolute -right-2.5 -top-1.5 min-w-4 rounded-full bg-destructive px-1 text-center text-[10px] font-bold leading-4 text-destructive-foreground">
+                        <span className="absolute -right-3 -top-1.5 min-w-[1.125rem] rounded-full bg-destructive px-1 text-center text-[11px] font-bold leading-[1.125rem] text-destructive-foreground">
                           {badgeLabel}
                         </span>
                       ) : null}
                     </span>
-                    <span>{tab.label}</span>
+                    <span className="max-w-full truncate leading-none">{tab.label}</span>
                   </>
                 )}
               </Link>

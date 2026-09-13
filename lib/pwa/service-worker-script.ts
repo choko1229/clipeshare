@@ -1,6 +1,10 @@
-const CACHE_VERSION = "clipeshare-pwa-v2";
-const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
-const STATIC_CACHE = `${CACHE_VERSION}-static`;
+// Service Worker本体。キャッシュ名にデプロイごとのビルドIDを埋め込むため、静的ファイルではなく
+// app/sw.js/route.ts から配信する。スクリプトの中身がデプロイごとに変わるので、ブラウザは新しい
+// Service Workerを取り込み、activate時に旧バージョンのキャッシュを削除する。
+export function renderServiceWorkerScript(buildId: string) {
+  return `const CACHE_VERSION = ${JSON.stringify(`clipeshare-pwa-${buildId}`)};
+const RUNTIME_CACHE = CACHE_VERSION + "-runtime";
+const STATIC_CACHE = CACHE_VERSION + "-static";
 
 const CORE_ASSETS = [
   "/",
@@ -48,6 +52,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // ファイル名に内容のハッシュが付くため、ブラウザのHTTPキャッシュ(immutable)に任せる。
   if (url.pathname.startsWith("/_next/static/")) {
     return;
   }
@@ -89,7 +94,7 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = new URL(event.notification.data?.url || "/notice", self.location.origin).href;
+  const targetUrl = new URL((event.notification.data && event.notification.data.url) || "/notice", self.location.origin).href;
 
   event.waitUntil(
     self.clients
@@ -168,4 +173,6 @@ async function networkFirst(request, fallbackPath) {
       status: 503,
     });
   }
+}
+`;
 }
