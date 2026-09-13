@@ -50,7 +50,7 @@
   --destructive: #f15d6a;
   --destructive-foreground: #fff7f8;
   --ring: #48d6a8;
-  --radius: 0.5rem;
+  --radius: 8px;
 }
 
 :root.light,
@@ -93,14 +93,20 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-ring: var(--ring);
   --radius-md: var(--radius);
+  /* 余白・サイズは基準文字サイズ(rem)から切り離す。端末のテキストサイズ設定で文字だけを大きくし、
+     ボタンの高さや余白まで膨らんでレイアウトが崩れるのを防ぐ。 */
+  --spacing: 4px;
 }
 
 * {
   box-sizing: border-box;
 }
 
+/* --text-scale は components/pwa/display-scale.tsx が iPhone/iPad の「テキストサイズ」設定から計算する。
+   Tailwindの文字サイズは rem なので、ここを変えるだけで全ページの文字が追従する。 */
 html {
   background: var(--background);
+  font-size: calc(100% * var(--text-scale, 1));
 }
 
 body {
@@ -108,7 +114,7 @@ body {
   font-family:
     "LINE Seed JP", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background:
-    radial-gradient(circle at top left, rgba(72, 214, 168, 0.14), transparent 30rem),
+    radial-gradient(circle at top left, rgba(72, 214, 168, 0.14), transparent 480px),
     linear-gradient(180deg, #07080d 0%, #0b0e15 100%);
 }
 
@@ -150,7 +156,7 @@ html[data-pwa="standalone"] a img {
 }
 
 .long-press-sheet {
-  padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
   animation: long-press-sheet-up 200ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
 }
 
@@ -174,12 +180,13 @@ html[data-pwa="standalone"] a img {
 }
 
 /* ヘッダー・下部タブの寸法。本文の余白、縦動画の高さ、下部タブ上に浮かせる要素の位置はすべてここから計算する。
-   env(safe-area-inset-*) は通常のブラウザ表示では0、iPhoneのPWAではステータスバー/ホームバーの高さになる。 */
+   env(safe-area-inset-*) は通常のブラウザ表示では0、iPhoneのPWAではステータスバー/ホームバーの高さになる。
+   テキストサイズ設定で変わらないよう px で持つ。 */
 :root {
-  --header-height: calc(4rem + 1px + env(safe-area-inset-top));
+  --header-height: calc(64px + 1px + env(safe-area-inset-top));
   /* ホームバーの高さが取れない環境でも、タブがホームバーに触れないよう最低限の余白を確保する。 */
-  --tab-bar-inset: max(env(safe-area-inset-bottom), 0.75rem);
-  --tab-bar-height: calc(4.25rem + 1px + var(--tab-bar-inset));
+  --tab-bar-inset: max(env(safe-area-inset-bottom), 12px);
+  --tab-bar-height: calc(68px + 1px + var(--tab-bar-inset));
 }
 
 @media (min-width: 1280px) {
@@ -188,7 +195,8 @@ html[data-pwa="standalone"] a img {
   }
 }
 
-/* iPhoneの標準本文は17px。スマートフォン幅ではTailwindの文字サイズを一段大きくする。 */
+/* iPhoneの標準本文は17px。スマートフォン幅ではTailwindの文字サイズを一段大きくする。
+   rem のままにして、端末のテキストサイズ設定(--text-scale)にも追従させる。 */
 @media (max-width: 767px) {
   :root {
     --text-xs: 0.8125rem;
@@ -221,21 +229,23 @@ html[data-pwa="standalone"] a img {
   padding-bottom: var(--tab-bar-inset);
 }
 
+/* PWAでページ拡大/縮小を zoom で打ち消しているとき、100dvh は画面の高さからずれる。
+   --viewport-unit-scale は components/pwa/display-scale.tsx が実測した補正値。 */
 .shorts-viewport {
-  height: calc(100dvh - var(--header-height) - var(--tab-bar-height));
+  height: calc(100dvh * var(--viewport-unit-scale, 1) - var(--header-height) - var(--tab-bar-height));
 }
 
 .above-tab-bar {
-  bottom: calc(var(--tab-bar-height) + 0.75rem);
+  bottom: calc(var(--tab-bar-height) + 12px);
 }
 
 .below-header {
-  top: calc(var(--header-height) + 0.5rem);
+  top: calc(var(--header-height) + 8px);
 }
 
 @media (min-width: 1280px) {
   .above-tab-bar {
-    bottom: 1rem;
+    bottom: 16px;
   }
 }
 
@@ -249,11 +259,11 @@ html[data-pwa="standalone"][data-apple-device="true"] nav.mobile-tab-bar {
 }
 
 html[data-pwa="standalone"] .app-header-inner {
-  min-height: 4rem;
+  min-height: 64px;
 }
 
 html[data-pwa="standalone"] main {
-  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
 }
 
 html[data-pwa="standalone"][data-apple-device="true"] {
@@ -282,8 +292,8 @@ html[data-pwa="standalone"][data-apple-device="true"] {
 
 html[data-pwa="standalone"][data-apple-device="true"] body {
   background:
-    radial-gradient(circle at 20% 0%, rgba(72, 214, 168, 0.2), transparent 26rem),
-    radial-gradient(circle at 90% 10%, rgba(135, 116, 255, 0.16), transparent 28rem),
+    radial-gradient(circle at 20% 0%, rgba(72, 214, 168, 0.2), transparent 416px),
+    radial-gradient(circle at 90% 10%, rgba(135, 116, 255, 0.16), transparent 448px),
     linear-gradient(180deg, color-mix(in srgb, var(--background) 92%, #ffffff 8%) 0%, var(--background) 100%);
 }
 
@@ -308,7 +318,7 @@ html[data-pwa="standalone"][data-apple-device="true"] a {
 :root.light body,
 :root[data-theme="light"] body {
   background:
-    radial-gradient(circle at top left, rgba(15, 159, 120, 0.12), transparent 30rem),
+    radial-gradient(circle at top left, rgba(15, 159, 120, 0.12), transparent 480px),
     linear-gradient(180deg, #f7f8fb 0%, #edf1f7 100%);
 }
 
@@ -335,7 +345,7 @@ html[data-pwa="standalone"][data-apple-device="true"] a {
 
   :root[data-theme="system"] body {
     background:
-      radial-gradient(circle at top left, rgba(15, 159, 120, 0.12), transparent 30rem),
+      radial-gradient(circle at top left, rgba(15, 159, 120, 0.12), transparent 480px),
       linear-gradient(180deg, #f7f8fb 0%, #edf1f7 100%);
   }
 }
@@ -363,7 +373,7 @@ a {
 
 .post-card-grid {
   display: grid;
-  gap: 1rem;
+  gap: 16px;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
 }
 

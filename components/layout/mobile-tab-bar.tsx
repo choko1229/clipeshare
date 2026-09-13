@@ -52,7 +52,7 @@ export function MobileTabBar({ isLoggedIn, profileHref, unreadCount }: MobileTab
       aria-label="メインメニュー"
       className="mobile-tab-bar fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-background/95 backdrop-blur xl:hidden"
     >
-      <ul className="mx-auto grid h-[4.25rem] max-w-2xl grid-cols-5 px-1">
+      <ul className="mx-auto grid h-[68px] max-w-2xl grid-cols-5 px-1">
         {tabs.map((tab) => {
           const isActive = tab.isActive(pathname);
           const Icon = tab.icon;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { readPageZoomRatio } from "@/lib/pwa/display";
 
 function subscribe(onChange: () => void) {
   window.addEventListener("resize", onChange);
@@ -39,6 +40,17 @@ function readDiagnostics() {
       displayModeStandalone: window.matchMedia("(display-mode: standalone)").matches,
       navigatorStandalone: (navigator as Navigator & { standalone?: boolean }).standalone ?? null,
       dataPwa: root.dataset.pwa ?? null,
+      // components/pwa/display-scale.tsx が適用した値。
+      pageZoomRatio: (() => {
+        const ratio = readPageZoomRatio();
+        return ratio === null ? null : Number(ratio.toFixed(3));
+      })(),
+      forcedZoom: root.dataset.forcedZoom ?? null,
+      innerWidthAfterZoom: root.dataset.forcedZoom ? window.innerWidth : null,
+      viewportUnitScale: root.dataset.viewportUnitScale ?? null,
+      systemBodyPx: root.dataset.systemBodyPx ?? null,
+      textScale: root.style.getPropertyValue("--text-scale") || null,
+      rootFontSize: getComputedStyle(root).fontSize,
       safeArea: probeStyle
         ? { top: probeStyle.paddingTop, right: probeStyle.paddingRight, bottom: probeStyle.paddingBottom, left: probeStyle.paddingLeft }
         : null,
