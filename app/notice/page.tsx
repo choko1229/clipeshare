@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bell, CheckCheck, Heart, MessageCircle, Radio, UserPlus, UserRound } from "lucide-react";
+import { Bell, CheckCheck, Download, Heart, MessageCircle, Radio, Smartphone, UserPlus, UserRound } from "lucide-react";
 import { markAllNotificationsRead } from "@/app/notice/actions";
 import { toggleFollow } from "@/app/users/[username]/actions";
 import { Button } from "@/components/ui/button";
@@ -69,12 +69,27 @@ export default async function NoticePage() {
             <p className="text-sm text-muted-foreground">通知</p>
             <h1 className="mt-1 text-3xl font-bold">お知らせ</h1>
           </div>
-          <form action={markAllNotificationsRead}>
-            <Button type="submit" variant="outline">
-              <CheckCheck size={18} />
-              すべて既読
+          {/* 1280px未満ではヘッダーの通知メニューを隠しているため、設定への導線をここにも置く。 */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild className="h-9" variant="ghost">
+              <Link href="/settings/notifications">
+                <Smartphone size={17} />
+                端末通知を設定
+              </Link>
             </Button>
-          </form>
+            <Button asChild className="h-9" variant="ghost">
+              <Link href="/settings/notifications#install-app">
+                <Download size={17} />
+                アプリとして追加
+              </Link>
+            </Button>
+            <form action={markAllNotificationsRead}>
+              <Button className="h-9" type="submit" variant="outline">
+                <CheckCheck size={18} />
+                すべて既読
+              </Button>
+            </form>
+          </div>
         </div>
 
         <section className="mt-6 overflow-hidden rounded-md border border-border bg-card">
