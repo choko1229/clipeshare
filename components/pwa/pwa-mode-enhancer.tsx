@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { LongPressMenu } from "@/components/pwa/long-press-menu";
+import { PageZoomNotice } from "@/components/pwa/page-zoom-notice";
 
 // 以前はPWA判定後に <meta name="viewport"> を書き換えて拡大を禁止していたが、iOS 10以降は
 // user-scalable=no を無視するため効果がなく、PWAでだけ描画幅が980pxに戻る不具合の唯一の差分だったので行わない。
@@ -21,7 +22,12 @@ export function PwaModeEnhancer() {
     }
   }, []);
 
-  return <LongPressMenu />;
+  return (
+    <>
+      <LongPressMenu />
+      <PageZoomNotice />
+    </>
+  );
 }
 
 function isIosStandalone() {
