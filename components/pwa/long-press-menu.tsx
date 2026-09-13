@@ -7,8 +7,6 @@ import { useEffect, useState, type ComponentType } from "react";
 const LONG_PRESS_MS = 450;
 // これ以上指が動いたらスクロールとみなして長押しを取り消す。
 const MOVE_TOLERANCE_PX = 10;
-// 長押し後に指を離したときに発生するクリックで、リンク先へ遷移してしまうのを防ぐ時間。
-const SUPPRESS_CLICK_MS = 800;
 
 type MenuTarget = {
   href: string;
@@ -53,7 +51,9 @@ export function LongPressMenu() {
   useEffect(() => {
     let timer: number | undefined;
     let start: { x: number; y: number } | null = null;
-    let suppressClickUntil = 0;
+    // 長押しが成立したリンク。指を離したときにそのリンクへ届く1回分のクリックだけを止める。
+    // 時間で区切ると、メニューが出た直後に押した「開く」「キャンセル」まで無視してしまう。
+    let suppressNextClickOn: HTMLAnchorElement | null = null;
 
     function cancel() {
       window.clearTimeout(timer);
@@ -62,6 +62,8 @@ export function LongPressMenu() {
     }
 
     function handleTouchStart(event: TouchEvent) {
+      suppressNextClickOn = null;
+
       if (!isStandalone() || event.touches.length !== 1) {
         return;
       }
@@ -75,7 +77,7 @@ export function LongPressMenu() {
       start = { x: touch.clientX, y: touch.clientY };
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
-        suppressClickUntil = Date.now() + SUPPRESS_CLICK_MS;
+        suppressNextClickOn = link.anchor;
         start = null;
         setCopied(false);
         setTarget({
@@ -98,7 +100,8 @@ export function LongPressMenu() {
     }
 
     function handleClick(event: MouseEvent) {
-      if (Date.now() < suppressClickUntil) {
+      if (suppressNextClickOn && event.target instanceof Node && suppressNextClickOn.contains(event.target)) {
+        suppressNextClickOn = null;
         event.preventDefault();
         event.stopPropagation();
       }
