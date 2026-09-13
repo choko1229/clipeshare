@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/db/prisma";
+import { helpPages } from "@/lib/help/pages";
 
 // ビルド時の静的生成(=ビルド環境のDB接続に依存し、以降内容が固定化される)を避け、
 // リクエストごとに最新の投稿一覧で生成する。
@@ -86,6 +87,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/?sort=popular`, lastModified: now, changeFrequency: "daily", priority: 0.5 },
     { url: `${BASE_URL}/v`, lastModified: now, changeFrequency: "hourly", priority: 0.7 },
     { url: `${BASE_URL}/about`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
+    { url: `${BASE_URL}/help`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
+    ...helpPages.map((page) => ({
+      url: `${BASE_URL}/help/${page.slug}`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.4,
+    })),
     { url: `${BASE_URL}/guidelines`, lastModified: now, changeFrequency: "monthly", priority: 0.3 },
     { url: `${BASE_URL}/terms`, lastModified: now, changeFrequency: "yearly", priority: 0.2 },
     { url: `${BASE_URL}/privacy`, lastModified: now, changeFrequency: "yearly", priority: 0.2 },

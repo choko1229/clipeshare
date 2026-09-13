@@ -178,6 +178,9 @@ export default async function RootLayout({
                 <Link className="hover:text-foreground" href="/about">
                   Clipshareについて
                 </Link>
+                <Link className="hover:text-foreground" href="/help">
+                  ヘルプ
+                </Link>
                 <Link className="hover:text-foreground" href="/terms">
                   利用規約
                 </Link>
