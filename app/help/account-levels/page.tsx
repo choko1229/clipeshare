@@ -19,17 +19,12 @@ export const metadata: Metadata = {
 
 function formatPromotionRule(level: {
   isDefault: boolean;
-  isManualOnly: boolean;
   minAccountAgeDays: number;
   minFollowerCount: number;
   minPostCount: number;
 }) {
   if (level.isDefault) {
     return "登録直後の初期レベル";
-  }
-
-  if (level.isManualOnly) {
-    return "運営による個別付与";
   }
 
   const conditions: string[] = [];
@@ -47,7 +42,11 @@ function formatPromotionRule(level: {
 }
 
 export default async function AccountLevelsHelpPage() {
+  // 運営が個別に付与するレベル(管理用・制限用)は利用者が到達できないため公開しない。
   const levels = await prisma.accountLevel.findMany({
+    where: {
+      isManualOnly: false,
+    },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   });
 
@@ -104,7 +103,9 @@ export default async function AccountLevelsHelpPage() {
                 </tbody>
               </table>
             </div>
-            <p>この表はサイトの設定を直接読み込んで表示しているため、上限が変更された場合は自動的に反映されます。</p>
+            <p>
+              この表はサイトの設定を直接読み込んで表示しているため、上限が変更された場合は自動的に反映されます。なお、上記のほかに運営が個別に付与するレベルがあり、これらは条件を満たしても自動では切り替わりません。
+            </p>
           </>
         ) : (
           <p>
@@ -151,7 +152,7 @@ export default async function AccountLevelsHelpPage() {
           条件を満たしているはずなのにレベルが変わらない場合は、一度投稿作成画面を開き直してください。レベルの判定はそのタイミングで行われます。
         </p>
         <p>
-          運営による個別付与のレベルは、条件を満たしても自動では切り替わりません。それ以外でレベルが反映されない場合は、
+          それでもレベルが反映されない場合は、
           <Link className="text-primary hover:underline" href="/contact">
             お問い合わせフォーム
           </Link>
