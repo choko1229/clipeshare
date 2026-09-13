@@ -40,5 +40,15 @@ jobs:
         run: |
           test -n "${VPS_HOST}" || (echo "Missing GitHub secret: VPS_HOST" && exit 1)
           test -n "${VPS_USER}" || (echo "Missing GitHub secret: VPS_USER" && exit 1)
+          # deploy-server.sh は current で git reset --hard するため、current にあるファイルを直接実行すると
+          # bash が読んでいる途中のスクリプトが書き換わり、途中から壊れた内容を実行してしまう。
+          # 取得した最新版を一時ファイルに書き出してから実行する。
           ssh "${VPS_USER}@${VPS_HOST}" \
-            "APP_NAME='${APP_NAME}' APP_DIR='${APP_DIR}' BRANCH='${BRANCH}' bash '${APP_DIR}/current/scripts/deploy-server.sh'"
+            "APP_NAME='${APP_NAME}' APP_DIR='${APP_DIR}' BRANCH='${BRANCH}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          git -C "${APP_DIR}/current" fetch origin "${BRANCH}"
+          script="$(mktemp)"
+          trap 'rm -f "${script}"' EXIT
+          git -C "${APP_DIR}/current" show "origin/${BRANCH}:scripts/deploy-server.sh" > "${script}"
+          bash "${script}" </dev/null
+          REMOTE
