@@ -46,21 +46,18 @@ export function CookieNotice() {
   return (
     <div
       aria-label="Cookieの利用について"
-      className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-40 rounded-md border border-border bg-card p-4 text-sm shadow-2xl sm:inset-x-auto sm:right-4 sm:max-w-md xl:bottom-4"
+      className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-40 flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2.5 text-xs shadow-2xl sm:inset-x-auto sm:right-4 sm:max-w-md sm:text-sm xl:bottom-4"
       role="region"
     >
-      <p className="leading-6 text-muted-foreground">
-        Clipshareは、ログイン状態の維持、アクセス解析、広告配信のためにCookieを利用しています。詳しくは
+      <p className="min-w-0 flex-1 leading-5 text-muted-foreground">
+        ログイン維持・アクセス解析・広告配信のためにCookieを利用しています。
         <Link className="text-primary hover:underline" href="/privacy">
-          プライバシーポリシー
+          詳しく見る
         </Link>
-        をご確認ください。
       </p>
-      <div className="mt-3 flex justify-end">
-        <Button className="h-9" onClick={accept} type="button">
-          同意して閉じる
-        </Button>
-      </div>
+      <Button className="h-8 shrink-0 px-3 text-xs" onClick={accept} type="button">
+        同意する
+      </Button>
     </div>
   );
 }

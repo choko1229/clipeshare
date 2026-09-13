@@ -93,8 +93,9 @@ export function ShortsFeed({ isLoggedIn, posts }: ShortsFeedProps) {
     );
   }
 
+  // ヘッダーと下部タブはそれぞれ高さ4rem + 境界線1px。
   return (
-    <main className="h-[calc(100dvh-8rem-env(safe-area-inset-bottom))] overflow-hidden bg-background text-foreground xl:h-[calc(100dvh-4rem)]">
+    <main className="h-[calc(100dvh-8rem-2px-env(safe-area-inset-bottom))] overflow-hidden bg-background text-foreground xl:h-[calc(100dvh-4rem-1px)]">
       <div className="grid h-full lg:grid-cols-[minmax(0,1fr)_420px]">
         <section className="h-full snap-y snap-mandatory overflow-y-auto overscroll-contain">
           {posts.map((post) => (

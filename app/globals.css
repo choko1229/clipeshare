@@ -238,8 +238,10 @@ a {
   max-width: none;
 }
 
+/* fill-mode は backwards にする。both だと終了後も transform が残り、
+   ページ内の position: fixed(モーダル・ボトムシート)の基準がビューポートではなくこの要素になる。 */
 .page-transition {
-  animation: page-enter 180ms ease-out both;
+  animation: page-enter 180ms ease-out backwards;
 }
 
 .submit-progress-bar {
