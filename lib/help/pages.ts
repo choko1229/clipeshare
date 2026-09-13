@@ -5,7 +5,11 @@ export type HelpPage = {
   title: string;
   summary: string;
   category: HelpCategory;
+  // sitemapのlastmodに使う。本文を書き換えたらこの日付も更新する。
+  updatedAt: string;
 };
+
+const INITIAL_RELEASE = "2026-09-13";
 
 export const helpPages: HelpPage[] = [
   {
@@ -14,6 +18,7 @@ export const helpPages: HelpPage[] = [
     summary:
       "ログインなしでできること、3つのログイン方法の違い、プロフィールの初期設定から最初の投稿までの流れを説明します。",
     category: "投稿する",
+    updatedAt: INITIAL_RELEASE,
   },
   {
     slug: "post-clip",
@@ -21,6 +26,7 @@ export const helpPages: HelpPage[] = [
     summary:
       "対応している動画形式、切り抜き範囲の指定、アップロード後の変換処理の流れ、変換に失敗したときの対処方法をまとめています。",
     category: "投稿する",
+    updatedAt: INITIAL_RELEASE,
   },
   {
     slug: "post-screenshot",
@@ -28,6 +34,7 @@ export const helpPages: HelpPage[] = [
     summary:
       "対応している画像形式、複数枚をまとめて投稿する方法、アップロード前の自動圧縮、投稿後の見え方を説明します。",
     category: "投稿する",
+    updatedAt: INITIAL_RELEASE,
   },
   {
     slug: "writing-posts",
@@ -35,6 +42,7 @@ export const helpPages: HelpPage[] = [
     summary:
       "本文欄の1行目がタイトル、2行目以降が説明文になる仕組みと、投稿を見つけてもらいやすくする書き方のコツを紹介します。",
     category: "投稿する",
+    updatedAt: INITIAL_RELEASE,
   },
   {
     slug: "game-info",
@@ -42,6 +50,7 @@ export const helpPages: HelpPage[] = [
     summary:
       "ゲームを紐づけると何が起きるのか、ゲーム名の自動推定、ランク帯やDiscordサーバー名などの付随情報の使い方を説明します。",
     category: "投稿する",
+    updatedAt: INITIAL_RELEASE,
   },
   {
     slug: "account-levels",
@@ -49,6 +58,7 @@ export const helpPages: HelpPage[] = [
     summary:
       "動画の長さや容量、画像の枚数、1日の投稿数の上限はアカウントレベルごとに決まります。現在の上限と昇格条件を確認できます。",
     category: "設定する",
+    updatedAt: INITIAL_RELEASE,
   },
   {
     slug: "visibility-nsfw",
@@ -56,6 +66,7 @@ export const helpPages: HelpPage[] = [
     summary:
       "公開と非公開の違い、NSFWを付けるべきケース、年齢確認の手順と、NSFW投稿がどう表示されるかを説明します。",
     category: "設定する",
+    updatedAt: INITIAL_RELEASE,
   },
   {
     slug: "sharing",
@@ -63,6 +74,7 @@ export const helpPages: HelpPage[] = [
     summary:
       "共有パネルの各ボタンの使い分け、DiscordやXに貼ったときの見え方、外部サイトへの埋め込み方法を説明します。",
     category: "共有する",
+    updatedAt: INITIAL_RELEASE,
   },
   {
     slug: "quick-share",
@@ -70,6 +82,7 @@ export const helpPages: HelpPage[] = [
     summary:
       "ログインなしで画像や動画の共有URLを発行できるクイック共有について、上限・保存期限・削除方法をまとめています。",
     category: "共有する",
+    updatedAt: INITIAL_RELEASE,
   },
   {
     slug: "search",
@@ -77,6 +90,7 @@ export const helpPages: HelpPage[] = [
     summary:
       "7種類の検索演算子の書き方と組み合わせ、並び替えタブ、タグページやゲームページから目的の投稿へ辿り着く方法を説明します。",
     category: "探す",
+    updatedAt: INITIAL_RELEASE,
   },
 ];
 

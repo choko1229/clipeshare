@@ -80,26 +80,35 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }),
   ]);
 
-  const now = new Date();
+  // 一覧系ページは投稿が増減・更新されたときに中身が変わるため、最新の投稿更新日を使う。
+  const feedUpdatedAt = posts.reduce<Date | undefined>(
+    (latest, post) => (!latest || post.updatedAt > latest ? post.updatedAt : latest),
+    undefined,
+  );
+  const helpUpdatedAt = helpPages
+    .map((page) => new Date(page.updatedAt))
+    .reduce((latest, date) => (date > latest ? date : latest));
 
+  // 固定ページのうち更新日を追跡していないものは lastmod を付けない。
+  // 実態と合わない日付を返すと、Googleはそのサイトのlastmod自体を信用しなくなる。
   const staticRoutes: MetadataRoute.Sitemap = [
-    { url: `${BASE_URL}/`, lastModified: now, changeFrequency: "hourly", priority: 1 },
-    { url: `${BASE_URL}/?sort=week`, lastModified: now, changeFrequency: "daily", priority: 0.6 },
-    { url: `${BASE_URL}/?sort=month`, lastModified: now, changeFrequency: "daily", priority: 0.5 },
-    { url: `${BASE_URL}/?sort=popular`, lastModified: now, changeFrequency: "daily", priority: 0.5 },
-    { url: `${BASE_URL}/v`, lastModified: now, changeFrequency: "hourly", priority: 0.7 },
-    { url: `${BASE_URL}/about`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
-    { url: `${BASE_URL}/help`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${BASE_URL}/`, lastModified: feedUpdatedAt, changeFrequency: "hourly", priority: 1 },
+    { url: `${BASE_URL}/?sort=week`, lastModified: feedUpdatedAt, changeFrequency: "daily", priority: 0.6 },
+    { url: `${BASE_URL}/?sort=month`, lastModified: feedUpdatedAt, changeFrequency: "daily", priority: 0.5 },
+    { url: `${BASE_URL}/?sort=popular`, lastModified: feedUpdatedAt, changeFrequency: "daily", priority: 0.5 },
+    { url: `${BASE_URL}/v`, lastModified: feedUpdatedAt, changeFrequency: "hourly", priority: 0.7 },
+    { url: `${BASE_URL}/about`, changeFrequency: "monthly", priority: 0.4 },
+    { url: `${BASE_URL}/help`, lastModified: helpUpdatedAt, changeFrequency: "monthly", priority: 0.5 },
     ...helpPages.map((page) => ({
       url: `${BASE_URL}/help/${page.slug}`,
-      lastModified: now,
+      lastModified: new Date(page.updatedAt),
       changeFrequency: "monthly" as const,
       priority: 0.4,
     })),
-    { url: `${BASE_URL}/guidelines`, lastModified: now, changeFrequency: "monthly", priority: 0.3 },
-    { url: `${BASE_URL}/terms`, lastModified: now, changeFrequency: "yearly", priority: 0.2 },
-    { url: `${BASE_URL}/privacy`, lastModified: now, changeFrequency: "yearly", priority: 0.2 },
-    { url: `${BASE_URL}/contact`, lastModified: now, changeFrequency: "yearly", priority: 0.2 },
+    { url: `${BASE_URL}/guidelines`, changeFrequency: "monthly", priority: 0.3 },
+    { url: `${BASE_URL}/terms`, changeFrequency: "yearly", priority: 0.2 },
+    { url: `${BASE_URL}/privacy`, changeFrequency: "yearly", priority: 0.2 },
+    { url: `${BASE_URL}/contact`, changeFrequency: "yearly", priority: 0.2 },
   ];
 
   // 説明文が実質空の投稿は noindex にしているため、sitemapにも載せない。
