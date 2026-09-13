@@ -21,6 +21,7 @@ export default function robots(): MetadataRoute.Robots {
           "/theme",
           "/offline",
           "/c/*/edit",
+          "/debug",
           "/qick",
           "/q/",
         ],

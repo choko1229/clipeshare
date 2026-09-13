@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
+import { LongPressMenu } from "@/components/pwa/long-press-menu";
 
+// 以前はPWA判定後に <meta name="viewport"> を書き換えて拡大を禁止していたが、iOS 10以降は
+// user-scalable=no を無視するため効果がなく、PWAでだけ描画幅が980pxに戻る不具合の唯一の差分だったので行わない。
+// ダブルタップでの拡大は globals.css の touch-action: manipulation で抑止している。
 export function PwaModeEnhancer() {
   useEffect(() => {
     const root = document.documentElement;
@@ -13,25 +17,13 @@ export function PwaModeEnhancer() {
     root.dataset.appleDevice = isAppleDevice ? "true" : "false";
 
     if (isStandalone) {
-      lockViewportScale();
       document.body.classList.add("pwa-standalone");
     }
   }, []);
 
-  return null;
+  return <LongPressMenu />;
 }
 
 function isIosStandalone() {
   return "standalone" in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
-}
-
-function lockViewportScale() {
-  let viewport = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
-  if (!viewport) {
-    viewport = document.createElement("meta");
-    viewport.name = "viewport";
-    document.head.appendChild(viewport);
-  }
-
-  viewport.content = "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover";
 }
