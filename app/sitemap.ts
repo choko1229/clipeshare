@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/db/prisma";
 import { helpPages } from "@/lib/help/pages";
+import { hasMeaningfulDescription } from "@/lib/posts/description";
 
 // ビルド時の静的生成(=ビルド環境のDB接続に依存し、以降内容が固定化される)を避け、
 // リクエストごとに最新の投稿一覧で生成する。
@@ -22,6 +23,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         isNsfw: false,
       },
       select: {
+        description: true,
         publicId: true,
         updatedAt: true,
       },
@@ -100,12 +102,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/contact`, lastModified: now, changeFrequency: "yearly", priority: 0.2 },
   ];
 
-  const postRoutes: MetadataRoute.Sitemap = posts.map((post) => ({
-    url: `${BASE_URL}/c/${post.publicId}`,
-    lastModified: post.updatedAt,
-    changeFrequency: "daily",
-    priority: 0.8,
-  }));
+  // 説明文が実質空の投稿は noindex にしているため、sitemapにも載せない。
+  const postRoutes: MetadataRoute.Sitemap = posts
+    .filter((post) => hasMeaningfulDescription(post.description))
+    .map((post) => ({
+      url: `${BASE_URL}/c/${post.publicId}`,
+      lastModified: post.updatedAt,
+      changeFrequency: "daily",
+      priority: 0.8,
+    }));
 
   const gameRoutes: MetadataRoute.Sitemap = games.map((game) => ({
     url: `${BASE_URL}/games/${game.slug}`,

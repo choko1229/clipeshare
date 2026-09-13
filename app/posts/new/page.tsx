@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
@@ -80,11 +81,19 @@ export default async function NewPostPage({ searchParams }: NewPostPageProps) {
               id="bodyText"
               maxLength={4200}
               name="bodyText"
-              placeholder={"1行目がタイトル\n2行目以降が説明文\n#タグ も本文内に入力できます"}
+              placeholder={
+                "1行目: タイトル (例: 残り1秒で逆転クラッチ)\n2行目以降: 説明文 (どんな状況だったか、何を狙ったか)\n#タグ も本文内に入力できます"
+              }
               required
             />
             <p className="mt-2 text-xs text-muted-foreground">
               1行目をタイトル、2行目以降を説明文として保存します。本文内の #タグ は最大10個までタグとして保存します。
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              説明文を書くと検索やSNSから見つけてもらいやすくなります。説明文がない投稿は検索エンジンに登録されません。
+              <Link className="ml-1 text-primary hover:underline" href="/help/writing-posts">
+                書き方のコツ
+              </Link>
             </p>
           </div>
 

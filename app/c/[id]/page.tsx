@@ -13,6 +13,7 @@ import { PostCard } from "@/components/posts/post-card";
 import { JsonLd } from "@/components/seo/json-ld";
 import { SharePanel } from "@/components/share/share-panel";
 import { prisma } from "@/lib/db/prisma";
+import { buildPostFallbackDescription, hasMeaningfulDescription } from "@/lib/posts/description";
 import { isAdultBirthDate } from "@/lib/users/age";
 import {
   createComment,
@@ -319,7 +320,18 @@ export async function generateMetadata({ params }: ClipPageProps): Promise<Metad
     }
 
     const title = post.isNsfw ? "NSFWコンテンツ" : post.title;
-    const description = post.isNsfw ? "この投稿はログイン後に表示できます。" : post.description.slice(0, 160);
+    const isThinPost = !hasMeaningfulDescription(post.description);
+    const description = post.isNsfw
+      ? "この投稿はログイン後に表示できます。"
+      : isThinPost
+        ? buildPostFallbackDescription({
+            authorName: post.user.displayName ?? post.user.name ?? post.user.username ?? "ユーザー",
+            gameName: post.game.name,
+            isClip: post.type === "CLIP",
+            tagNames: post.tags.map(({ tag }) => tag.name),
+            title: post.title,
+          })
+        : post.description.trim().slice(0, 160);
     const image = absoluteUrl(post.isNsfw ? "/images/nsfw-placeholder.svg" : post.thumbnailUrl);
     const pageUrl = absoluteUrl(`/c/${post.publicId}`);
     const playerUrl = absoluteUrl(`/embed/c/${post.publicId}`);
@@ -338,13 +350,20 @@ export async function generateMetadata({ params }: ClipPageProps): Promise<Metad
         },
       },
       // NSFW、またはメディア変換が完了していない投稿(再生できない薄いコンテンツ)はインデックス対象外にする。
+      // 説明文が実質空の投稿も、テキストがタイトルだけで他ページと区別できないためインデックスさせない。
+      // ただしゲーム・タグページへのリンクは辿らせたいので follow は残す。
       robots:
         post.isNsfw || post.status !== "PUBLISHED"
           ? {
               index: false,
               follow: false,
             }
-          : undefined,
+          : isThinPost
+            ? {
+                index: false,
+                follow: true,
+              }
+            : undefined,
       openGraph: {
         title,
         description,

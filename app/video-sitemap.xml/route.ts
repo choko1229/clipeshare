@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { hasMeaningfulDescription } from "@/lib/posts/description";
 import { escapeXml } from "@/lib/seo/xml";
 
 // ビルド時の静的生成を避け、リクエストごとに最新の投稿一覧で生成する。
@@ -47,7 +48,9 @@ async function getVideoPosts() {
 export async function GET() {
   const posts = await getVideoPosts();
 
+  // 説明文が実質空の投稿は noindex にしているため、動画sitemapにも載せない。
   const entries = posts
+    .filter((post) => hasMeaningfulDescription(post.description))
     .map((post) => {
       const pageUrl = absoluteUrl(`/c/${post.publicId}`);
       const thumbnailUrl = absoluteUrl(post.thumbnailUrl);

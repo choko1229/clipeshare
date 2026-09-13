@@ -148,6 +148,12 @@ export default async function EditPostPage({ params, searchParams }: EditPostPag
             <p className="mt-2 text-xs text-muted-foreground">
               1行目をタイトル、2行目以降を説明文として保存します。本文内の #タグ を最大10個までタグとして保存します。
             </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              説明文を書くと検索やSNSから見つけてもらいやすくなります。説明文がない投稿は検索エンジンに登録されません。
+              <Link className="ml-1 text-primary hover:underline" href="/help/writing-posts">
+                書き方のコツ
+              </Link>
+            </p>
           </div>
 
           <div>
