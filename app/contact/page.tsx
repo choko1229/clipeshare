@@ -3,7 +3,7 @@ import { Mail } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { submitContactMessage } from "@/app/contact/actions";
 import { authOptions } from "@/auth";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { searchParamError } from "@/lib/actions/error-message";
 import { prisma } from "@/lib/db/prisma";
 
@@ -150,9 +150,9 @@ export default async function ContactPage({ searchParams }: ContactPageProps) {
                 />
               </div>
 
-              <Button className="w-full sm:w-auto" type="submit">
+              <SubmitButton className="w-full sm:w-auto" pendingLabel="送信中">
                 送信する
-              </Button>
+              </SubmitButton>
             </form>
           )}
         </div>

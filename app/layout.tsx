@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
-import { ImagePlus, Plus } from "lucide-react";
+import { ImagePlus } from "lucide-react";
 import { getServerSession } from "next-auth";
+import { Suspense } from "react";
 import { authOptions } from "@/auth";
 import "./globals.css";
 import { GoogleAdsense } from "@/components/analytics/google-adsense";
@@ -9,7 +10,10 @@ import { GoogleAnalytics } from "@/components/analytics/google-analytics";
 import { Button } from "@/components/ui/button";
 import { HeaderProfile } from "@/components/layout/header-profile";
 import { HeaderSearch } from "@/components/layout/header-search";
+import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
+import { NavigationProgress } from "@/components/layout/navigation-progress";
 import { NoticeLink } from "@/components/layout/notice-link";
+import { CookieNotice } from "@/components/legal/cookie-notice";
 import { PwaModeEnhancer } from "@/components/pwa/pwa-mode-enhancer";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
 import { ThemeProvider } from "@/components/theme/theme-provider";
@@ -111,6 +115,8 @@ export default async function RootLayout({
       })
     : 0;
   const initialTheme = normalizeTheme(user?.themePreference);
+  const username = user?.username ?? session?.user?.username;
+  const profileHref = username ? `/users/${username}` : "/settings/profile";
 
   return (
     <html data-theme={initialTheme} lang="ja" suppressHydrationWarning>
@@ -121,7 +127,11 @@ export default async function RootLayout({
           <ServiceWorkerRegister />
           <PwaModeEnhancer />
           <GlobalPostDrop />
-          <div className="min-h-dvh bg-background text-foreground">
+          <Suspense fallback={null}>
+            <NavigationProgress />
+          </Suspense>
+          {/* 1280px未満は下部タブを固定表示するため、その高さぶん本文とフッターを持ち上げる。 */}
+          <div className="min-h-dvh bg-background pb-[calc(4rem+env(safe-area-inset-bottom))] text-foreground xl:pb-0">
             <header className="app-header sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur">
               <div className="app-header-inner flex min-h-16 w-full items-center justify-between gap-4 px-4">
                 <Link className="flex shrink-0 items-center gap-3" href="/">
@@ -133,18 +143,28 @@ export default async function RootLayout({
 
                 <nav className="flex min-w-0 items-center justify-end gap-2">
                   <HeaderSearch />
-                  <Button asChild className="size-10 px-0 sm:hidden" variant="ghost">
-                    <Link aria-label="クイック共有" href="/qick" title="クイック共有">
-                      <ImagePlus size={20} />
-                    </Link>
-                  </Button>
-                  <Button asChild className="hidden sm:inline-flex" variant="ghost">
-                    <Link href="/qick">クイック共有</Link>
-                  </Button>
+                  {session?.user ? (
+                    <>
+                      <Button asChild className="size-10 px-0 sm:hidden" variant="ghost">
+                        <Link aria-label="クイック共有" href="/qick" title="クイック共有">
+                          <ImagePlus size={20} />
+                        </Link>
+                      </Button>
+                      <Button asChild className="hidden sm:inline-flex" variant="ghost">
+                        <Link href="/qick">クイック共有</Link>
+                      </Button>
+                    </>
+                  ) : (
+                    <Button asChild className="hidden xl:inline-flex" variant="ghost">
+                      <Link href="/qick">クイック共有</Link>
+                    </Button>
+                  )}
                   <ThemeToggle />
                   {session?.user ? (
                     <>
-                      <NoticeLink unreadCount={unreadNotificationCount} />
+                      <div className="hidden xl:block">
+                        <NoticeLink unreadCount={unreadNotificationCount} />
+                      </div>
                       {session.user.role && ["MODERATOR", "ADMIN", "OWNER"].includes(session.user.role) ? (
                         <Button asChild className="hidden sm:inline-flex" variant="ghost">
                           <Link href="/admin">管理</Link>
@@ -153,19 +173,14 @@ export default async function RootLayout({
                       <HeaderProfile
                         image={user?.avatarUrl ?? user?.image ?? session.user.image}
                         name={user?.displayName ?? user?.name ?? session.user.displayName ?? session.user.name}
-                        username={user?.username ?? session.user.username}
+                        username={username}
                       />
-                      <Button asChild className="size-10 px-0 md:hidden">
-                        <Link aria-label="投稿" href="/posts/new" title="投稿">
-                          <Plus size={20} />
-                        </Link>
-                      </Button>
-                      <Button asChild className="hidden md:inline-flex">
+                      <Button asChild className="hidden xl:inline-flex">
                         <Link href="/posts/new">投稿</Link>
                       </Button>
                     </>
                   ) : (
-                    <Button asChild>
+                    <Button asChild className="hidden xl:inline-flex">
                       <Link href="/login">ログイン</Link>
                     </Button>
                   )}
@@ -174,7 +189,7 @@ export default async function RootLayout({
             </header>
             {children}
             <footer className="border-t border-border/70 px-4 py-6">
-              <div className="flex w-full flex-wrap gap-4 text-sm text-muted-foreground">
+              <div className="flex w-full flex-wrap gap-x-4 gap-y-3 text-sm text-muted-foreground">
                 <Link className="hover:text-foreground" href="/about">
                   Clipshareについて
                 </Link>
@@ -196,6 +211,8 @@ export default async function RootLayout({
               </div>
             </footer>
           </div>
+          <MobileTabBar isLoggedIn={Boolean(session?.user)} profileHref={profileHref} unreadCount={unreadNotificationCount} />
+          <CookieNotice />
         </ThemeProvider>
       </body>
     </html>

@@ -94,17 +94,17 @@ export function ShortsFeed({ isLoggedIn, posts }: ShortsFeedProps) {
   }
 
   return (
-    <main className="h-[calc(100dvh-4rem)] overflow-hidden bg-background text-foreground">
+    <main className="h-[calc(100dvh-8rem-env(safe-area-inset-bottom))] overflow-hidden bg-background text-foreground xl:h-[calc(100dvh-4rem)]">
       <div className="grid h-full lg:grid-cols-[minmax(0,1fr)_420px]">
         <section className="h-full snap-y snap-mandatory overflow-y-auto overscroll-contain">
           {posts.map((post) => (
             <article
-              className="grid h-full min-h-full snap-start place-items-center px-3 py-4 sm:px-6 lg:px-8"
+              className="grid h-full min-h-full snap-start place-items-center px-3 py-3 sm:px-6 lg:px-8"
               data-public-id={post.publicId}
               data-short-item="true"
               key={post.publicId}
             >
-              <div className="relative h-full max-h-[calc(100dvh-6rem)] w-full max-w-[min(100%,520px)] overflow-hidden rounded-md border border-border bg-black shadow-2xl">
+              <div className="relative h-full max-h-full w-full max-w-[min(100%,520px)] overflow-hidden rounded-md border border-border bg-black shadow-2xl">
                 <ShortVideo isActive={activePostId === post.publicId} poster={post.thumbnailUrl} src={post.mediaUrl} title={post.title} />
                 <MobileSummary isLoggedIn={isLoggedIn} onOpenDetails={() => setDetailsPostId(post.publicId)} post={post} />
               </div>

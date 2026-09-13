@@ -1,9 +1,19 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { LoginActions } from "@/components/auth/login-actions";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "ログイン",
+  description: "Discord、X、メールリンクのいずれかでClipshareにログインできます。パスワードの設定は不要です。",
+  robots: {
+    index: false,
+    follow: true,
+  },
+};
 
 export default async function LoginPage() {
   const session = await getServerSession(authOptions);

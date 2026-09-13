@@ -27,7 +27,7 @@ export function PostTile({
     <Link className="group block overflow-hidden rounded-md border border-border bg-card" href={`/c/${publicId}`}>
       <article className="relative aspect-square bg-muted">
         <Image
-          alt=""
+          alt={isNsfw ? "NSFW投稿のサムネイル" : `${title}のサムネイル`}
           className={[
             "object-cover transition duration-300 group-hover:scale-105",
             isNsfw ? "blur-xl" : "",

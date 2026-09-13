@@ -175,6 +175,7 @@ html[data-pwa="standalone"][data-apple-device="true"] body {
 }
 
 html[data-pwa="standalone"][data-apple-device="true"] header,
+html[data-pwa="standalone"][data-apple-device="true"] .mobile-tab-bar,
 html[data-pwa="standalone"][data-apple-device="true"] .bg-card {
   background-color: var(--glass-surface);
   border-color: var(--glass-border);

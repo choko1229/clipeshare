@@ -8,20 +8,27 @@ import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-// 検索結果はクエリの組み合わせで無限に生成される薄いコンテンツになるため、
-// インデックス対象から外す(Googleの内部検索結果ページに関するガイドライン準拠)。
-export const metadata: Metadata = {
-  robots: {
-    index: false,
-    follow: true,
-  },
-};
-
 type SearchPageProps = {
   searchParams: Promise<{
     q?: string;
   }>;
 };
+
+export async function generateMetadata({ searchParams }: SearchPageProps): Promise<Metadata> {
+  const { q = "" } = await searchParams;
+  const keyword = q.trim();
+
+  return {
+    title: keyword ? `「${keyword.slice(0, 40)}」の検索結果` : "投稿を検索",
+    description: "キーワードと検索演算子を組み合わせて、Clipshareのクリップ動画やスクリーンショットを探せます。",
+    // 検索結果はクエリの組み合わせで無限に生成される薄いコンテンツになるため、
+    // インデックス対象から外す(Googleの内部検索結果ページに関するガイドライン準拠)。
+    robots: {
+      index: false,
+      follow: true,
+    },
+  };
+}
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const { q = "" } = await searchParams;

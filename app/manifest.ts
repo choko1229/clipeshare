@@ -14,9 +14,9 @@ export default function manifest(): MetadataRoute.Manifest {
       },
     ],
     id: "/",
-    name: "Clipeshare",
+    name: "Clipshare",
     scope: "/",
-    short_name: "Clipeshare",
+    short_name: "Clipshare",
     shortcuts: [
       {
         icons: [{ src: "/icons/icon.svg", sizes: "any", type: "image/svg+xml" }],

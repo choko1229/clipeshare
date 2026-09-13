@@ -13,6 +13,8 @@ import { formatBytes } from "@/lib/uploads/account-limits";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
+  title: "クイック共有",
+  description: "ログインなしで画像や動画をアップロードし、共有用URLをすぐに発行できます。一定時間後に自動で削除されます。",
   robots: {
     index: false,
     follow: false,

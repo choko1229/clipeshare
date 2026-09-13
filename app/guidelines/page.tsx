@@ -5,13 +5,13 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "コミュニティガイドライン",
-  description: "Clipeshareの投稿・通報・モデレーション方針です。",
+  description: "Clipshareの投稿・通報・モデレーション方針です。",
 };
 
 export default function GuidelinesPage() {
   return (
     <LegalDocument
-      lead="Clipeshareは、ゲーム中心のクリップ動画・スクリーンショットを安心して共有するためのサービスです。本ページは、利用規約を補足する運用方針を定めるものです。本ガイドラインは、投稿・コメント・ライブ配信・一時共有機能など、本サービス上のすべてのコンテンツに適用されます。"
+      lead="Clipshareは、ゲーム中心のクリップ動画・スクリーンショットを安心して共有するためのサービスです。本ページは、利用規約を補足する運用方針を定めるものです。本ガイドラインは、投稿・コメント・ライブ配信・一時共有機能など、本サービス上のすべてのコンテンツに適用されます。"
       title="コミュニティガイドライン"
       updatedNote="最終更新日: 2026年9月2日"
     >

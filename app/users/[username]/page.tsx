@@ -147,7 +147,7 @@ export async function generateMetadata({ params }: UserPageProps): Promise<Metad
   }
 
   const title = `${user.displayName ?? user.name ?? user.username} (@${user.username})`;
-  const description = user.bio || "Clipeshareのユーザープロフィール";
+  const description = user.bio || "Clipshareのユーザープロフィール";
   const pageUrl = absoluteUrl(`/users/${user.username}`);
   const profileImage = user.profileHeaderUrl ?? user.avatarUrl ?? user.image;
 

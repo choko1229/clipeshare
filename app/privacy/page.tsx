@@ -5,15 +5,17 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "プライバシーポリシー",
-  description: "Clipeshareが取得する情報の種類、利用目的、第三者提供の方針などを定めたプライバシーポリシーです。",
+  description: "Clipshareが取得する情報の種類、利用目的、Cookie・広告配信の取り扱い、第三者提供の方針などを定めたプライバシーポリシーです。",
 };
+
+const externalLinkClass = "text-primary hover:underline";
 
 export default function PrivacyPage() {
   return (
     <LegalDocument
-      lead="このプライバシーポリシー(以下「本ポリシー」といいます)は、Clipeshare(以下「本サービス」といいます)の運営者(以下「運営者」といいます)が、本サービスの利用に関して取得するユーザーの情報の取り扱いについて定めるものです。"
+      lead="このプライバシーポリシー(以下「本ポリシー」といいます)は、Clipshare(以下「本サービス」といいます)の運営者(以下「運営者」といいます)が、本サービスの利用に関して取得するユーザーの情報の取り扱いについて定めるものです。"
       title="プライバシーポリシー"
-      updatedNote="最終更新日: 2026年9月2日"
+      updatedNote="最終更新日: 2026年9月13日"
     >
       <LegalArticle index="1" title="取得する情報">
         <p>本サービスでは、以下の情報を取得・保存することがあります。</p>
@@ -55,16 +57,47 @@ export default function PrivacyPage() {
 
       <LegalArticle index="4" title="Cookie等の利用">
         <p>
-          本サービスは、ログイン状態の維持、一時共有機能の削除権限の確認、利用状況の分析等のため、Cookieおよび類似の技術を利用することがあります。Cookieを無効化した場合、本サービスの一部機能が利用できなくなることがあります。
+          本サービスは、ログイン状態の維持、一時共有機能の削除権限の確認、利用状況の分析、広告の配信等のため、Cookieおよび類似の技術を利用することがあります。Cookieを無効化した場合、本サービスの一部機能が利用できなくなることがあります。
+        </p>
+        <p>
+          <strong>広告の配信について</strong>
+          <br />
+          本サービスは、第三者配信の広告サービス「Google AdSense」を利用しています。Googleなどの第三者配信事業者は、Cookieを使用して、ユーザーが本サービスや他のウェブサイトに過去にアクセスした際の情報に基づいて広告を配信します。Googleは広告Cookieを使用することにより、ユーザーが本サービスや他のサイトにアクセスした際の情報に基づいて、Googleやそのパートナーが適切な広告を表示できるようにしています。
+        </p>
+        <p>
+          ユーザーは、
+          <a className={externalLinkClass} href="https://adssettings.google.com/" rel="noreferrer" target="_blank">
+            Googleの広告設定
+          </a>
+          でパーソナライズ広告を無効にできます。また、
+          <a className={externalLinkClass} href="https://www.aboutads.info/" rel="noreferrer" target="_blank">
+            www.aboutads.info
+          </a>
+          にアクセスすると、第三者配信事業者がパーソナライズ広告の掲載で使用するCookieを無効にできます。Googleによる広告でのデータの利用については、
+          <a className={externalLinkClass} href="https://policies.google.com/technologies/ads?hl=ja" rel="noreferrer" target="_blank">
+            Googleのポリシーと規約
+          </a>
+          をご確認ください。
+        </p>
+        <p>
+          <strong>アクセス解析について</strong>
+          <br />
+          本サービスは、利用状況を把握してサービスを改善するため、Googleによるアクセス解析ツール「Googleアナリティクス」を利用しています。Googleアナリティクスは、Cookieを使用してトラフィックデータを収集しますが、このデータは匿名で収集されており、個人を特定するものではありません。収集を拒否したい場合は、
+          <a className={externalLinkClass} href="https://tools.google.com/dlpage/gaoptout?hl=ja" rel="noreferrer" target="_blank">
+            Googleアナリティクス オプトアウト アドオン
+          </a>
+          を利用するか、ブラウザの設定でCookieを無効にしてください。
         </p>
       </LegalArticle>
 
       <LegalArticle index="5" title="外部サービスとの連携">
         <p>本サービスは、以下のような外部サービスと連携することがあります。連携先の外部サービスにおける情報の取り扱いは、各サービスのプライバシーポリシーに従います。</p>
         <ul>
-          <li>Discord(ログイン認証、Discordサーバーへの投稿自動ミラー機能)</li>
+          <li>Discord、X(ログイン認証、Discordサーバーへの投稿自動ミラー機能)</li>
           <li>メール送信サービス(ログイン用メール、通知メールの送信)</li>
-          <li>IGDB(ゲーム情報の同期・表示)</li>
+          <li>Google AdSense(広告の配信)</li>
+          <li>Googleアナリティクス(アクセス解析)</li>
+          <li>IGDB、Steam、RAWG(ゲーム情報の同期・表示)</li>
           <li>X(Twitter)、Discordなど、投稿URLを共有した際のリンクプレビュー生成</li>
         </ul>
         <p>Discord連携機能(自動ミラーBot)は、あらかじめDiscordアカウントを連携したユーザーの投稿のみを対象とするオプトイン方式で提供します。</p>

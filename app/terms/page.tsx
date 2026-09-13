@@ -5,13 +5,13 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "利用規約",
-  description: "Clipeshareの利用条件、禁止行為、モデレーション方針を定めた利用規約です。",
+  description: "Clipshareの利用条件、禁止行為、モデレーション方針を定めた利用規約です。",
 };
 
 export default function TermsPage() {
   return (
     <LegalDocument
-      lead="この利用規約(以下「本規約」といいます)は、Clipeshare(以下「本サービス」といいます)の利用条件を定めるものです。本サービスを利用するすべての方(以下「ユーザー」といいます)は、本規約に同意したうえで本サービスを利用するものとします。"
+      lead="この利用規約(以下「本規約」といいます)は、Clipshare(以下「本サービス」といいます)の利用条件を定めるものです。本サービスを利用するすべての方(以下「ユーザー」といいます)は、本規約に同意したうえで本サービスを利用するものとします。"
       title="利用規約"
       updatedNote="最終更新日: 2026年9月2日"
     >

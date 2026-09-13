@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: EmbedClipPageProps): Promise<
 
   if (!post) {
     return {
-      title: "Clipeshare embed",
+      title: "Clipshare embed",
     };
   }
 

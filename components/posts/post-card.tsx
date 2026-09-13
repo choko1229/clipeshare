@@ -36,7 +36,7 @@ export function PostCard({
       <Link className="block" href={`/c/${publicId}`}>
         <div className="relative aspect-video bg-muted">
           <Image
-            alt=""
+            alt={isNsfw ? "NSFW投稿のサムネイル" : `${title}のサムネイル`}
             className={isNsfw ? "object-cover blur-xl" : "object-cover"}
             fill
             priority={priority}

@@ -260,6 +260,11 @@ export async function generateMetadata({ searchParams }: HomePageProps): Promise
 
   if (sort === "new") {
     return {
+      title: {
+        absolute: "Clipshare | ゲームクリップ・スクリーンショット共有サイト",
+      },
+      description:
+        "Clipshareは、ゲームのクリップ動画やスクリーンショットを投稿・共有できるメディアサイトです。名場面やハプニングを、ゲーム別・タグ別に探せます。",
       alternates: {
         canonical: absoluteUrl("/"),
       },

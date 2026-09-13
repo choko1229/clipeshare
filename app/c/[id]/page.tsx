@@ -419,7 +419,7 @@ export async function generateMetadata({ params }: ClipPageProps): Promise<Metad
   } catch {
     return {
       title: `Clip ${id}`,
-      description: "Clipeshareの投稿詳細ページです。",
+      description: "Clipshareの投稿詳細ページです。",
       robots: {
         index: false,
         follow: false,
