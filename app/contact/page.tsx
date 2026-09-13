@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   description: "Clipshareへのお問い合わせ、著作権侵害の申立て、不具合報告はこちらのフォームから受け付けています。",
 };
 
-const contactEmail = "chokops4twitter@gmail.com";
+const contactEmail = "info@clipshare.link";
 
 const categories = [
   { value: "GENERAL", label: "一般的なお問い合わせ" },

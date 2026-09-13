@@ -150,8 +150,8 @@ export default function PrivacyPage() {
             お問い合わせフォーム
           </a>
           または{" "}
-          <a className="text-primary hover:underline" href="mailto:chokops4twitter@gmail.com">
-            chokops4twitter@gmail.com
+          <a className="text-primary hover:underline" href="mailto:info@clipshare.link">
+            info@clipshare.link
           </a>{" "}
           にて受け付けます。
         </p>
