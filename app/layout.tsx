@@ -208,10 +208,12 @@ export default async function RootLayout({
                 <Link className="hover:text-foreground" href="/contact">
                   お問い合わせ
                 </Link>
-                {/* PWAにはアドレスバーがなく診断ページへ辿り着けないため、PWA起動時だけ出す(globals.css の .pwa-only)。 */}
-                <Link className="pwa-only hover:text-foreground" href="/debug/viewport">
-                  表示診断
-                </Link>
+                {/* PWAにはアドレスバーがなく診断ページへ辿り着けないため、管理者がPWAで起動したときだけ出す(globals.css の .pwa-only)。 */}
+                {session?.user?.role && ["MODERATOR", "ADMIN", "OWNER"].includes(session.user.role) ? (
+                  <Link className="pwa-only hover:text-foreground" href="/debug/viewport">
+                    表示診断
+                  </Link>
+                ) : null}
               </div>
             </footer>
           </div>
