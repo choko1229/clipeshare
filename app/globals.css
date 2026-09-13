@@ -131,6 +131,14 @@ html[data-pwa="standalone"] [contenteditable="true"] {
   user-select: text;
 }
 
+.pwa-only {
+  display: none;
+}
+
+html[data-pwa="standalone"] .pwa-only {
+  display: revert;
+}
+
 /* PWAではリンク長押し時のiOS標準プレビューを出さず、components/pwa/long-press-menu.tsx のメニューに置き換える。 */
 html[data-pwa="standalone"] a,
 html[data-pwa="standalone"] a img {
