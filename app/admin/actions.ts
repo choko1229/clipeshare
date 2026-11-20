@@ -984,8 +984,10 @@ export async function updateSeoSettings(formData: FormData) {
 
 export async function updateQuickShareSettings(formData: FormData) {
   const admin = await requireAdmin();
-  const maxImageBytes = z.coerce.number().int().positive().parse(formData.get("maxImageBytes"));
-  const maxVideoBytes = z.coerce.number().int().positive().parse(formData.get("maxVideoBytes"));
+  // 管理画面(画面20)は MB 単位で入力する。保存はこれまでどおりバイト
+  const megabytes = z.coerce.number().int().min(1).max(1_000_000);
+  const maxImageBytes = megabytes.parse(formData.get("maxImageMb")) * 1_000_000;
+  const maxVideoBytes = megabytes.parse(formData.get("maxVideoMb")) * 1_000_000;
   const retentionHours = z.coerce.number().int().positive().max(168).parse(formData.get("retentionHours"));
   const anonymousDailyLimit = z.coerce.number().int().positive().parse(formData.get("anonymousDailyLimit"));
 
