@@ -20,9 +20,9 @@
 - [x] (2026-11-21, Step 2 コミット) テスト（PKCE不一致・state・期限・使い回し・非loopback redirect拒否・失効・BAN・CSRF・認証失敗の連続）`tests/api-auth*.test.ts`
 
 ## Step 3: アップロード/削除API
-- [ ] `POST /api/v1/quick`（認証・匿名・バナー分岐・画質・上限・動画マジックバイト・レート制限・統一エラー）
-- [ ] `DELETE /api/v1/quick/{id}`（所有者/匿名deleteToken）
-- [ ] テスト一式（INSTRUCTIONS §8）。sharpのメタデータ除去を実画像（GPS付きEXIF）で検証
+- [x] (2026-11-21, Step 3 コミット) `POST /api/v1/quick`（認証・匿名・バナー分岐・画質・上限・動画マジックバイト・レート制限・統一エラー。busboy でストリーム受信し上限を受信中に強制）
+- [x] (2026-11-21, Step 3 コミット) `DELETE /api/v1/quick/{id}`（所有者・API経由のみ/匿名 X-Delete-Token。失敗は全て404）
+- [x] (2026-11-21, Step 3 コミット) テスト一式（INSTRUCTIONS §8）。sharpのメタデータ除去を GPS付きEXIF＋orientation=6 の実画像で検証（`tests/media-processing.test.ts`、`tests/api-quick-routes.test.ts`）
 
 ## Step 4: OGP・共有ページ（画面 17）
 - [ ] `/q/{id}/view` にOGP/Twitter Card（noindex維持）

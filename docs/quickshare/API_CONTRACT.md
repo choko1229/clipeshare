@@ -19,9 +19,9 @@
 | 401 | UNAUTHORIZED | — | トークン無効/失効。再認可を促す（匿名にしない） |
 | 403 | FORBIDDEN | — | 権限なし（BAN されたアカウントのトークンを含む）。再認可しても解決しないので停止 |
 | 404 | NOT_FOUND | — | 対象なし/他人のリソース |
-| 413 | SIZE_LIMIT_EXCEEDED | `limitBytes`, `kind`（`IMAGE`/`VIDEO`） | 画像→縮小して再送／動画→エラー表示。**前段の nginx が HTML の 413 を返すこともある**ので、JSON でない 413 も同じ扱いにする（`limitBytes` 不明） |
+| 413 | SIZE_LIMIT_EXCEEDED | `limitBytes`, `kind`（`IMAGE`/`VIDEO`）、画素数超過時は `limitPixels` も | 画像→縮小して再送／動画→エラー表示。画像は1億画素を超える場合も 413（縮小して再送すれば通る）。**前段の nginx が HTML の 413 を返すこともある**ので、JSON でない 413 も同じ扱いにする（`limitBytes` 不明） |
 | 415 | UNSUPPORTED_MEDIA | — | 種別不正（マジックバイト不一致含む）。再試行しない |
-| 429 | DAILY_LIMIT_EXCEEDED | `resetsAt` | 1日上限。停止→翌日再開、停止中の写真は送らない |
+| 429 | DAILY_LIMIT_EXCEEDED | `resetsAt`, `dailyLimit` | 1日上限。停止→翌日再開、停止中の写真は送らない |
 | 429 | RATE_LIMITED | `retryAfterSeconds`（+`Retry-After`ヘッダ） | 待って再試行 |
 | 500/503 | INTERNAL / SERVICE_UNAVAILABLE | — | 指数バックオフで再試行（503 は管理者がトークン発行を停止中のときにも返る） |
 
@@ -88,3 +88,4 @@ GitHub API 失敗時は最後に成功した結果を返す。一度も取得で
   - `POST /api/v1/quick`: マジックバイト判定と対応形式、匿名は `original` でもバナーあり、`original` の寸法・品質、`deleteToken` は匿名のみ、動画は PROCESSING で返ることを確定。
   - `DELETE /api/v1/quick/{id}`: Bearer で削除できるのは API 経由のアップロードのみ（デザイン07 の許可内容「このアプリでアップロードしたファイルの削除」）。
   - `GET /api/v1/client/latest`: `sha256` を nullable に、未取得時 503 を追加。
+  - Step 3 実装時: 画像の画素数上限（1億画素、展開爆弾対策）を 413 `limitPixels` として追加。`DAILY_LIMIT_EXCEEDED` の details に `dailyLimit` を追加。
