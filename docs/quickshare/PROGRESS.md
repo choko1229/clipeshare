@@ -1,0 +1,45 @@
+# PROGRESS（Clipshare側）
+
+凡例: `[ ]` 未着手 / `[~]` 作業中 / `[x]` 完了（型検査・lint・build・テスト通過、コミット済み）。完了日とコミットを横に書く。
+
+## Step 0: 準備
+- [x] (2026-11-21, Step 0 コミット) ブランチ `feature/quickshare-api-v1` 作成。`npm.cmd ci`、`typecheck`/`lint`/`build` が現状で通ることを確認（通らなければ既存の問題として記録）→ `prisma generate` を手動実行すれば全て通過。vitest 導入
+- [x] (2026-11-21, Step 0 コミット) 現行コードの確認と記録（`QUESTIONS.md` 先頭に調査メモ）: ① `POST /api/qick/upload` の処理（上限・バナー・IPハッシュ・1日上限の数え方）② `QuickShare`/AccountLevel/匿名上限の保存場所 ③ 動画の非同期処理 ④ NextAuth 設定と管理画面の構成 ⑤ テスト基盤の有無（無ければ導入案: vitest）
+- [x] (2026-11-21, Step 0 コミット) API_CONTRACT.md と現行実装の差異を整理し、必要なら契約を更新（変更履歴に記載）
+
+## Step 1: DB
+- [ ] `ApiToken` モデル、認可コード用テーブル（または流用方針）、AccountLevel のツール用上限列、監査ログ（管理者のトークン操作）
+- [ ] マイグレーション（追加のみ）と、既存レベルへの現行上限のコピー。SQLを目視確認
+- [ ] 画像上限 20MB→50MB の反映（DB設定化されていなければ設定化）
+
+## Step 2: 認可とトークン（画面 07 / 13）
+- [ ] 認可フロー設計メモ（NextAuth への組み込み案）→ `QUESTIONS.md` に記録して暫定案で進む
+- [ ] `GET /qick/authorize` 画面（接続コード表示、許可/キャンセル、CSRF対策）
+- [ ] `POST /api/v1/auth/token`、`DELETE /api/v1/auth/token`、`GET /api/v1/me`
+- [ ] 連携アプリ管理画面（端末ごとの失効）
+- [ ] テスト（PKCE不一致・state・期限・使い回し・非loopback redirect拒否・失効）
+
+## Step 3: アップロード/削除API
+- [ ] `POST /api/v1/quick`（認証・匿名・バナー分岐・画質・上限・動画マジックバイト・レート制限・統一エラー）
+- [ ] `DELETE /api/v1/quick/{id}`（所有者/匿名deleteToken）
+- [ ] テスト一式（INSTRUCTIONS §8）。sharpのメタデータ除去を実画像（GPS付きEXIF）で検証
+
+## Step 4: OGP・共有ページ（画面 17）
+- [ ] `/q/{id}/view` にOGP/Twitter Card（noindex維持）
+- [ ] Discord/Xでの表示確認手順を `docs/DEPLOY_QUICKSHARE.md` に記載（公開URLでの手動確認が必要なため、実機確認は人に依頼）
+
+## Step 5: 管理画面（画面 20）
+- [ ] AccountLevel のツール用上限をWebUIから変更（0=無制限）
+- [ ] 管理者用トークン管理（値は非表示、失効、監査ログ）— 実装前に画面案を `QUESTIONS.md` へテキストで記載
+
+## Step 6: DLページ・更新情報（画面 01）
+- [ ] `/qick/download`（GitHub Releases最新を表示、サーバー側キャッシュ、失敗時は前回結果）
+- [ ] `GET /api/v1/client/latest`
+
+## Step 7: 仕上げ
+- [ ] `docs/DEPLOY_QUICKSHARE.md`（バックアップ、`migrate deploy`、ロールバック、スモークテスト、設定値）
+- [ ] セルフレビュー1回目（INSTRUCTIONS §9）→ 修正
+- [ ] セルフレビュー2回目 → 修正
+- [ ] `typecheck`/`lint`/`build`/テスト全通過
+- [ ] `REPORT.md`（完了報告。契約の変更点、未検証項目の結果、人が行う作業）
+- [ ] 作業ブランチをpush、PR作成（マージはしない）
