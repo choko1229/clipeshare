@@ -7,7 +7,8 @@ const nextConfig: NextConfig = {
     const noFraming = [
       { key: "X-Frame-Options", value: "DENY" },
       { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
-      { key: "Referrer-Policy", value: "no-referrer" },
+      // no-referrer にするとフォーム POST の Origin が "null" になり同一オリジン確認が通らないため same-origin
+      { key: "Referrer-Policy", value: "same-origin" },
     ];
 
     return [
