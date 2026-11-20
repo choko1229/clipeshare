@@ -81,6 +81,11 @@ export async function createQuickShareFromApi(request: Request, auth: ApiAuthCon
           });
         }
 
+        // ディスク不足・権限などのシステムエラーはクライアントが再試行できるよう 500 にする(415 は再試行されない)
+        if (isSystemError(error)) {
+          throw error;
+        }
+
         throw new ApiError("UNSUPPORTED_MEDIA", { message: "画像を読み取れませんでした。", reason: `image_decode_failed: ${describeError(error)}` });
       }
 
@@ -164,4 +169,14 @@ export async function createQuickShareFromApi(request: Request, auth: ApiAuthCon
     expiresAt: expiresAt.toISOString(),
     ...(auth.kind === "anonymous" ? { deleteToken } : {}),
   };
+}
+
+/** Node のシステムエラー(ENOSPC / EACCES / EMFILE など)か */
+export function isSystemError(error: unknown) {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+
+  const candidate = error as { code?: unknown; errno?: unknown; syscall?: unknown };
+  return typeof candidate.syscall === "string" || (typeof candidate.code === "string" && /^E[A-Z]+$/.test(candidate.code) && typeof candidate.errno === "number");
 }

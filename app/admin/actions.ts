@@ -11,6 +11,7 @@ import { fetchRawgGameMetadata } from "@/lib/games/rawg";
 import { fetchSteamGameMetadata } from "@/lib/games/steam";
 import { stopUserLiveStream } from "@/lib/live/stream";
 import { storageSettingKeys } from "@/lib/media/retention";
+import { parseMegabytes } from "@/lib/format/megabytes";
 import { slugify } from "@/lib/posts/slug";
 import { quickShareSettingKeys } from "@/lib/quick-share/settings";
 import { siteSettingKeys } from "@/lib/seo/settings";
@@ -985,9 +986,18 @@ export async function updateSeoSettings(formData: FormData) {
 export async function updateQuickShareSettings(formData: FormData) {
   const admin = await requireAdmin();
   // 管理画面(画面20)は MB 単位で入力する。保存はこれまでどおりバイト
-  const megabytes = z.coerce.number().int().min(1).max(1_000_000);
-  const maxImageBytes = megabytes.parse(formData.get("maxImageMb")) * 1_000_000;
-  const maxVideoBytes = megabytes.parse(formData.get("maxVideoMb")) * 1_000_000;
+  const megabytes = z
+    .string()
+    .transform((value, context) => {
+      const bytes = parseMegabytes(value);
+      if (bytes === null || bytes <= 0n) {
+        context.addIssue({ code: "custom", message: "上限は0より大きいMBで入力してください。" });
+        return z.NEVER;
+      }
+      return Number(bytes);
+    });
+  const maxImageBytes = megabytes.parse(formData.get("maxImageMb") ?? "");
+  const maxVideoBytes = megabytes.parse(formData.get("maxVideoMb") ?? "");
   const retentionHours = z.coerce.number().int().positive().max(168).parse(formData.get("retentionHours"));
   const anonymousDailyLimit = z.coerce.number().int().positive().parse(formData.get("anonymousDailyLimit"));
 

@@ -54,6 +54,7 @@ gunzip -t ~/backup/clipeshare-*-pre-quickshare.sql.gz   # 壊れていないこ�
   proxy_set_header X-Forwarded-For $remote_addr;
   ```
   前段に Cloudflare 等がある場合は `set_real_ip_from` + `real_ip_header` で実IPを復元してから上書きする。変更後 `sudo nginx -t && sudo systemctl reload nginx`。
+- **リクエストのバッファリング**: `proxy_request_buffering` は既定（on）のままにする。アプリは上限超過や形式不正を受信途中で打ち切るため、nginx を通さず Next に直接送ると 413/415 の JSON の代わりに接続リセットになることがある。
 - **アップロードの上限**: `client_max_body_size 512m;`（現状）。アプリの上限 `0`（無制限）にしても nginx のこの値が実質の上限になる。nginx が返す 413 は HTML なので、クライアントは JSON でない 413 もサイズ超過として扱う（契約に記載済み）。
 - `/media/` を nginx が直接配信している場合、`/media/quick/images/*.webp` が `Content-Type: image/webp` で返ることを確認（OGP 画像に使う）。
 

@@ -66,7 +66,15 @@ describe("admin quick share limits (screen 20)", () => {
   it("rejects negative or non-integer values", async () => {
     const level = fakePrisma.insert("accountLevel", { name: "Member" });
     await expect(updateAccountLevelQuickShareLimits(form({ accountLevelId: level.id, quickShareImageMaxMb: "-1", quickShareVideoMaxMb: "1" }))).rejects.toThrow();
-    await expect(updateAccountLevelQuickShareLimits(form({ accountLevelId: level.id, quickShareImageMaxMb: "1.5", quickShareVideoMaxMb: "1" }))).rejects.toThrow();
+    await expect(updateAccountLevelQuickShareLimits(form({ accountLevelId: level.id, quickShareImageMaxMb: "1.1234567", quickShareVideoMaxMb: "1" }))).rejects.toThrow();
+  });
+
+  it("keeps fractional MB exactly (no silent rounding)", async () => {
+    const level = fakePrisma.insert("accountLevel", { name: "Member" });
+    await updateAccountLevelQuickShareLimits(form({ accountLevelId: level.id, quickShareImageMaxMb: "20.97152", quickShareVideoMaxMb: "1.5" }));
+    const updated = fakePrisma.rows("accountLevel")[0];
+    expect(updated.quickShareImageMaxBytes).toBe(20_971_520n);
+    expect(updated.quickShareVideoMaxBytes).toBe(1_500_000n);
   });
 
   it("saves the site-wide settings entered in MB as bytes", async () => {

@@ -259,6 +259,14 @@ describe("streaming multipart receiver", () => {
     expect(error.code).toBe("INVALID_REQUEST");
   });
 
+  it("rejects a file part sent without a filename with a clear 400", async () => {
+    const form = new FormData();
+    form.append("file", "x".repeat(200));
+    const error = await errorOf(receive(new Request(url, { method: "POST", body: form })));
+    expect(error.code).toBe("INVALID_REQUEST");
+    expect((error as { reason?: string }).reason).toBe("file_without_filename");
+  });
+
   it("rejects more than one file", async () => {
     const error = await errorOf(receive(multipartRequest(url, { file: { bytes: await plainPng(10, 10), name: "a.png" }, extraFiles: 1 })));
     expect(error.code).toBe("INVALID_REQUEST");

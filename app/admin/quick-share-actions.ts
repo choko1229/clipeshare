@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/admin/auth";
 import { writeAuditLog } from "@/lib/admin/audit";
 import { logApi } from "@/lib/api/log";
 import { prisma } from "@/lib/db/prisma";
+import { parseMegabytes } from "@/lib/format/megabytes";
 import { clearQuickApiSettingsCache, githubRepoPattern, quickApiSettingKeys, semverPattern } from "@/lib/quick-share/api-settings";
 
 const idSchema = z.string().min(1).max(64);
@@ -18,12 +19,14 @@ const optionalMegabytes = z
       return null;
     }
 
-    if (!/^\d{1,7}$/.test(value)) {
-      context.addIssue({ code: "custom", message: "0以上の整数(MB)で入力してください。" });
+    const bytes = parseMegabytes(value);
+
+    if (bytes === null) {
+      context.addIssue({ code: "custom", message: "0以上のMBで入力してください。" });
       return z.NEVER;
     }
 
-    return BigInt(value) * 1_000_000n;
+    return bytes;
   });
 
 /** 画面20: アカウントレベルのクイック共有上限(画像/動画 MB)だけを更新する */

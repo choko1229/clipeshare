@@ -102,6 +102,12 @@ export async function receiveQuickShareUpload(request: Request, options: Receive
     };
 
     parser.on("field", (name, value, info) => {
+      if (name === "file") {
+        // ファイル名の無いパートは busboy がフィールドとして扱う
+        fail(new ApiError("INVALID_REQUEST", { message: "file はファイル名付きのファイルとして送信してください。", reason: "file_without_filename" }));
+        return;
+      }
+
       if (info.valueTruncated || info.nameTruncated) {
         fail(new ApiError("INVALID_REQUEST", { reason: "field_truncated" }));
         return;
@@ -215,10 +221,12 @@ export async function receiveQuickShareUpload(request: Request, options: Receive
           if (settled) return;
         }
 
-        out.end(() => {
+        // 'finish' ではなく 'close'(ファイル記述子を閉じた後)で完了にする。直後に rename するため
+        out.once("close", () => {
           fileDone = true;
           finishIfReady();
         });
+        out.end();
       });
 
       stream.on("error", () => fail(new ApiError("INVALID_REQUEST", { reason: "file_stream_error" })));
