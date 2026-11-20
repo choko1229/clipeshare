@@ -51,11 +51,20 @@ export function logApi(level: LogLevel, fields: ApiLogFields) {
   }
 }
 
-/** 例外をログ用の短い文字列にする(スタックやパスは含めない) */
+/**
+ * 例外をログ用の短い文字列にする(スタックは含めない)。
+ * Prisma のエラーメッセージはクエリの引数(ハッシュ値など)を含むことがあるため、名前とエラーコードだけにする。
+ */
 export function describeError(error: unknown) {
-  if (error instanceof Error) {
-    return `${error.name}: ${error.message}`.slice(0, 300);
+  if (!(error instanceof Error)) {
+    return "non-error thrown";
   }
 
-  return "non-error thrown";
+  if (error.name.startsWith("PrismaClient")) {
+    const code = (error as { code?: unknown }).code;
+    return typeof code === "string" ? `${error.name}(${code})` : error.name;
+  }
+
+  const firstLine = error.message.split(/\r?\n/).find((line) => line.trim().length > 0) ?? "";
+  return `${error.name}: ${firstLine}`.slice(0, 200);
 }

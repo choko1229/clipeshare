@@ -164,3 +164,16 @@
 - 暫定案: `original` は回転補正 → 長辺が 16383px を超える場合のみ収まるよう縮小 → WebP q95（メタデータは付けない）。それ以外の寸法は変えない。
 - 影響範囲: `lib/media/quick-share.ts`。
 - 状態: 未確認
+
+## Q-017 (2026-11-21) IP ハッシュの元になる X-Forwarded-For の偽装（既存の弱点）
+- 状況: 現行の `getClientIpHash` は `X-Forwarded-For` の**先頭**を使う。本番 nginx（`scripts/install-ubuntu-24.sh`）は `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`（**追記**）なので、クライアントが自分で `X-Forwarded-For` を付けると先頭を偽装でき、匿名の1日5件と、今回の匿名レート制限・認証失敗の連続制限を回避できる。Web の匿名クイック共有にも同じ弱点が既にある。
+- 暫定案: SPEC/INSTRUCTIONS の「現行と同じ IP ハッシュ方式」を守り、アプリのコードは変えない。代わりに nginx を `proxy_set_header X-Forwarded-For $remote_addr;`（**上書き**）に変更する手順を `docs/DEPLOY_QUICKSHARE.md` に記載（Cloudflare 等の前段プロキシが無い前提。ある場合は `real_ip` モジュールで実IPを復元してから上書き）。
+- 影響範囲: 本番 nginx 設定（人が実施）。アプリのコード変更なし。
+- 人に確認したいこと: nginx の前段に CDN/プロキシがあるか。nginx の変更を実施してよいか。
+- 状態: 未確認
+
+## Q-018 (2026-11-21) `/api/v1/client/latest` のレート制限
+- 状況: 応答はメモリキャッシュから返すため負荷は小さい。
+- 暫定案: レート制限を掛けない（クライアントの更新確認が NAT 配下で一斉に来ても弾かないため）。GitHub への問い合わせはキャッシュ TTL と失敗時1分のバックオフで抑えている。
+- 影響範囲: `app/api/v1/client/latest/route.ts`。
+- 状態: 未確認

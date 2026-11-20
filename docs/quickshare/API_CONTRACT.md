@@ -30,7 +30,7 @@
 2. ブラウザで開く:
    `GET /qick/authorize?client_id=clipshare-quick&redirect_uri=http://127.0.0.1:{port}/callback&state=…&code_challenge=…&code_challenge_method=S256&connection_code=XXX-XXX&device_name=…[&device_platform=…]`
    - `redirect_uri` は `http://127.0.0.1:{port}/…` または `http://[::1]:{port}/…` のみ許可（ポート必須、ユーザー情報・フラグメント不可）。`code_challenge_method` は `S256` のみ。
-   - `device_name` は1〜64文字（必須）。`device_platform` は任意・最大32文字（例 `Windows 11`。画面の表示用）。`state` は1〜256文字。`code_challenge` は43文字の BASE64URL。`connection_code` は `[A-HJ-NP-Z2-9]{3}-[A-HJ-NP-Z2-9]{3}`（I・O・0・1 を除く）。
+   - `device_name` は1〜64文字（必須・前後の空白は除去・制御文字不可）。`device_platform` は任意・最大32文字（例 `Windows 11`。画面の表示用）。`state` は表示可能な ASCII（0x21〜0x7E、空白不可）で1〜256文字。`code_challenge` は43文字の BASE64URL。`connection_code` は `[A-HJ-NP-Z2-9]{3}-[A-HJ-NP-Z2-9]{3}`（I・O・0・1 を除く）。
 3. 未ログインなら既存ログインを経て戻る。認可画面に **`connection_code` を表示**し、クライアント画面の表示と照合させる。「許可」（CSRF対策つきPOST）または「キャンセル」。
 4. 許可: `303 {redirect_uri}?code=…&state=…`。キャンセル: `303 {redirect_uri}?error=access_denied&state=…`。`code` は使い捨て・10分以内・ハッシュ保存。
 5. クライアントが `state` を検証し、トークンを交換する。
