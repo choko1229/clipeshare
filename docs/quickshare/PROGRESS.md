@@ -13,11 +13,11 @@
 - [x] (2026-11-21, Step 1 コミット) 画像上限 20MB→50MB の反映（既定値変更＋旧既定値のときだけ DB 値を更新、Q-003）
 
 ## Step 2: 認可とトークン（画面 07 / 13）
-- [ ] 認可フロー設計メモ（NextAuth への組み込み案）→ `QUESTIONS.md` に記録して暫定案で進む
-- [ ] `GET /qick/authorize` 画面（接続コード表示、許可/キャンセル、CSRF対策）
-- [ ] `POST /api/v1/auth/token`、`DELETE /api/v1/auth/token`、`GET /api/v1/me`
-- [ ] 連携アプリ管理画面（端末ごとの失効）
-- [ ] テスト（PKCE不一致・state・期限・使い回し・非loopback redirect拒否・失効）
+- [x] (2026-11-21, Step 2 コミット) 認可フロー設計メモ（NextAuth への組み込み案）→ `QUESTIONS.md` Q-005/Q-006/Q-007
+- [x] (2026-11-21, Step 2 コミット) `GET /qick/authorize` 画面（接続コード表示、許可/キャンセル、CSRF対策）＋ `POST /qick/authorize/decision`、`/qick/authorize/complete`、`/login?callbackUrl`、iframe 埋め込み禁止ヘッダ
+- [x] (2026-11-21, Step 2 コミット) `POST /api/v1/auth/token`、`DELETE /api/v1/auth/token`、`GET /api/v1/me`（統一エラー・構造化ログ・レート制限）
+- [x] (2026-11-21, Step 2 コミット) 連携アプリ管理画面 `/settings/apps`（端末ごとの失効、今日の件数）
+- [x] (2026-11-21, Step 2 コミット) テスト（PKCE不一致・state・期限・使い回し・非loopback redirect拒否・失効・BAN・CSRF・認証失敗の連続）`tests/api-auth*.test.ts`
 
 ## Step 3: アップロード/削除API
 - [ ] `POST /api/v1/quick`（認証・匿名・バナー分岐・画質・上限・動画マジックバイト・レート制限・統一エラー）
