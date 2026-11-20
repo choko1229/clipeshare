@@ -4,16 +4,20 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 
-export function LoginActions() {
+type LoginActionsProps = {
+  callbackUrl?: string;
+};
+
+export function LoginActions({ callbackUrl = "/" }: LoginActionsProps) {
   const [email, setEmail] = useState("");
   const [isSending, setIsSending] = useState(false);
 
   return (
     <div>
-      <Button className="mt-6 w-full" onClick={() => signIn("discord", { callbackUrl: "/" })} type="button">
+      <Button className="mt-6 w-full" onClick={() => signIn("discord", { callbackUrl })} type="button">
         Discordでログイン
       </Button>
-      <Button className="mt-3 w-full" onClick={() => signIn("twitter", { callbackUrl: "/" })} type="button" variant="secondary">
+      <Button className="mt-3 w-full" onClick={() => signIn("twitter", { callbackUrl })} type="button" variant="secondary">
         Xでログイン
       </Button>
 
@@ -24,7 +28,7 @@ export function LoginActions() {
         onSubmit={async (event) => {
           event.preventDefault();
           setIsSending(true);
-          await signIn("email", { email, callbackUrl: "/" });
+          await signIn("email", { email, callbackUrl });
           setIsSending(false);
         }}
       >

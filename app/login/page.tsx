@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { LoginActions } from "@/components/auth/login-actions";
+import { safeCallbackPath } from "@/lib/auth/callback-url";
 
 export const dynamic = "force-dynamic";
 
@@ -15,11 +16,19 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function LoginPage() {
-  const session = await getServerSession(authOptions);
+type LoginPageProps = {
+  searchParams: Promise<{
+    callbackUrl?: string | string[];
+  }>;
+};
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const [{ callbackUrl }, session] = await Promise.all([searchParams, getServerSession(authOptions)]);
+  // 戻り先は同一オリジンの相対パスのときだけ使う。指定が無ければ従来どおり "/"
+  const callbackPath = safeCallbackPath(callbackUrl) ?? "/";
 
   if (session?.user) {
-    redirect("/");
+    redirect(callbackPath);
   }
 
   return (
@@ -32,7 +41,7 @@ export default async function LoginPage() {
           </p>
         </div>
 
-        <LoginActions />
+        <LoginActions callbackUrl={callbackPath} />
       </section>
     </main>
   );
