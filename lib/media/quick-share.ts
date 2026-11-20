@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import { mediaPaths } from "@/lib/media/paths";
+import { exceedsSizeLimit } from "@/lib/quick-share/limits";
 
 const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const adBannerPath = path.join(process.cwd(), "public", "images", "quick-share-ad-banner.png");
@@ -23,10 +24,12 @@ export type StoredQuickShareMedia = {
 };
 
 type StoreQuickShareImageOptions = {
+  /** 0 = 無制限 */
   maxImageSizeBytes: number;
 };
 
 type StoreQuickShareVideoOptions = {
+  /** 0 = 無制限 */
   maxVideoSizeBytes: number;
 };
 
@@ -45,7 +48,7 @@ export async function storeQuickShareImage(
     throw new Error("対応していない画像形式です。jpg, png, webpを選択してください。");
   }
 
-  if (file.size > options.maxImageSizeBytes) {
+  if (exceedsSizeLimit(file.size, options.maxImageSizeBytes)) {
     throw new Error("画像サイズが上限を超えています。");
   }
 
@@ -112,7 +115,7 @@ export async function storeQuickShareVideoOriginal(
     throw new Error("対応していない動画形式です。mp4, mov, webm, mkv, aviを選択してください。");
   }
 
-  if (file.size > options.maxVideoSizeBytes) {
+  if (exceedsSizeLimit(file.size, options.maxVideoSizeBytes)) {
     throw new Error("動画サイズが上限を超えています。");
   }
 

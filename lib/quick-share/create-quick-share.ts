@@ -5,6 +5,7 @@ import { authOptions } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 import { storeQuickShareImage, storeQuickShareVideoOriginal } from "@/lib/media/quick-share";
 import { getClientIpHash } from "@/lib/quick-share/ip-hash";
+import { getQuickShareSizeLimits } from "@/lib/quick-share/limits";
 import { assertQuickShareRateLimit } from "@/lib/quick-share/rate-limit";
 import { getQuickShareSettings } from "@/lib/quick-share/settings";
 import { addStoredUpload } from "@/lib/quick-share/upload-cookie";
@@ -29,13 +30,13 @@ export async function createQuickShareFromFormData(formData: FormData) {
 
   await assertQuickShareRateLimit({ userId, ipHash });
 
-  const settings = await getQuickShareSettings();
+  const [settings, sizeLimits] = await Promise.all([getQuickShareSettings(), getQuickShareSizeLimits(userId)]);
   const publicId = nanoid(10);
   const deleteToken = nanoid(24);
   const expiresAt = new Date(Date.now() + settings.retentionHours * 60 * 60 * 1000);
 
   if (kind === "SCREENSHOT") {
-    const stored = await storeQuickShareImage(file, publicId, { maxImageSizeBytes: settings.maxImageBytes });
+    const stored = await storeQuickShareImage(file, publicId, { maxImageSizeBytes: sizeLimits.imageMaxBytes });
 
     await prisma.quickShare.create({
       data: {
@@ -54,7 +55,7 @@ export async function createQuickShareFromFormData(formData: FormData) {
       },
     });
   } else {
-    const stored = await storeQuickShareVideoOriginal(file, publicId, { maxVideoSizeBytes: settings.maxVideoBytes });
+    const stored = await storeQuickShareVideoOriginal(file, publicId, { maxVideoSizeBytes: sizeLimits.videoMaxBytes });
 
     const quickShare = await prisma.quickShare.create({
       data: {

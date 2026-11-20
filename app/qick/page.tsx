@@ -6,6 +6,7 @@ import { QuickShareList } from "@/components/quick-share/quick-share-list";
 import { QuickShareUploadForm } from "@/components/quick-share/quick-share-upload-form";
 import { searchParamError } from "@/lib/actions/error-message";
 import { prisma } from "@/lib/db/prisma";
+import { getQuickShareSizeLimits } from "@/lib/quick-share/limits";
 import { getQuickShareSettings } from "@/lib/quick-share/settings";
 import { getStoredUploads } from "@/lib/quick-share/upload-cookie";
 import { formatBytes } from "@/lib/uploads/account-limits";
@@ -39,6 +40,7 @@ export default async function QickPage({ searchParams }: QickPageProps) {
   ]);
 
   const userId = session?.user?.id ?? null;
+  const sizeLimits = await getQuickShareSizeLimits(userId);
   const storedUploads = getStoredUploads(cookieStore);
   const cookieIds = storedUploads.map((upload) => upload.id);
 
@@ -76,7 +78,7 @@ export default async function QickPage({ searchParams }: QickPageProps) {
     thumbnailUrl: item.thumbnailUrl,
   }));
 
-  const hint = `画像: 最大${formatBytes(settings.maxImageBytes)} / 動画: 最大${formatBytes(settings.maxVideoBytes)}。${settings.retentionHours}時間後に自動的に削除されます。`;
+  const hint = `画像: ${formatSizeLimit(sizeLimits.imageMaxBytes)} / 動画: ${formatSizeLimit(sizeLimits.videoMaxBytes)}。${settings.retentionHours}時間後に自動的に削除されます。`;
   const highlightId = created ?? highlight ?? null;
 
   return (
@@ -97,4 +99,8 @@ export default async function QickPage({ searchParams }: QickPageProps) {
       />
     </main>
   );
+}
+
+function formatSizeLimit(bytes: number) {
+  return bytes > 0 ? `最大${formatBytes(bytes)}` : "無制限";
 }
