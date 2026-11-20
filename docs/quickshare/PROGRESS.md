@@ -29,8 +29,8 @@
 - [x] (2026-11-21, Step 4 コミット) Discord/Xでの表示確認手順を `docs/DEPLOY_QUICKSHARE.md` に記載（実機確認は人に依頼）
 
 ## Step 5: 管理画面（画面 20）
-- [ ] AccountLevel のツール用上限をWebUIから変更（0=無制限）
-- [ ] 管理者用トークン管理（値は非表示、失効、監査ログ）— 実装前に画面案を `QUESTIONS.md` へテキストで記載
+- [x] (2026-11-21, Step 5 コミット) AccountLevel のクイック共有上限を `/admin/quick-share`（画面20）から変更（0=無制限、空欄=サイト設定）。サイト全体設定を MB 入力に変更
+- [x] (2026-11-21, Step 5 コミット) 管理者用トークン管理 `/admin/api-tokens`（値は非表示、失効、監査ログ）＋ Clipshare Quick 連携の設定（発行の緊急停止・レート制限・配布元）。画面案は Q-011
 
 ## Step 6: DLページ・更新情報（画面 01）
 - [ ] `/qick/download`（GitHub Releases最新を表示、サーバー側キャッシュ、失敗時は前回結果）

@@ -15,6 +15,7 @@ const adminNav = [
   { href: "/admin/account-levels", label: "アカウントレベル" },
   { href: "/admin/seo", label: "SEO" },
   { href: "/admin/quick-share", label: "クイック共有" },
+  { href: "/admin/api-tokens", label: "連携トークン" },
   { href: "/admin/audit-logs", label: "操作ログ" },
 ];
 
