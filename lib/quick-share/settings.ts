@@ -8,7 +8,7 @@ export const quickShareSettingKeys = {
 } as const;
 
 export const quickShareDefaults = {
-  maxImageBytes: 20_000_000,
+  maxImageBytes: 50_000_000,
   maxVideoBytes: 200_000_000,
   retentionHours: 24,
   anonymousDailyLimit: 5,

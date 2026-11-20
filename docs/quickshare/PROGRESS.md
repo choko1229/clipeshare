@@ -8,9 +8,9 @@
 - [x] (2026-11-21, Step 0 コミット) API_CONTRACT.md と現行実装の差異を整理し、必要なら契約を更新（変更履歴に記載）
 
 ## Step 1: DB
-- [ ] `ApiToken` モデル、認可コード用テーブル（または流用方針）、AccountLevel のツール用上限列、監査ログ（管理者のトークン操作）
-- [ ] マイグレーション（追加のみ）と、既存レベルへの現行上限のコピー。SQLを目視確認
-- [ ] 画像上限 20MB→50MB の反映（DB設定化されていなければ設定化）
+- [x] (2026-11-21, Step 1 コミット) `ApiToken` モデル、認可コード用テーブル `ApiAuthorization`（Q-004）、AccountLevel の `quickShareImageMaxBytes`/`quickShareVideoMaxBytes`（Q-001/Q-002、日次は既存列を共用）、`QuickShare.apiTokenId`。監査ログは既存 `AdminAuditLog` を使う
+- [x] (2026-11-21, Step 1 コミット) マイグレーション `20261121000000_add_quickshare_api_tokens`（`prisma migrate diff` で生成＋データ更新2文）。DROP/MODIFY なしを目視・テストで確認
+- [x] (2026-11-21, Step 1 コミット) 画像上限 20MB→50MB の反映（既定値変更＋旧既定値のときだけ DB 値を更新、Q-003）
 
 ## Step 2: 認可とトークン（画面 07 / 13）
 - [ ] 認可フロー設計メモ（NextAuth への組み込み案）→ `QUESTIONS.md` に記録して暫定案で進む

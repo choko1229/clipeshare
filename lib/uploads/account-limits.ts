@@ -9,6 +9,9 @@ export type UploadLimits = {
   maxImageSizeBytes: number;
   maxImagesPerPost: number;
   dailyUploadLimit: number | null;
+  /** クイック共有のレベル別上限。0 = 無制限、null = サイト全体設定を使う */
+  quickShareImageMaxBytes: number | null;
+  quickShareVideoMaxBytes: number | null;
 };
 
 const fallbackLimits: UploadLimits = {
@@ -20,6 +23,8 @@ const fallbackLimits: UploadLimits = {
   maxImageSizeBytes: 3_000_000,
   maxImagesPerPost: 1,
   dailyUploadLimit: 5,
+  quickShareImageMaxBytes: null,
+  quickShareVideoMaxBytes: null,
 };
 
 export async function getUploadLimitsForUser(userId: string): Promise<UploadLimits> {
@@ -50,6 +55,8 @@ export async function getUploadLimitsForUser(userId: string): Promise<UploadLimi
     maxImageSizeBytes: Number(level.maxImageSizeBytes),
     maxImagesPerPost: level.maxImagesPerPost,
     dailyUploadLimit: level.dailyUploadLimit,
+    quickShareImageMaxBytes: level.quickShareImageMaxBytes === null ? null : Number(level.quickShareImageMaxBytes),
+    quickShareVideoMaxBytes: level.quickShareVideoMaxBytes === null ? null : Number(level.quickShareVideoMaxBytes),
   };
 }
 
