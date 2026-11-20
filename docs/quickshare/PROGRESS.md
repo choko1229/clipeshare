@@ -37,8 +37,8 @@
 - [x] (2026-11-21, Step 6 コミット) `GET /api/v1/client/latest`（同じキャッシュ。未取得時 503）
 
 ## Step 7: 仕上げ
-- [ ] `docs/DEPLOY_QUICKSHARE.md`（バックアップ、`migrate deploy`、ロールバック、スモークテスト、設定値）
-- [ ] セルフレビュー1回目（INSTRUCTIONS §9）→ 修正
+- [x] (2026-11-21, Step 7 コミット) `docs/DEPLOY_QUICKSHARE.md`（バックアップ、`migrate deploy`、nginx、設定値、スモークテスト、OGP確認、緊急停止、ロールバック＝MySQL 8.4 で検証済み、監視）
+- [x] (2026-11-21, `3671583`) セルフレビュー1回目（INSTRUCTIONS §9）→ 修正（Prisma エラーのログ出力を名前/コードのみに、契約の文字種明記、X-Forwarded-For 偽装を Q-017 に記録）。実ブラウザ＋MySQL 8.4 の通し確認で Referrer-Policy の不具合を発見・修正（`90c9cf0`）
 - [ ] セルフレビュー2回目 → 修正
 - [ ] `typecheck`/`lint`/`build`/テスト全通過
 - [ ] `REPORT.md`（完了報告。契約の変更点、未検証項目の結果、人が行う作業）
