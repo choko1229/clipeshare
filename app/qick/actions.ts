@@ -1,12 +1,11 @@
 "use server";
 
-import { rm } from "node:fs/promises";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
-import { mediaUrlToProcessedPath } from "@/lib/media/retention";
+import { deleteQuickShareRecord } from "@/lib/quick-share/delete-quick-share";
 import { getStoredUploads, removeStoredUpload } from "@/lib/quick-share/upload-cookie";
 
 export async function deleteQuickShare(publicId: string, _formData: FormData) {
@@ -20,18 +19,7 @@ export async function deleteQuickShare(publicId: string, _formData: FormData) {
     );
 
     if (isOwnerBySession || isOwnerByCookie) {
-      const filePaths = [
-        mediaUrlToProcessedPath(quickShare.mediaUrl),
-        mediaUrlToProcessedPath(quickShare.thumbnailUrl),
-        quickShare.originalPath,
-      ].filter((value): value is string => Boolean(value));
-
-      await Promise.all(filePaths.map((filePath) => rm(filePath, { force: true })));
-
-      await prisma.quickShare.update({
-        where: { publicId },
-        data: { deletedAt: new Date() },
-      });
+      await deleteQuickShareRecord(quickShare);
     }
   }
 

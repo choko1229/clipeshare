@@ -5,22 +5,27 @@ import { deleteQuickShare } from "@/app/qick/actions";
 import { authOptions } from "@/auth";
 import { QuickShareItemViewer } from "@/components/quick-share/quick-share-item-viewer";
 import { prisma } from "@/lib/db/prisma";
+import { buildQuickShareMetadata } from "@/lib/quick-share/share-metadata";
+import { getQuickShareSettings } from "@/lib/quick-share/settings";
 import { getStoredUploads } from "@/lib/quick-share/upload-cookie";
 
 export const dynamic = "force-dynamic";
-
-export const metadata: Metadata = {
-  robots: {
-    index: false,
-    follow: false,
-  },
-};
 
 type QuickShareViewPageProps = {
   params: Promise<{
     id: string;
   }>;
 };
+
+export async function generateMetadata({ params }: QuickShareViewPageProps): Promise<Metadata> {
+  const { id } = await params;
+  const [quickShare, settings] = await Promise.all([prisma.quickShare.findUnique({ where: { publicId: id } }), getQuickShareSettings()]);
+
+  return buildQuickShareMetadata(quickShare, {
+    baseUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+    retentionHours: settings.retentionHours,
+  });
+}
 
 export default async function QuickShareViewPage({ params }: QuickShareViewPageProps) {
   const { id } = await params;

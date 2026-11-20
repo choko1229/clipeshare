@@ -186,6 +186,8 @@ model User {
   following       Follow[] @relation("Follower")
   followers       Follow[] @relation("Following")
   quickShares     QuickShare[]
+  apiTokens       ApiToken[]
+  apiAuthorizations ApiAuthorization[]
 
   liveStream        LiveStream?
   liveChatMessages  LiveChatMessage[]
@@ -240,6 +242,9 @@ model AccountLevel {
   maxImageSizeBytes  BigInt
   maxImagesPerPost   Int      @default(1)
   dailyUploadLimit   Int?
+  // クイック共有(Web/ツール共通)のレベル別上限。0 = 無制限、NULL = サイト全体設定を使う
+  quickShareImageMaxBytes BigInt?
+  quickShareVideoMaxBytes BigInt?
   sortOrder          Int      @default(0)
   minPostCount       Int      @default(0)
   minAccountAgeDays  Int      @default(0)
@@ -702,16 +707,85 @@ model QuickShare {
   height        Int?
   userId        String?
   ipHash        String?
+  // API トークン経由のアップロードのときのみ設定(Web 経由は NULL)
+  apiTokenId    String?
   createdAt     DateTime         @default(now())
   expiresAt     DateTime
   deletedAt     DateTime?
 
   user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  apiToken   ApiToken?   @relation(fields: [apiTokenId], references: [id], onDelete: SetNull)
   uploadJobs UploadJob[]
 
   @@index([expiresAt, deletedAt])
   @@index([userId, createdAt])
   @@index([ipHash, createdAt])
+  @@index([apiTokenId, createdAt])
+}
+
+enum ApiTokenRevokeReason {
+  USER
+  SELF
+  ADMIN
+  CODE_REUSE
+}
+
+// Clipshare Quick などの外部クライアント用トークン(端末ごと)。平文は保存しない
+model ApiToken {
+  id             String                @id @default(cuid())
+  userId         String
+  clientId       String                @db.VarChar(64)
+  name           String                @db.VarChar(64)
+  platform       String?               @db.VarChar(32)
+  clientVersion  String?               @db.VarChar(32)
+  tokenHash      String                @unique @db.Char(64)
+  prefix         String                @db.VarChar(16)
+  createdAt      DateTime              @default(now())
+  lastUsedAt     DateTime?
+  lastUsedIpHash String?               @db.Char(64)
+  revokedAt      DateTime?
+  revokedReason  ApiTokenRevokeReason?
+
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quickShares   QuickShare[]
+  authorization ApiAuthorization?
+
+  @@index([userId, revokedAt])
+  @@index([createdAt])
+}
+
+enum ApiAuthorizationStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+// ブラウザ認可(ループバック + PKCE)の1回分の要求。CSRF トークンと認可コードはハッシュのみ保存
+model ApiAuthorization {
+  id             String                 @id @default(cuid())
+  userId         String
+  clientId       String                 @db.VarChar(64)
+  redirectUri    String                 @db.VarChar(255)
+  state          String                 @db.VarChar(256)
+  codeChallenge  String                 @unique @db.VarChar(64)
+  connectionCode String                 @db.VarChar(7)
+  deviceName     String                 @db.VarChar(64)
+  devicePlatform String?                @db.VarChar(32)
+  csrfTokenHash  String                 @db.Char(64)
+  status         ApiAuthorizationStatus @default(PENDING)
+  codeHash       String?                @unique @db.Char(64)
+  createdAt      DateTime               @default(now())
+  expiresAt      DateTime
+  decidedAt      DateTime?
+  codeExpiresAt  DateTime?
+  usedAt         DateTime?
+  apiTokenId     String?                @unique
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiToken ApiToken? @relation(fields: [apiTokenId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
 }
 
 model ContactMessage {
