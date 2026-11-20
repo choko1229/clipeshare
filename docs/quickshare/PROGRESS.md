@@ -25,8 +25,8 @@
 - [x] (2026-11-21, Step 3 コミット) テスト一式（INSTRUCTIONS §8）。sharpのメタデータ除去を GPS付きEXIF＋orientation=6 の実画像で検証（`tests/media-processing.test.ts`、`tests/api-quick-routes.test.ts`）
 
 ## Step 4: OGP・共有ページ（画面 17）
-- [ ] `/q/{id}/view` にOGP/Twitter Card（noindex維持）
-- [ ] Discord/Xでの表示確認手順を `docs/DEPLOY_QUICKSHARE.md` に記載（公開URLでの手動確認が必要なため、実機確認は人に依頼）
+- [x] (2026-11-21, Step 4 コミット) `/q/{id}/view` にOGP/Twitter Card（noindex維持。画像=og:image、動画=サムネイル+og:video、処理中・期限切れはメディアなし）
+- [x] (2026-11-21, Step 4 コミット) Discord/Xでの表示確認手順を `docs/DEPLOY_QUICKSHARE.md` に記載（実機確認は人に依頼）
 
 ## Step 5: 管理画面（画面 20）
 - [ ] AccountLevel のツール用上限をWebUIから変更（0=無制限）
