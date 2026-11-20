@@ -240,6 +240,15 @@ describe("authorization flow", () => {
     await expectApiError(authenticateApiRequest(requestWith({ authorization: `Bearer ${first.token}` }), newContext()), "UNAUTHORIZED");
   });
 
+  it("revokes the token when the same code is exchanged twice at the same time", async () => {
+    const { code } = await approveFlow();
+    const results = await Promise.allSettled([exchange(code), exchange(code)]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    const tokens = fakePrisma.rows("apiToken");
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0].revokedReason).toBe("CODE_REUSE");
+  });
+
   it("rejects an unknown code", async () => {
     await expectApiError(exchange(crypto.randomBytes(32).toString("base64url")), "INVALID_REQUEST");
   });

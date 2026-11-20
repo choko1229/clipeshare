@@ -55,7 +55,7 @@
 
 ## クイック共有
 ### `POST /api/v1/quick`
-`multipart/form-data`: `file`（必須・1個）、`quality`=`original`|`shrink`（既定 `shrink`、画像のみ有効）。
+`multipart/form-data`: `file`（必須・1個・**ファイル名付きのファイルパート**として送る。ファイル名の中身は使わない）、`quality`=`original`|`shrink`（既定 `shrink`、画像のみ有効）。
 受け付ける形式は**マジックバイトで判定**: 画像 JPEG/PNG/WebP、動画 MP4/MOV/WebM/MKV/AVI。ファイル名・Content-Type は信用しない（拡張子・Content-Type とマジックバイトの種別が食い違えば 415）。
 201:
 ```json
@@ -88,4 +88,5 @@ GitHub API 失敗時は最後に成功した結果を返す。一度も取得で
   - `POST /api/v1/quick`: マジックバイト判定と対応形式、匿名は `original` でもバナーあり、`original` の寸法・品質、`deleteToken` は匿名のみ、動画は PROCESSING で返ることを確定。
   - `DELETE /api/v1/quick/{id}`: Bearer で削除できるのは API 経由のアップロードのみ（デザイン07 の許可内容「このアプリでアップロードしたファイルの削除」）。
   - `GET /api/v1/client/latest`: `sha256` を nullable に、未取得時 503 を追加。
+  - セルフレビュー2回目: `file` はファイル名付きのパートで送ること（無いと 400）を明記。画像処理中のディスク不足などサーバー側の失敗は 415 ではなく 500（再試行対象）。
   - Step 3 実装時: 画像の画素数上限（1億画素、展開爆弾対策）を 413 `limitPixels` として追加。`DAILY_LIMIT_EXCEEDED` の details に `dailyLimit` を追加。

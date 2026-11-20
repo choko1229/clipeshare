@@ -275,8 +275,21 @@ export class FakePrisma {
     return this.delegate("adminAuditLog");
   }
 
+  private transactionQueue: Promise<unknown> = Promise.resolve();
+
   async $transaction<T>(input: ((tx: FakePrisma) => Promise<T>) | Promise<unknown>[]): Promise<T | unknown[]> {
     if (typeof input === "function") {
+      // 実 DB の行ロックに近づけるため、対話型トランザクションは1本ずつ実行する
+      const run = this.transactionQueue.then(() => this.runTransaction(input));
+      this.transactionQueue = run.catch(() => undefined);
+      return run;
+    }
+
+    return Promise.all(input);
+  }
+
+  private async runTransaction<T>(input: (tx: FakePrisma) => Promise<T>): Promise<T> {
+    {
       // 失敗時に巻き戻す(簡易スナップショット)
       const snapshot = Object.fromEntries(Object.entries(this.tables).map(([name, table]) => [name, new Map([...table].map(([id, row]) => [id, { ...row }]))]));
       try {
@@ -286,8 +299,6 @@ export class FakePrisma {
         throw error;
       }
     }
-
-    return Promise.all(input);
   }
 
   // テスト用ヘルパー

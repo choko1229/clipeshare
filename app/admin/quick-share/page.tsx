@@ -3,13 +3,11 @@ import { updateQuickShareSettings } from "@/app/admin/actions";
 import { updateAccountLevelQuickShareLimits } from "@/app/admin/quick-share-actions";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/db/prisma";
+import { formatMegabytes as bytesToMb } from "@/lib/format/megabytes";
 import { getQuickShareSettings } from "@/lib/quick-share/settings";
 
 export const dynamic = "force-dynamic";
 
-function bytesToMb(bytes: number | bigint) {
-  return typeof bytes === "bigint" ? (bytes / 1_000_000n).toString() : String(Math.round(bytes / 1_000_000));
-}
 
 function Field({
   defaultValue,
@@ -20,6 +18,7 @@ function Field({
   name,
   readOnly = false,
   required = true,
+  step,
   type = "number",
 }: {
   defaultValue: string | number;
@@ -28,6 +27,7 @@ function Field({
   min?: number;
   max?: number;
   name?: string;
+  step?: string;
   readOnly?: boolean;
   required?: boolean;
   type?: "number" | "text";
@@ -47,6 +47,7 @@ function Field({
         name={name}
         readOnly={readOnly}
         required={!readOnly && required}
+        step={step}
         type={type}
       />
       {hint ? <span className="text-xs text-muted-foreground">{hint}</span> : null}
@@ -83,8 +84,8 @@ export default async function AdminQuickSharePage() {
           <p className="mt-1 text-sm text-muted-foreground">サイト全体の初期値です。未ログインの利用と、レベル別の設定がないときに使います。</p>
         </div>
         <form action={updateQuickShareSettings} className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
-          <Field defaultValue={bytesToMb(settings.maxImageBytes)} label="画像の上限（MB）" max={1_000_000} min={1} name="maxImageMb" />
-          <Field defaultValue={bytesToMb(settings.maxVideoBytes)} label="動画の上限（MB）" max={1_000_000} min={1} name="maxVideoMb" />
+          <Field defaultValue={bytesToMb(settings.maxImageBytes)} label="画像の上限（MB）" max={1_000_000} min={0.000001} name="maxImageMb" step="any" />
+          <Field defaultValue={bytesToMb(settings.maxVideoBytes)} label="動画の上限（MB）" max={1_000_000} min={0.000001} name="maxVideoMb" step="any" />
           <Field defaultValue={settings.retentionHours} label="保存時間（時間）" max={168} min={1} name="retentionHours" />
           <Field defaultValue={settings.anonymousDailyLimit} label="未ログインの1日あたり件数" min={1} name="anonymousDailyLimit" />
           <div>
@@ -113,6 +114,7 @@ export default async function AdminQuickSharePage() {
                 min={0}
                 name="quickShareImageMaxMb"
                 required={false}
+                step="any"
               />
               <Field
                 defaultValue={level.quickShareVideoMaxBytes === null ? "" : bytesToMb(level.quickShareVideoMaxBytes)}
@@ -122,6 +124,7 @@ export default async function AdminQuickSharePage() {
                 min={0}
                 name="quickShareVideoMaxMb"
                 required={false}
+                step="any"
               />
               <Field defaultValue={level.sortOrder} label="表示順" readOnly />
               <div className="flex items-end gap-3">

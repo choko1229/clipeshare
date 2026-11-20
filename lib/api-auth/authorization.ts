@@ -238,37 +238,58 @@ export async function exchangeAuthorizationCode(input: ExchangeCodeInput, now: D
 
   const generated = generateApiToken();
 
-  const tokenRow = await prisma.$transaction(async (tx) => {
-    const used = await tx.apiAuthorization.updateMany({
-      where: { id: authorization.id, usedAt: null },
-      data: { usedAt: now },
+  const approved = authorization;
+  const issueTokenTransaction = () =>
+    prisma.$transaction(async (tx) => {
+      const used = await tx.apiAuthorization.updateMany({
+        where: { id: approved.id, usedAt: null },
+        data: { usedAt: now },
+      });
+
+      if (used.count !== 1) {
+        throw invalidGrant("code_reused_concurrently");
+      }
+
+      const created = await tx.apiToken.create({
+        data: {
+          userId: approved.userId,
+          clientId: approved.clientId,
+          name: approved.deviceName,
+          platform: approved.devicePlatform,
+          clientVersion: input.clientVersion,
+          tokenHash: generated.tokenHash,
+          prefix: generated.prefix,
+          lastUsedAt: now,
+          lastUsedIpHash: input.ipHash,
+        },
+      });
+
+      await tx.apiAuthorization.update({
+        where: { id: approved.id },
+        data: { apiTokenId: created.id },
+      });
+
+      return created;
     });
 
-    if (used.count !== 1) {
-      throw invalidGrant("code_reused_concurrently");
+  let tokenRow: Awaited<ReturnType<typeof prisma.apiToken.create>>;
+
+  try {
+    tokenRow = await issueTokenTransaction();
+  } catch (error) {
+    if (error instanceof ApiError && error.reason === "code_reused_concurrently") {
+      // 同時の再使用: 先に成功した側のトークンも失効させる(ベストエフォート)
+      const winner = await prisma.apiAuthorization.findUnique({ where: { id: authorization.id }, select: { apiTokenId: true } });
+      if (winner?.apiTokenId) {
+        await prisma.apiToken.updateMany({
+          where: { id: winner.apiTokenId, revokedAt: null },
+          data: { revokedAt: now, revokedReason: "CODE_REUSE" },
+        });
+      }
+      logApi("warn", { event: "api_auth.code_reuse", requestId: input.requestId, userId: authorization.userId, tokenId: winner?.apiTokenId ?? null, ipHash: input.ipHash });
     }
-
-    const created = await tx.apiToken.create({
-      data: {
-        userId: authorization.userId,
-        clientId: authorization.clientId,
-        name: authorization.deviceName,
-        platform: authorization.devicePlatform,
-        clientVersion: input.clientVersion,
-        tokenHash: generated.tokenHash,
-        prefix: generated.prefix,
-        lastUsedAt: now,
-        lastUsedIpHash: input.ipHash,
-      },
-    });
-
-    await tx.apiAuthorization.update({
-      where: { id: authorization.id },
-      data: { apiTokenId: created.id },
-    });
-
-    return created;
-  });
+    throw error;
+  }
 
   logApi("info", {
     event: "api_auth.token_issued",
