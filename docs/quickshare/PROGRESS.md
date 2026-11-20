@@ -33,8 +33,8 @@
 - [x] (2026-11-21, Step 5 コミット) 管理者用トークン管理 `/admin/api-tokens`（値は非表示、失効、監査ログ）＋ Clipshare Quick 連携の設定（発行の緊急停止・レート制限・配布元）。画面案は Q-011
 
 ## Step 6: DLページ・更新情報（画面 01）
-- [ ] `/qick/download`（GitHub Releases最新を表示、サーバー側キャッシュ、失敗時は前回結果）
-- [ ] `GET /api/v1/client/latest`
+- [x] (2026-11-21, Step 6 コミット) `/qick/download`（画面01。GitHub Releases最新を表示、サーバー側キャッシュ＝メモリTTL＋DB永続、失敗時は前回結果、1分バックオフ）
+- [x] (2026-11-21, Step 6 コミット) `GET /api/v1/client/latest`（同じキャッシュ。未取得時 503）
 
 ## Step 7: 仕上げ
 - [ ] `docs/DEPLOY_QUICKSHARE.md`（バックアップ、`migrate deploy`、ロールバック、スモークテスト、設定値）
