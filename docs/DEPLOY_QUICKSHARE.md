@@ -151,7 +151,9 @@ openssl x509 -in clipshare-quick.cer -inform DER -noout -subject -fingerprint -s
 10. **既存 Web の回帰**: `/qick` で匿名・ログイン中それぞれ画像を1枚アップロード → 従来どおりバナー付き・URL発行・削除できる。`/login` から通常ログインして `/` に戻る。
 11. **ダウンロードページ / 更新情報**: `$B/qick/download` が表示される（配信できるリリースが無い間はバージョン表記なしで GitHub のリリースページへリンク）。
     - クライアントのリリースに `SHA256SUMS`（セットアップ exe と MSIX の両方を記載）を添付して公開 → `curl -s $B/api/v1/client/latest | jq '.assets[] | {name, sha256}'` で2ファイルとも64桁の sha256 が返る（null は返らない）。
-    - `SHA256SUMS` が無い・壊れている場合は 503（または前のバージョン）になる。管理 › 連携トークン › 「配布ファイルの SHA-256」で判定理由を確認し、必要なら手動登録する。手元での計算: Windows `Get-FileHash -Algorithm SHA256 <file>`、Linux `sha256sum <file>`。
+    - `SHA256SUMS` が無い・取得できない・壊れている場合は 503（または前のバージョン）になる。管理 › 連携トークン › 「配布ファイルの SHA-256」で判定理由を確認する。
+      - **無い・取得できない**（`sha256sums_missing` / `sha256sums_fetch_failed`）: 手動登録で配信できる。
+      - **壊れている**（`sha256sums_invalid:…`）: 手動登録しても配信されない（Q-026、承認済み）。リリースの `SHA256SUMS` を正しい形式（API_CONTRACT「SHA256SUMS の形式」）で作り直して差し替える。手元での計算: Windows `Get-FileHash -Algorithm SHA256 <file>`、Linux `sha256sum <file>`。
     - 管理画面を保存した直後はキャッシュを捨てるので、次のリクエストで反映される。
 
 ## OGP の表示確認（Discord / X）

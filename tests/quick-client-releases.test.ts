@@ -12,7 +12,14 @@ vi.mock("@/lib/admin/auth", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-const { getClientReleaseHistory, getClientReleaseStatuses, getLatestClientRelease, pickInstallerAsset, resetClientReleaseCache } = await import(
+const {
+  ALLOW_MANUAL_OVERRIDE_OF_INVALID_SHA256SUMS,
+  getClientReleaseHistory,
+  getClientReleaseStatuses,
+  getLatestClientRelease,
+  pickInstallerAsset,
+  resetClientReleaseCache,
+} = await import(
   "@/lib/quick-client/releases"
 );
 const { parseSha256Sums } = await import("@/lib/quick-client/checksums");
@@ -350,6 +357,48 @@ describe("GET /api/v1/client/latest always returns sha256", () => {
     }
     expect((await callLatest()).status).toBe(503);
     expect((await getClientReleaseStatuses()).statuses[0].reason).toBe("sha256sums_invalid:malformed_line@line2");
+  });
+
+  describe("Q-026 (approved 2026-11-22): a broken SHA256SUMS is never rescued by manual checksums", () => {
+    async function registerBoth(tag: string) {
+      for (const [name, seed] of [
+        [`ClipshareQuickSetup-${tag}.exe`, `exe-${tag}`],
+        [`ClipshareQuick-${tag}.msix`, `msix-${tag}`],
+      ] as const) {
+        const form = new FormData();
+        form.set("tag", tag);
+        form.set("assetName", name);
+        form.set("sha256", hash(seed));
+        await registerClientAssetChecksum(form);
+      }
+    }
+
+    it("keeps the policy switch off", () => {
+      expect(ALLOW_MANUAL_OVERRIDE_OF_INVALID_SHA256SUMS).toBe(false);
+    });
+
+    it("unknown file name in SHA256SUMS + manual entries for every installer: still not served", async () => {
+      installFetch({
+        [LIST_URL]: json([release("v1.2.3", standardAssets("v1.2.3"))]),
+        [sumsUrl("v1.2.3")]: text(`${sumsFor("v1.2.3")}${hash("old")}  ClipshareQuickSetup-v1.2.2.exe\n`),
+      });
+      await registerBoth("v1.2.3");
+      expect((await callLatest()).status).toBe(503);
+      const status = (await getClientReleaseStatuses()).statuses[0];
+      expect(status.reason).toBe("sha256sums_invalid:unknown_file");
+      expect(status.assets.every((asset) => asset.source === null)).toBe(true);
+    });
+
+    it("contrast: when SHA256SUMS cannot be downloaded, manual entries are used", async () => {
+      installFetch({
+        [LIST_URL]: json([release("v1.2.3", standardAssets("v1.2.3"))]),
+        [sumsUrl("v1.2.3")]: () => new Response("unavailable", { status: 503 }),
+      });
+      await registerBoth("v1.2.3");
+      const response = await callLatest();
+      expect(response.status).toBe(200);
+      expect((await getClientReleaseStatuses()).statuses[0].assets.map((asset) => asset.source)).toEqual(["MANUAL", "MANUAL"]);
+    });
   });
 
   it("SHA256SUMS that misses one installer makes the release not servable", async () => {

@@ -17,6 +17,13 @@ const RELEASE_LIST_PER_PAGE = 10;
 /** 最新が配信不可(SHA-256 不足)のとき、遡って確認するリリース数 */
 const MAX_RELEASES_TO_VERIFY = 3;
 
+/**
+ * 添付の SHA256SUMS が壊れているリリースを、管理画面の手動登録で配信可能にしてよいか。
+ * false(既定・Q-026 承認済み 2026-11-22): 壊れた SHA256SUMS のリリースは手動登録があっても配信しない。
+ * 方針を変えるときはここ1か所だけを切り替える(テスト「an invalid SHA256SUMS cannot be overridden…」も合わせて更新)。
+ */
+export const ALLOW_MANUAL_OVERRIDE_OF_INVALID_SHA256SUMS = false;
+
 /** 配布ファイル(セットアップ exe と MSIX)。これ以外のアセットは返さない */
 export function isDistributableAssetName(name: string) {
   return /\.(exe|msix|msixbundle)$/i.test(name);
@@ -200,9 +207,9 @@ export async function verifyRelease(repo: string, release: GithubRelease, manual
     logApi("warn", { event: "quick_client.sha256sums_unavailable", repo, version, reason: sumsProblem });
   }
 
-  // SHA256SUMS があるのに不正: そのリリースは配信しない(手動登録でも上書きしない)。
+  // SHA256SUMS があるのに不正: そのリリースは配信しない(手動登録でも上書きしない。Q-026 承認済み)。
   // 手動登録のフォールバックは SHA256SUMS が「無い」「取得できない」場合だけ
-  if (sumsProblem?.startsWith("sha256sums_invalid")) {
+  if (sumsProblem?.startsWith("sha256sums_invalid") && !ALLOW_MANUAL_OVERRIDE_OF_INVALID_SHA256SUMS) {
     return fail(
       sumsProblem,
       distributable.map((asset) => ({ name: asset.name, sha256: null, source: null })),
