@@ -243,8 +243,8 @@
   - そのリリースに無いファイル名の行があれば配信しない（別リリースの SHA256SUMS の取り違えを配らないため）。`.appinstaller` など実在するアセットの行は可。
   - `SHA256SUMS` があるのに不正なら、手動登録があっても配信しない。手動登録は「無い・取得できない」ときだけ使う（壊れた SHA256SUMS はリリース作業の誤りなので、リリース側で直す）。
 - 影響範囲: `lib/quick-client/checksums.ts`、`lib/quick-client/releases.ts`、API_CONTRACT「SHA256SUMS の形式」。
-- 人に確認したいこと: 不正な SHA256SUMS を手動登録で上書きできるようにしたい場合は `releases.ts` の1か所（`sha256sums_invalid` の早期終了）を外す。
-- 状態: 未確認
+- 人に確認したいこと: 不正な SHA256SUMS を手動登録で上書きできるようにしたい場合は `releases.ts` の定数 `ALLOW_MANUAL_OVERRIDE_OF_INVALID_SHA256SUMS` を true にする（1か所）。
+- 状態: 承認済み（2026-11-22、オーナー。添付の SHA256SUMS が壊れている場合は、手動の SHA-256 が登録されていてもそのリリースを配信しない。切り替えは `lib/quick-client/releases.ts` の定数 `ALLOW_MANUAL_OVERRIDE_OF_INVALID_SHA256SUMS` 1か所）
 
 > 番号メモ: Q-027 はオーナー回答（お問い合わせ URL の確定）で使われた番号のため、このファイルでは欠番とし、次は Q-028 から振る。
 

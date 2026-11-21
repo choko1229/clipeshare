@@ -276,3 +276,18 @@ POST /api/v1/quick (Bearer csq_xxx) → 401 {"error":{"code":"UNAUTHORIZED","mes
 - Q-030 履歴を配信中以前に限る方針
 - Q-031 コピー後の「コピーしました」表示
 - Q-026 不正な SHA256SUMS を手動登録で上書きしない方針（前回から継続）
+
+---
+
+# 追加報告4: Q-026 承認の反映（2026-11-22）
+**未 push**（ローカルコミットのみ）。
+
+- **記録**: QUESTIONS の Q-026 を「承認済み（2026-11-22、オーナー）」に更新。内容: 添付の `SHA256SUMS` が壊れている場合は、手動の SHA-256 が登録されていてもそのリリースを配信しない。
+- **文書の整合**:
+  - API_CONTRACT: 「SHA-256 の出どころ」「SHA256SUMS の形式」の不正時の扱い・手動登録が使われる場合、変更履歴のいずれも Q-026 と一致（変更なし）。
+  - DEPLOY: §6 スモークテスト 11 に「無い・壊れている場合は…必要なら手動登録する」とあり、壊れている場合も手動登録で直せるように読めた → 「無い・取得できない（`sha256sums_missing` / `sha256sums_fetch_failed`）は手動登録で配信可／壊れている（`sha256sums_invalid:…`）は手動登録しても配信されないので `SHA256SUMS` を作り直して差し替える」に修正。
+- **切り替え箇所**: 判定は `lib/quick-client/releases.ts` の1か所のまま。分かりやすくするため、定数 `ALLOW_MANUAL_OVERRIDE_OF_INVALID_SHA256SUMS = false`（承認内容と経緯をコメントに記載）で切り替える形にした。DB 設定にはしていない（運用で変える設定ではなく、承認済みの安全方針のため）。
+- **テスト**: 「壊れた SHA256SUMS ＋ 手動登録あり → 配信しない（503、理由 `sha256sums_invalid:malformed_line@line2`）」は前回追加済み。今回、定数が false であること、別の壊れ方（アセットに無いファイル名）＋全配布ファイルの手動登録でも配信しないこと、対照として「SHA256SUMS が取得できない（503）＋手動登録 → 配信する（取得元 MANUAL）」を追加。定数を一時的に true にすると Q-026 関連の4件が失敗し、false に戻すと全件成功することを確認（挙動がテストで固定されている）。
+- **結果**: `npm.cmd run typecheck` 成功 / `npm.cmd run lint` 成功 / `npm.cmd run build` 成功 / `npm.cmd test` **267件すべて成功**（既存243件を含む。前回の264件＋今回3件）。
+- **変更ファイル**: `lib/quick-client/releases.ts`（定数化のみ。挙動は不変）、`tests/quick-client-releases.test.ts`、`docs/DEPLOY_QUICKSHARE.md`、`docs/quickshare/{QUESTIONS,PROGRESS,REPORT}.md`。
+- **未解決の質問**: Q-028〜Q-031（ダウンロードページ。前回から継続）。
