@@ -142,3 +142,59 @@ POST /api/v1/quick (Bearer csq_xxx) → 401 {"error":{"code":"UNAUTHORIZED","mes
 - レート制限はプロセス内メモリ（単一プロセス前提、Q-010）。複数プロセス化する場合は共有ストアに置き換える。
 - `/api/v1/client/latest` はレート制限なし（キャッシュ応答のみ、Q-018）。
 - ライトテーマでの新規画面の目視確認。
+
+---
+
+# 追加報告: オーナー回答の反映（2026-11-21）
+作業ブランチ `feature/quickshare-api-v1` の続き（**未 push**）。コミット: `c92df6e`（sha256 必須化・DLページのデータ準備）、`007f5cc`（テストの安定化）、`5960801`（nginx 手順）、本報告のコミット（PROGRESS/QUESTIONS/REPORT）。
+
+## A. `/api/v1/client/latest` の sha256 を必ず返す（API 契約 v1.2）
+- **v1.1 で null になっていた経路**: ① GitHub が asset の `digest` を返さない → null、② DB に保存した前回結果（v1.1 形式）の null がそのまま返る、③ `.appinstaller` など配布物以外の asset も null のまま返していた。
+- **対応後**: SHA-256 は「リリースに添付された `SHA256SUMS`」→「管理画面での手動登録」の順で決める。GitHub の digest は照合のみ（食い違えば配信しない、Q-021）。配布ファイル（`.exe` / `.msix` / `.msixbundle`）の**すべて**に SHA-256 が揃ったリリースだけを配信し、揃わなければ直近3件まで遡る → 前回配信分（今回配信不可と判定したものは除く）→ 503。v1.1 形式の保存データ（null を含む）は読み込み時に捨てる。
+- **安全策**: 取得先は `api.github.com` / `github.com` / `objects.githubusercontent.com` / `release-assets.githubusercontent.com` の https のみ。リダイレクトは手動で追い、毎回ホストを検査（最大3回）。サイズ上限（一覧 2MB、SHA256SUMS 64KB。宣言値と実際の受信量の両方）、タイムアウト 5秒、認証情報は送らない。ログには署名付き URL のクエリを出さずホスト名だけ。
+- **キャッシュ・失敗時**: TTL は管理画面の設定（既定600秒）。GitHub 一覧の取得失敗時は前回結果（メモリ → DB）で継続し1分は再試行しない。管理画面での保存・手動登録の直後はキャッシュを捨てる。
+- **ログ**: `quick_client.releases_refreshed` / `release_not_servable`（理由付き）/ `sha256sums_unavailable` / `sha256sums_fetch_failed` / `no_servable_release` / `release_fetch_failed` / `checksum_registered`。
+- **管理画面**: 「管理 › 連携トークン › 配布ファイルの SHA-256」に直近のリリースの判定（配信可/不可・理由・取得元・SHA-256 の先頭）と、手動登録/削除（ADMIN/OWNER、監査ログ `quick_client.checksum.*`）。保存先は新テーブル `QuickClientAssetChecksum`（マイグレーション `20261121010000_add_quick_client_asset_checksums`、テーブル追加のみ。MySQL 8.4 で適用・ロールバック・再適用を確認）。
+- **クライアントのリリースワークフローへの要件**（API_CONTRACT v1.2 に記載）: `SHA256SUMS`（`sha256sum` の出力形式、exe と MSIX の両方を記載）をリリースに添付する。
+
+## B. nginx の X-Forwarded-For
+- `docs/DEPLOY_QUICKSHARE.md` §4 に、`proxy_set_header X-Forwarded-For $remote_addr;` への変更、CDN なしの理由、変更前後の挙動、反映手順（手順中の `sed` はサンプル設定で動作確認済み）、確認コマンド、ロールバックを記載。新規構築用 `scripts/install-ubuntu-24.sh` のテンプレートも変更。**本番への適用はしていない。**
+- アプリ側の点検（Q-025）: IP は `lib/quick-share/ip-hash.ts` の1か所で決め、匿名の1日上限（Web/API）・API の匿名レート制限・認証失敗の連続制限・お問い合わせの送信回数制限・トークンの最終使用 IP に使われる。nginx 変更後は偽装できなくなり、普通のクライアントのハッシュは変わらない（当日の件数も連続）。改善案（アプリ側で `X-Real-IP` を優先）は記録のみ。
+
+## C. 403（BAN）の案内先
+- **`https://clipshare.link/contact`**（`app/contact/page.tsx`）。ログイン不要で送信でき、BAN されたユーザーの送信も拒否しない（1時間5件まで、IP ハッシュ単位）。API_CONTRACT の 403 行と PROGRESS に明記。BAN 用の問い合わせ種別は無い（追加するかは Q-024）。
+
+## D. ダウンロードページの拡張 — デザイン更新待ち
+- 画面の変更はしていない（デザイン01に区画が無いため）。PROGRESS「D」に、必要な要素とデータ、未定事項（リリースノートの表示形式・件数）を記載。
+- 準備したもの: `getDownloadPageData()`（`lib/quick-client/download-page-data.ts`）が更新履歴（公開リリース最大10件、同じキャッシュ）と、証明書のフィンガープリント（管理画面に入力欄を追加。`AB:CD:…` に正規化）、配布ファイル名とその SHA-256 を返す。現在の画面もこれを使うが、表示は変えていない。
+
+## テスト結果（このコミット時点）
+`npm.cmd run typecheck` 成功 / `npm.cmd run lint` 成功 / `npm.cmd run build` 成功 / `npm.cmd test` **211件すべて成功（11ファイル）**。
+- 追加: `tests/quick-client-releases.test.ts`（42件）— SHA256SUMS の解析（正常・大文字・CRLF・パス付き／空・短い・区切りなし・不正行・矛盾する重複・HTML）、許可ホスト（4件許可・8件拒否）、非 GitHub へのリダイレクト拒否（そのホストには接続しない）、サイズ上限（宣言・実受信）、リダイレクト回数上限、タイムアウト、正常（exe+MSIX のみ・null なし・署名付き URL がログに出ない）、SHA256SUMS 欠落で旧リリース継続、何も無ければ 503、形式不正、一部欠落、取得失敗（詳細ログ）、SHA256SUMS が GitHub 外にある場合（接続しない）、digest 不一致、手動登録で配信可能、手動登録を消したら同じリリースを使い回さない、入力検証、一覧取得失敗時の継続（メモリ→DB）、v1.1 形式の保存データを捨てる、TTL キャッシュ、下書き・プレリリース除外と更新履歴、exe 優先、DLページ用データ。
+- 変更: ストリーム受信のテストを、プロセス全体のメモリ量で測る方式（GC 次第で不安定だった）から、「送信途中で止めて、そこまでの分がすでに一時ファイルにある」ことを確かめる決定的なテストに置き換え（3回連続で成功）。
+- マイグレーションのテストに2つ目（テーブル作成のみ・DROP/ALTER/UPDATE なし）を追加。
+
+## セルフレビュー（今回分）
+| 回 | 観点 | 結果・修正 |
+|---|---|---|
+| 1 | 型・エラー処理 | `verifyRelease` が理論上 `sha256: ""` を返しうる書き方（`?? ""`）だった → 型の上でも非空の16進だけを返すよう修正 |
+| 2 | セキュリティ・回帰 | **前回配信分へのフォールバックが、たった今「配信不可」と判定した同じリリース（手動登録を削除した等）を使い回す不具合**を発見 → 今回判定したタグは除外（テスト追加）。手動登録のファイル名検証でバックスラッシュの拒否が漏れていた → 修正（テスト追加） |
+| 3 | ログ・文書の整合 | ログに秘密情報（署名付き URL のクエリ）が出ないことをテストで確認。API_CONTRACT v1.2・DEPLOY（2つ目のマイグレーションの反映・ロールバック・監視イベント）・PROGRESS・QUESTIONS を実装に合わせて更新。2つ目のマイグレーションを MySQL 8.4 で適用 → ロールバック → 再適用（既存テーブルに影響なし、スキーマとの差分なし） |
+
+**残る注意点**: GitHub が遅いとき、キャッシュの更新が重なったリクエストは最大で約20秒（一覧5秒＋SHA256SUMS 最大3件×5秒）待つことがある（TTL 中は即時応答）。
+
+## 契約の変更点（`clipshare-qick` へ伝えること・v1.2）
+1. `GET /api/v1/client/latest` の `assets[].sha256` は**常に64桁の小文字16進（null なし）**。ダウンロード後に必ず照合する。
+2. `assets` は `.exe` / `.msix` / `.msixbundle` だけ。返る `version` が GitHub 上の最新より古いことがある（最新に SHA-256 が揃っていない間）。配信できるものが無ければ 503。
+3. リリースワークフローで `SHA256SUMS`（`sha256sum` 形式、exe と MSIX の両方）を添付する。
+4. 403（BAN）時は `https://clipshare.link/contact` へ案内する。
+
+## オーナーの作業
+1. **push と PR 更新**（今回は push していない）: `git push origin feature/quickshare-api-v1` → PR #1 に反映される。
+2. **PR のレビューと `main` へのマージ**。
+3. **本番デプロイ**（`docs/DEPLOY_QUICKSHARE.md`）: バックアップ → `prisma migrate deploy`（マイグレーション2つ）→ スモークテスト（§6 の 11 で client/latest の sha256 を確認）。
+4. **nginx の反映**（DEPLOY §4）: `X-Forwarded-For $remote_addr` に変更 → `nginx -t` → reload → 確認コマンド。
+5. **クライアント側**: リリースに `SHA256SUMS` を添付するワークフロー、403 時の `/contact` 案内、v1.2 の契約反映。
+6. **管理画面での設定**（デプロイ後）: 署名証明書のフィンガープリント（任意。DLページの信頼手順用）、必要なら SHA-256 の手動登録。
+7. **デザインキャンバスの更新**（DLページの「信頼手順」「更新履歴」）→ 更新後に画面を実装。
+8. **QUESTIONS の確認**: Q-021（digest の照合）、Q-022（ボタンは exe 優先）、Q-023（手動登録の置き場所・ナビ名）、Q-024（BAN 用の問い合わせ種別）、Q-025（アプリ側の IP の取り方）。
