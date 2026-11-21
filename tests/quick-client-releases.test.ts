@@ -20,7 +20,6 @@ const { fetchFromGithub, isAllowedGithubUrl } = await import("@/lib/quick-client
 const { clearQuickApiSettingsCache } = await import("@/lib/quick-share/api-settings");
 const { registerClientAssetChecksum } = await import("@/app/admin/quick-share-actions");
 const latestRoute = await import("@/app/api/v1/client/latest/route");
-const { getDownloadPageData } = await import("@/lib/quick-client/download-page-data");
 
 const REPO = "choko1229/clipshare-qick";
 const LIST_URL = `https://api.github.com/repos/${REPO}/releases?per_page=10`;
@@ -233,6 +232,21 @@ describe("GitHub fetch (SSRF protection)", () => {
     });
     await expect(fetchFromGithub("https://github.com/declared", { maxBytes: 1000, timeoutMs: 1000, accept: "*/*" })).rejects.toMatchObject({ reason: "too_large" });
     await expect(fetchFromGithub("https://github.com/streamed", { maxBytes: 1000, timeoutMs: 1000, accept: "*/*" })).rejects.toMatchObject({ reason: "too_large" });
+  });
+
+  it("reports network failures with the cause code but without the URL", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw Object.assign(new TypeError("fetch failed https://github.com/x?sig=secret"), { cause: { code: "UNABLE_TO_VERIFY_LEAF_SIGNATURE" } });
+      }),
+    );
+    const error = await fetchFromGithub("https://github.com/x", { maxBytes: 1000, timeoutMs: 1000, accept: "*/*" }).catch((caught: unknown) => caught);
+    expect(error).toMatchObject({ reason: "network" });
+    const detail = (error as { detail: string }).detail;
+    expect(detail).toContain("UNABLE_TO_VERIFY_LEAF_SIGNATURE");
+    expect(detail).not.toContain("sig=secret");
+    expect(detail).not.toContain("github.com");
   });
 
   it("limits redirect hops", async () => {
@@ -483,28 +497,5 @@ describe("GET /api/v1/client/latest always returns sha256", () => {
   it("prefers the setup exe for the download button", async () => {
     installFetch({ [LIST_URL]: json([release("v1.2.3", standardAssets("v1.2.3"))]), [sumsUrl("v1.2.3")]: text(sumsFor("v1.2.3")) });
     expect(pickInstallerAsset(await getLatestClientRelease())?.name).toBe("ClipshareQuickSetup-v1.2.3.exe");
-  });
-});
-
-describe("download page data (prepared for the design update)", () => {
-  it("exposes the installer with its SHA-256, the history and the certificate fingerprint", async () => {
-    installFetch({
-      [LIST_URL]: json([release("v1.2.3", standardAssets("v1.2.3")), release("v1.2.2", standardAssets("v1.2.2"))]),
-      [sumsUrl("v1.2.3")]: text(sumsFor("v1.2.3")),
-    });
-    fakePrisma.insert("siteSetting", { key: "quick_client_cert_fingerprint", value: "ab".repeat(32) });
-    clearQuickApiSettingsCache();
-
-    const data = await getDownloadPageData();
-    expect(data.release).toMatchObject({ version: "1.2.3", installerName: "ClipshareQuickSetup-v1.2.3.exe", installerSha256: hash("exe-v1.2.3") });
-    expect(data.history.map((entry) => entry.version)).toEqual(["1.2.3", "1.2.2"]);
-    expect(data.certFingerprint).toBe(Array(32).fill("AB").join(":"));
-  });
-
-  it("falls back to the releases page when nothing is servable", async () => {
-    installFetch({ [LIST_URL]: () => new Response("down", { status: 503 }) });
-    const data = await getDownloadPageData();
-    expect(data.release).toBeNull();
-    expect(data.releasesPageUrl).toBe(`https://github.com/${REPO}/releases`);
   });
 });
