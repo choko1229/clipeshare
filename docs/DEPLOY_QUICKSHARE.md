@@ -109,6 +109,20 @@ sudo nginx -t && sudo systemctl reload nginx
 | 管理 › 連携トークン › Clipshare Quick 連携の設定 | 新しい連携を受け付ける（緊急停止） | ON |
 | 同上 | レート制限: トークン（回/分）/ 未ログイン（回/分）/ 認証失敗（回/10分） | 30 / 10 / 20（0=無制限） |
 | 同上 | 配布元 GitHub リポジトリ / 最小対応バージョン / キャッシュ秒 / 対応OS | `choko1229/clipshare-qick` / 空 / 600 / `Windows 11` |
+| 同上 | 署名証明書のフィンガープリント（SHA-256） | 空（未設定）。下記の手順で取得して入力 |
+
+### 署名証明書のフィンガープリントの取得（Publisher `CN=choko1229` の自己署名証明書）
+入力できる形式は2つだけ: 64桁の16進（区切りなし）、または2桁ずつコロン区切りの32組。大文字小文字は問わず、保存時に `AB:CD:…` に揃える。
+Windows の証明書画面に出る「拇印」は **SHA-1（40桁）なので使えない**（入力すると専用のエラーになる）。次のどちらかで SHA-256 を出す（`CN=choko1229` のテスト用証明書で、2つとも同じ値になることを確認済み）。
+```powershell
+# Windows PowerShell 5.1 / PowerShell 7（.cer は公開鍵だけの証明書ファイル。秘密鍵入りの .pfx は使わない）
+$c = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new("C:\path\to\clipshare-quick.cer")
+$c.Subject                                                                              # CN=choko1229 であること
+$c.GetCertHashString([System.Security.Cryptography.HashAlgorithmName]::SHA256)          # 64桁
+```
+```sh
+openssl x509 -in clipshare-quick.cer -inform DER -noout -subject -fingerprint -sha256   # PEM 形式なら -inform DER を外す
+```
 
 `.env` の追加は**不要**（既存の `NEXT_PUBLIC_APP_URL` を共有URL・OGP の絶対URLに使う。本番では `https://clipshare.link` であること）。
 

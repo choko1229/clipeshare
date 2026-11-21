@@ -13,7 +13,7 @@ import {
   clearQuickApiSettingsCache,
   getQuickApiSettings,
   githubRepoPattern,
-  normalizeCertFingerprint,
+  parseCertFingerprint,
   quickApiSettingKeys,
   semverPattern,
 } from "@/lib/quick-share/api-settings";
@@ -143,11 +143,17 @@ export async function updateQuickApiSettings(formData: FormData) {
   const clientReleaseCacheSeconds = z.coerce.number().int().min(60).max(86_400).parse(formData.get("clientReleaseCacheSeconds"));
   const clientSupportedOs = z.string().trim().min(1).max(64).parse(formData.get("clientSupportedOs"));
   const fingerprintInput = z.string().trim().max(200).parse(formData.get("clientCertFingerprint") ?? "");
-  const clientCertFingerprint = fingerprintInput === "" ? "" : normalizeCertFingerprint(fingerprintInput);
+  const fingerprint = fingerprintInput === "" ? null : parseCertFingerprint(fingerprintInput);
 
-  if (clientCertFingerprint === null) {
-    throw new Error("証明書のフィンガープリントは SHA-256(64桁の16進数)で入力してください。");
+  if (fingerprint && !fingerprint.ok) {
+    throw new Error(
+      fingerprint.reason === "sha1"
+        ? "SHA-1(40桁)の拇印ではなく、SHA-256(64桁)のフィンガープリントを入力してください。"
+        : "証明書のフィンガープリントは SHA-256(64桁の16進数。区切りなし、または2桁ずつコロン区切り)で入力してください。",
+    );
   }
+
+  const clientCertFingerprint = fingerprint?.ok ? fingerprint.value : "";
 
   const entries = [
     { key: quickApiSettingKeys.tokenIssuanceEnabled, value: tokenIssuanceEnabled ? "true" : "false" },
