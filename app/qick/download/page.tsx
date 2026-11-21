@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import { CloudUpload, Download, Glasses, Image as ImageIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { CloudUpload, Glasses, Image as ImageIcon } from "lucide-react";
+import { DownloadButtons, ReleaseHistory, TrustSteps } from "@/components/quick-download/download-sections";
 import { getDownloadPageData } from "@/lib/quick-client/download-page-data";
-import { formatBytes } from "@/lib/uploads/account-limits";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +24,7 @@ const features = [
 
 export default async function QuickDownloadPage() {
   const data = await getDownloadPageData();
-  const downloadUrl = data.release?.downloadUrl ?? data.releasesPageUrl;
   const os = data.supportedOs;
-  const meta = data.release ? [`v${data.release.version}`, formatBytes(data.release.installerSizeBytes), os].join(" · ") : null;
 
   const faqs = [
     { question: "写真はどのくらい保存されますか？", answer: `${data.retentionHours}時間で自動的に削除されます。` },
@@ -47,15 +44,7 @@ export default async function QuickDownloadPage() {
         <p className="mt-3 max-w-[620px] text-base leading-relaxed text-muted-foreground">
           VRChatで写真を撮ると、Clipshareに自動でアップロードして、共有URLをクリップボードにコピーします。エクスプローラーの右クリックからも共有できます。
         </p>
-        <div className="mt-[22px] flex flex-wrap items-center gap-4">
-          <Button asChild className="h-12 text-[15px] font-bold">
-            <a href={downloadUrl} rel="noopener noreferrer">
-              <Download aria-hidden="true" size={16} />
-              {os} 版をダウンロード
-            </a>
-          </Button>
-          {meta ? <p className="text-xs leading-relaxed text-muted-foreground">{meta}</p> : null}
-        </div>
+        <DownloadButtons release={data.release} supportedOs={os} />
       </section>
 
       <h2 className="text-xl font-extrabold leading-snug">はじめかた</h2>
@@ -68,6 +57,10 @@ export default async function QuickDownloadPage() {
           </div>
         ))}
       </div>
+
+      <TrustSteps certFingerprint={data.certFingerprint} />
+
+      <ReleaseHistory history={data.history} />
 
       <h2 className="text-xl font-extrabold leading-snug">できること</h2>
       <div className="flex flex-wrap gap-4">
