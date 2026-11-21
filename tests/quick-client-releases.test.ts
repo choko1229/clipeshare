@@ -104,30 +104,91 @@ async function callLatest() {
   return latestRoute.GET(new Request("https://clipshare.link/api/v1/client/latest"), { params: Promise.resolve({}) });
 }
 
-describe("SHA256SUMS parsing", () => {
-  it("accepts sha256sum output (text and binary markers, ./ and dir prefixes, CRLF)", () => {
-    const parsed = parseSha256Sums(`${hash("a")}  ./dist/a.exe\r\n${hash("b")} *b.msix\r\n\r\n`);
-    expect(parsed.ok).toBe(true);
-    if (parsed.ok) {
-      expect(parsed.sums.get("a.exe")).toBe(hash("a"));
-      expect(parsed.sums.get("b.msix")).toBe(hash("b"));
-    }
+describe("SHA256SUMS parsing (API_CONTRACT v1.2「SHA256SUMS の形式」)", () => {
+  const exe = "ClipshareQuickSetup-1.2.3.exe";
+  const msix = "ClipshareQuick-1.2.3.msix";
+
+  function expectOk(input: string) {
+    const parsed = parseSha256Sums(input);
+    if (!parsed.ok) throw new Error(`expected ok, got ${parsed.reason}`);
+    return parsed.sums;
+  }
+
+  function expectProblem(input: string, reason: string) {
+    const parsed = parseSha256Sums(input);
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) expect(parsed.reason).toBe(reason);
+  }
+
+  it("accepts the canonical `sha256sum` output (two spaces, LF)", () => {
+    const sums = expectOk(`${hash("a")}  ${exe}\n${hash("b")}  ${msix}\n`);
+    expect([...sums.entries()]).toEqual([
+      [exe, hash("a")],
+      [msix, hash("b")],
+    ]);
   });
 
-  it("normalizes upper-case hashes", () => {
-    const parsed = parseSha256Sums(`${hash("a").toUpperCase()}  a.exe`);
-    expect(parsed.ok && parsed.sums.get("a.exe")).toBe(hash("a"));
+  it("accepts CRLF line endings", () => {
+    const sums = expectOk(`${hash("a")}  ${exe}\r\n${hash("b")}  ${msix}\r\n`);
+    expect(sums.get(msix)).toBe(hash("b"));
+  });
+
+  it("ignores trailing blank lines, blank lines in between, trailing spaces and a BOM", () => {
+    const bom = String.fromCharCode(0xfeff);
+    const sums = expectOk([`${bom}${hash("a")}  ${exe}  `, "", `${hash("b")}  ${msix}`, "", "", ""].join("\n").replace(/\n$/, "\r\n"));
+    expect(sums.size).toBe(2);
+  });
+
+  it("accepts the binary marker `*` before the file name (and does not keep it in the name)", () => {
+    const sums = expectOk(`${hash("a")} *${exe}\n${hash("b")}  ${msix}`);
+    expect(sums.get(exe)).toBe(hash("a"));
+    expect(sums.has(`*${exe}`)).toBe(false);
+  });
+
+  it("accepts upper-case hex and normalizes it to lower case", () => {
+    expect(expectOk(`${hash("a").toUpperCase()}  ${exe}`).get(exe)).toBe(hash("a"));
+  });
+
+  it("keeps file names exactly (no trimming of dots or case changes)", () => {
+    const sums = expectOk(`${hash("a")}  ClipshareQuickSetup-1.2.3.EXE`);
+    expect(sums.has("ClipshareQuickSetup-1.2.3.EXE")).toBe(true);
+    expect(sums.has(exe)).toBe(false);
   });
 
   it.each([
-    ["empty", ""],
-    ["short hash", `${hash("a").slice(1)}  a.exe`],
-    ["no separator", `${hash("a")}a.exe`],
-    ["garbage line", `${hash("a")}  a.exe\nhello world`],
-    ["conflicting duplicates", `${hash("a")}  a.exe\n${hash("b")}  a.exe`],
-    ["html error page", "<html><body>Not Found</body></html>"],
-  ])("rejects %s", (_label, input) => {
-    expect(parseSha256Sums(input).ok).toBe(false);
+    ["the same entry twice", `${hash("a")}  ${exe}\n${hash("a")}  ${exe}`],
+    ["the same name with different hashes", `${hash("a")}  ${exe}\n${hash("b")}  ${exe}`],
+  ])("rejects duplicate entries: %s", (_label, input) => {
+    expectProblem(input, "duplicate_entry");
+  });
+
+  it.each([
+    ["63 hex digits", `${hash("a").slice(1)}  ${exe}`],
+    ["65 hex digits", `${hash("a")}0  ${exe}`],
+    ["non-hex characters", `${"g".repeat(64)}  ${exe}`],
+    ["a single space separator", `${hash("a")} ${exe}`],
+    ["a tab separator", `${hash("a")}\t${exe}`],
+    ["a leading space", ` ${hash("a")}  ${exe}`],
+    ["a BSD-style line", `SHA256 (${exe}) = ${hash("a")}`],
+    ["a hash without a file name", `${hash("a")}  `],
+    ["one bad line among good ones", `${hash("a")}  ${exe}\nnot a checksum line\n${hash("b")}  ${msix}`],
+    ["an HTML error page", "<html><body>Not Found</body></html>"],
+  ])("rejects %s as a malformed line", (_label, input) => {
+    expectProblem(input, "malformed_line");
+  });
+
+  it("reports the line number of the first bad line", () => {
+    const parsed = parseSha256Sums(`${hash("a")}  ${exe}\r\n${hash("b").slice(2)}  ${msix}\r\n`);
+    expect(parsed).toEqual({ ok: false, reason: "malformed_line", line: 2 });
+  });
+
+  it.each([`./${exe}`, `dist/${exe}`, ["dist", exe].join("\\")])("rejects file names with a path (%s)", (name) => {
+    expectProblem(`${hash("a")}  ${name}`, "path_in_file_name");
+  });
+
+  it("rejects an empty file", () => {
+    expectProblem("", "empty");
+    expectProblem("\r\n\r\n", "empty");
   });
 });
 
@@ -238,6 +299,43 @@ describe("GET /api/v1/client/latest always returns sha256", () => {
     installFetch({ [LIST_URL]: json([release("v1.2.3", standardAssets("v1.2.3"))]), [sumsUrl("v1.2.3")]: text(`${sumsFor("v1.2.3")}\nnot a checksum line`) });
     expect((await callLatest()).status).toBe(503);
     expect((await getClientReleaseStatuses()).statuses[0].reason).toContain("sha256sums_invalid");
+  });
+
+  it("a SHA256SUMS line for a file that is not an asset of the release makes it not servable", async () => {
+    installFetch({
+      [LIST_URL]: json([release("v1.2.3", standardAssets("v1.2.3"))]),
+      [sumsUrl("v1.2.3")]: text(`${sumsFor("v1.2.3")}${hash("old")}  ClipshareQuickSetup-v1.2.2.exe\n`),
+    });
+    expect((await callLatest()).status).toBe(503);
+    expect((await getClientReleaseStatuses()).statuses[0].reason).toBe("sha256sums_invalid:unknown_file");
+  });
+
+  it("allows lines for other assets of the same release (e.g. .appinstaller) without serving them", async () => {
+    installFetch({
+      [LIST_URL]: json([release("v1.2.3", standardAssets("v1.2.3"))]),
+      [sumsUrl("v1.2.3")]: text(`${sumsFor("v1.2.3")}${hash("ai")}  ClipshareQuick.appinstaller\n`),
+    });
+    const body = (await (await callLatest()).json()) as { assets: Array<{ name: string }> };
+    expect(body.assets.map((asset) => asset.name)).toEqual(["ClipshareQuickSetup-v1.2.3.exe", "ClipshareQuick-v1.2.3.msix"]);
+  });
+
+  it("an invalid SHA256SUMS cannot be overridden by manual registration", async () => {
+    installFetch({
+      [LIST_URL]: json([release("v1.2.3", standardAssets("v1.2.3"))]),
+      [sumsUrl("v1.2.3")]: text(`${hash("exe-v1.2.3")}  ClipshareQuickSetup-v1.2.3.exe\n${hash("x").slice(1)}  ClipshareQuick-v1.2.3.msix\n`),
+    });
+    for (const [name, seed] of [
+      ["ClipshareQuickSetup-v1.2.3.exe", "exe-v1.2.3"],
+      ["ClipshareQuick-v1.2.3.msix", "msix-v1.2.3"],
+    ] as const) {
+      const form = new FormData();
+      form.set("tag", "v1.2.3");
+      form.set("assetName", name);
+      form.set("sha256", hash(seed));
+      await registerClientAssetChecksum(form);
+    }
+    expect((await callLatest()).status).toBe(503);
+    expect((await getClientReleaseStatuses()).statuses[0].reason).toBe("sha256sums_invalid:malformed_line@line2");
   });
 
   it("SHA256SUMS that misses one installer makes the release not servable", async () => {
