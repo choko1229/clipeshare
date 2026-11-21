@@ -173,10 +173,17 @@ export async function verifyRelease(repo: string, release: GithubRelease, manual
       });
       const parsed = parseSha256Sums(body.toString("utf8"));
 
-      if (parsed.ok) {
-        sums = parsed.sums;
+      if (!parsed.ok) {
+        sumsProblem = `sha256sums_invalid:${parsed.reason}${parsed.line ? `@line${parsed.line}` : ""}`;
       } else {
-        sumsProblem = `sha256sums_invalid:${parsed.reason}`;
+        // ファイル名は GitHub のアセット名と完全一致が必要。リリースに無いファイルの行があれば、別リリースの SHA256SUMS とみなして信用しない
+        const assetNames = new Set(release.assets.map((asset) => asset.name));
+        const unknown = [...parsed.sums.keys()].find((name) => !assetNames.has(name));
+        if (unknown) {
+          sumsProblem = "sha256sums_invalid:unknown_file";
+        } else {
+          sums = parsed.sums;
+        }
       }
     } catch (error) {
       sumsProblem = error instanceof GithubFetchError ? `sha256sums_fetch_failed:${error.reason}` : "sha256sums_fetch_failed";
@@ -191,6 +198,15 @@ export async function verifyRelease(repo: string, release: GithubRelease, manual
 
   if (sumsProblem) {
     logApi("warn", { event: "quick_client.sha256sums_unavailable", repo, version, reason: sumsProblem });
+  }
+
+  // SHA256SUMS があるのに不正: そのリリースは配信しない(手動登録でも上書きしない)。
+  // 手動登録のフォールバックは SHA256SUMS が「無い」「取得できない」場合だけ
+  if (sumsProblem?.startsWith("sha256sums_invalid")) {
+    return fail(
+      sumsProblem,
+      distributable.map((asset) => ({ name: asset.name, sha256: null, source: null })),
+    );
   }
 
   const manualForTag = manual.get(release.tag_name) ?? new Map<string, string>();
