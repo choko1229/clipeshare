@@ -233,3 +233,46 @@ POST /api/v1/quick (Bearer csq_xxx) → 401 {"error":{"code":"UNAUTHORIZED","mes
 5. **証明書フィンガープリントの入力**（デプロイ後）: DEPLOY §5 の手順で `CN=choko1229` の証明書の SHA-256 を出し、管理 › 連携トークン › Clipshare Quick 連携の設定に入力。
 6. クライアント側: リリースワークフローを API_CONTRACT「SHA256SUMS の形式」どおりにする（配布ファイルと同じフォルダで生成、パスを付けない）。
 7. Q-026（不正な SHA256SUMS を手動登録で上書きしない方針）の確認。
+
+---
+
+# 追加報告3: ダウンロードページ（/qick/download）の実装（2026-11-22）
+**未 push**（ローカルコミットのみ）。正本デザイン: `docs/quickshare/design/01-web-download-page.dc.html`（オーナーが配置した最新版。本報告のコミットで取り込み）。
+
+## 実装内容
+- **ボタン**: メイン「{対応OS} 版をダウンロード」＝セットアップ exe、副「MSIXをダウンロード」（ゴースト）、その横に `v{版} · {exe のサイズ} · {対応OS}`。どちらも `/api/v1/client/latest` と同じ**SHA-256 検証済みリリース**のファイルだけ（既存の `releases.ts` のキャッシュを再利用。新しい外部取得は無い）。検証済みが無いときはメインボタンを無効化し、MSIX とバージョン行は出さない（Q-029）。リリースに MSIX が無い／セットアップ自体が MSIX のときは副ボタンを出さない。
+- **証明書の信頼手順**: 3ステップ（セットアップを開く → 証明書を信頼する（発行元 choko1229）→ インストール）。文言はデザインの仮置きのまま。
+- **フィンガープリント行**: 管理画面で登録した値（`AB:CD:…` に正規化済み）をそのまま表示し、コピーボタンを付ける。未登録なら行ごと非表示。コピー成功時は既存画面と同じ「コピーしました」を2秒（Q-031）。クリップボードが使えない環境では成功表示を出さない。
+- **更新履歴**: 配信中（検証済み）以前の直近3件（Q-030）。変更点は Release 本文から作るプレーンテキスト（箇条書き優先、Markdown 記法と HTML コメントを除去、5項目・140文字・先頭60行の上限は定数、Q-028）。日付は日本時間。0件・配信中なし・取得失敗のときは区画ごと非表示。
+- **縮退**: リリース・履歴・各設定の読み込みを区画ごとに分け、失敗した区画だけ既定値／非表示にしてログ（`quick_download.section_failed`）を残す。ページ全体は落ちない。
+- **構成**: 取得と整形は `lib/quick-client/download-page-data.ts`（画面用の型 `DownloadPageData`）と `lib/quick-client/release-notes.ts`、表示は `components/quick-download/{download-sections,copy-button}.tsx`、ページは組み立てのみ（`app/qick/download/page.tsx`）。
+- **ログの改善**: GitHub 取得のネットワークエラーで、例外名だけでなくメッセージの1行目と原因コード（例 `UNABLE_TO_VERIFY_LEAF_SIGNATURE`）を残す（URL は `<url>` に置換）。
+
+## 文言の確認
+- 「MSIXをダウンロード」「セットアップを開く／証明書を信頼する／インストール」と各説明は、既存の文言（「〜をダウンロード」「インストール」「セットアップ」、Q-022 の exe＝セットアップ）と矛盾しない。デザインに無い説明文は足していない。追加した表示はコピー後の「コピーしました」だけで、既存のクイック共有画面と同じ状態表示（Q-031）。
+
+## 変更ファイル
+- 追加: `lib/quick-client/release-notes.ts`、`components/quick-download/download-sections.tsx`、`components/quick-download/copy-button.tsx`、`tests/download-page.test.tsx`
+- 変更: `app/qick/download/page.tsx`、`lib/quick-client/download-page-data.ts`、`lib/quick-client/github-fetch.ts`（ログ詳細）、`tests/quick-client-releases.test.ts`（旧データ準備テストを新ファイルへ移し、ログ詳細のテストを追加）、`vitest.config.ts`（`*.test.tsx` を対象に）、`docs/quickshare/design/01-web-download-page.dc.html`（オーナー配置の最新版）、`docs/quickshare/{PROGRESS,QUESTIONS,REPORT}.md`
+
+## テスト結果
+`npm.cmd run typecheck` 成功 / `npm.cmd run lint` 成功 / `npm.cmd run build` 成功 / `npm.cmd test` **264件すべて成功（13ファイル）**（既存243件は維持。旧「DLページのデータ準備」テスト2件は新ファイルの同等以上のテストに置き換え）。
+- `tests/download-page.test.tsx`（22件）: 変更点の整形（箇条書き・見出しのみ・CRLF・HTML コメント・画像・制御文字・項目数/文字数の上限・空）、日付（日本時間・不正値）、履歴の範囲（配信中から3件・1件・配信中なし・日付での代替）、描画（exe/MSIX/バージョン行、**検証済みなし＝無効ボタン・リンク無し**、MSIX 無し、信頼手順の文言、**フィンガープリント有り/無し・コピー対象の値**、**履歴0件/1件/3件**、**本文の `<script>`・`<img onerror>`・`javascript:` リンクがエスケープされる**）、ページデータ（**履歴の取得失敗でも他は表示**、検証済みなしで履歴なし、設定が読めないとき既定値、MSIX のみのリリース）。
+- ブラウザでの確認（ローカルの使い捨て MySQL 8.4 ＋ `next dev`。保存済みキャッシュを使う経路で表示）: ダーク／ライト、375px 幅で横スクロールなし、未検証の新しい版が履歴に出ない、本文の `<script>` が文字として表示され実行されない（コンソールエラーなし）、コピーで正規化済みの値がそのまま渡り「コピーしました」になる（クリップボード拒否の環境では表示が変わらない）、検証済みリリースが無い状態でボタン無効・MSIX/バージョン行/履歴なし。
+
+## セルフレビュー（今回分）
+| 回 | 観点 | 結果・修正 |
+|---|---|---|
+| 1 | XSS・セキュリティ | 本文はプレーンテキスト化して React のテキストとして描画（`dangerouslySetInnerHTML` 不使用をコード検索で確認）。リンク先は検証済みリリースの GitHub https のファイルだけ。検証済みが無いときに GitHub のリリースページ（未検証のファイル）へ誘導していた旧挙動をやめて無効化 |
+| 2 | エラー処理・ログ | 区画ごとの縮退とログを追加。ブラウザ確認中に GitHub 取得が `network TypeError` としか記録されず原因が分からなかった → メッセージと原因コードを記録するよう改善し、テスト追加。これにより、アプリから起動した開発サーバーだけ TLS 検証に失敗する（`UNABLE_TO_VERIFY_LEAF_SIGNATURE`）ことが判明 |
+| 3 | 型・保守性 | 画面用の型（`DownloadPageData`）を取得側に置き、表示部品は props だけで描画できる形にしてテスト可能に。上限値は定数に集約。データ準備時に作った未使用フィールド（`releasesPageUrl` など）を削除し、参照が残っていないことを確認 |
+
+## 環境メモ（ローカル開発）
+- この PC では、シェルの Node には `NODE_EXTRA_CA_CERTS` が設定されているが、Claude のアプリから起動した開発サーバーには引き継がれず、GitHub への HTTPS が証明書検証エラーになる（TLS を検査するソフト等の影響と思われる）。本番（Linux）には関係しない。ローカルで実際の GitHub Releases を見たい場合は、開発サーバーの起動環境にも `NODE_EXTRA_CA_CERTS` を設定する。TLS 検証を無効にする対応はしていない。
+
+## 未解決の質問
+- Q-028 更新履歴の上限値（3件・5項目・140文字）とリリースノートの書き方
+- Q-029 検証済みリリースが無いときの無効ボタンに文言を足すか（デザイン）
+- Q-030 履歴を配信中以前に限る方針
+- Q-031 コピー後の「コピーしました」表示
+- Q-026 不正な SHA256SUMS を手動登録で上書きしない方針（前回から継続）
