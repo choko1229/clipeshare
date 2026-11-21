@@ -1,11 +1,11 @@
 # Clipshare Quick 本番反映手順（feature/quickshare-api-v1）
 
 > この手順は**人が実施する**。Claude Code は本番DB・本番サーバーへの操作、`main` へのマージを行っていない。
-> 対象: マイグレーション `20261121000000_add_quickshare_api_tokens`（追加のみ）と、Clipshare Quick 向けの API・画面。
+> 対象: マイグレーション `20261121000000_add_quickshare_api_tokens` と `20261121010000_add_quick_client_asset_checksums`（どちらも追加のみ）と、Clipshare Quick 向けの API・画面。
 
 ## 0. 事前確認（ローカル / PR 上）
 - [ ] PR の CI 相当: `npm.cmd ci` → `npx prisma generate` → `npm.cmd run typecheck` → `npm.cmd run lint` → `npm.cmd test` → `npm.cmd run build` がすべて通る。
-- [ ] マイグレーション SQL を目視確認（`prisma/migrations/20261121000000_add_quickshare_api_tokens/migration.sql`）。`DROP` / `MODIFY` / `TRUNCATE` / `DELETE` が無いこと（`tests/migrations.test.ts` でも検査）。
+- [ ] マイグレーション SQL を目視確認（`prisma/migrations/20261121000000_add_quickshare_api_tokens/migration.sql`、`prisma/migrations/20261121010000_add_quick_client_asset_checksums/migration.sql`＝テーブル追加のみ）。`DROP` / `MODIFY` / `TRUNCATE` / `DELETE` が無いこと（`tests/migrations.test.ts` でも検査）。
   - 含まれるデータ更新は2文だけ: ① `quick_share_max_image_bytes` が旧既定値 `20000000` のときだけ `50000000` に更新、② 既存の全 AccountLevel にクイック共有上限（サイト全体設定の現在値）をコピー。
 - [ ] 検証済み: MySQL 8.4 の使い捨てコンテナで「既存マイグレーション適用 → 既存相当データ投入 → 本マイグレーション適用 → ロールバック SQL → 再適用」を実施し成功（2026-11-21）。
 - [ ] `main` へのマージは PR レビュー後に人が行う。
@@ -44,16 +44,59 @@ gunzip -t ~/backup/clipeshare-*-pre-quickshare.sql.gz   # 壊れていないこ�
 3. 適用結果の確認:
    ```sql
    SHOW TABLES LIKE 'Api%';                                   -- ApiAuthorization, ApiToken
+   SHOW TABLES LIKE 'QuickClientAssetChecksum';
    SELECT name, quickShareImageMaxBytes, quickShareVideoMaxBytes FROM AccountLevel;
    SELECT `key`, value FROM SiteSetting WHERE `key` LIKE 'quick_share_%';
    ```
 
-## 4. nginx の設定（推奨・要判断）
-- **X-Forwarded-For の上書き**（QUESTIONS Q-017）: 現在 `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`（追記）のため、クライアントが送った値が先頭に残り、匿名の1日上限・匿名レート制限・認証失敗の制限を回避できる（既存の /qick にもある弱点）。nginx の前段に CDN/プロキシが**無い**場合は次に変更する:
-  ```nginx
-  proxy_set_header X-Forwarded-For $remote_addr;
-  ```
-  前段に Cloudflare 等がある場合は `set_real_ip_from` + `real_ip_header` で実IPを復元してから上書きする。変更後 `sudo nginx -t && sudo systemctl reload nginx`。
+## 4. nginx の設定（X-Forwarded-For の上書き。**オーナーが適用**）
+### なぜ変えるか
+- アプリは接続元 IP を `X-Forwarded-For` の**先頭**から取り、ハッシュにして「匿名の1日上限（5件）」「API の匿名レート制限」「認証失敗の連続制限」「お問い合わせの送信回数制限」に使う（`lib/quick-share/ip-hash.ts`）。
+- 現在の設定 `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;` は、クライアントが送ってきた `X-Forwarded-For` の**後ろに**実際の接続元を**追記**する。そのためクライアントが `X-Forwarded-For: 1.2.3.4` と付けると先頭が偽装され、上の制限をすべて回避できる（既存の `/qick` にもある弱点）。
+- clipshare.link は **CDN なし**で nginx/1.24.0 が直接クライアントを受けている（オーナー回答 2026-11-21）。前段に信頼できるプロキシが無いので、**クライアントが送る `X-Forwarded-For` は一切信用しない**＝nginx が見た接続元 `$remote_addr` で上書きするのが正しい。
+
+### 変更内容（443 の server ブロックを含む、`proxy_pass` しているすべての location）
+```nginx
+# 変更前
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+# 変更後
+proxy_set_header X-Forwarded-For $remote_addr;
+```
+`X-Real-IP $remote_addr` はそのまま残す。新規構築用の `scripts/install-ubuntu-24.sh` の設定テンプレートは本ブランチで変更済み（既存サーバーには影響しない）。
+
+### 変更前後の挙動
+| | 変更前（追記） | 変更後（上書き） |
+|---|---|---|
+| 普通のクライアント | 先頭 = 接続元 | 先頭 = 接続元（**同じ**。IP ハッシュも同じなので、当日の件数は引き継がれる） |
+| `X-Forwarded-For: 1.2.3.4` を付けたクライアント | 先頭 = `1.2.3.4`（偽装成功） | 先頭 = 接続元（偽装は無視される） |
+
+### 反映手順
+```sh
+sudo cp -a /etc/nginx/sites-available/clipeshare /etc/nginx/sites-available/clipeshare.bak-$(date +%Y%m%d%H%M%S)   # ファイル名は環境に合わせる
+sudo grep -rn 'X-Forwarded-For' /etc/nginx/sites-available/ /etc/nginx/conf.d/ 2>/dev/null                        # 対象行を確認(certbot が作った 443 側も)
+sudo sed -i 's/proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;/proxy_set_header X-Forwarded-For $remote_addr;/' /etc/nginx/sites-available/clipeshare
+sudo grep -rn 'X-Forwarded-For' /etc/nginx/sites-available/ /etc/nginx/conf.d/ 2>/dev/null                        # すべて $remote_addr になったこと
+sudo nginx -t && sudo systemctl reload nginx                                                                         # reload は接続を切らない
+```
+
+### 確認コマンド
+1. 偽装が効かないこと（匿名の1日上限を使う。テスト用の画像で、同じ回線から）:
+   ```sh
+   curl -s https://clipshare.link/api/v1/me | jq .limits.dailyUsed
+   curl -s -H 'X-Forwarded-For: 203.0.113.99' https://clipshare.link/api/v1/me | jq .limits.dailyUsed
+   ```
+   変更後は2つの値が**同じ**（ヘッダを付けても同じ IP として数えられる）。変更前は2つ目が別の IP 扱いになり、値が異なる（0 になる）ことがある。
+2. 通常の動作: `/qick` で画像を1枚アップロードでき、ログイン・投稿ができること。
+3. エラーログ: `sudo tail -n 50 /var/log/nginx/error.log` に新しいエラーが無いこと。
+
+### ロールバック
+```sh
+sudo cp -a /etc/nginx/sites-available/clipeshare.bak-<日時> /etc/nginx/sites-available/clipeshare
+sudo nginx -t && sudo systemctl reload nginx
+```
+（アプリ・DB の変更は不要。値の取り方だけの変更なので、戻しても数え方は連続する）
+
+### その他の nginx 設定
 - **リクエストのバッファリング**: `proxy_request_buffering` は既定（on）のままにする。アプリは上限超過や形式不正を受信途中で打ち切るため、nginx を通さず Next に直接送ると 413/415 の JSON の代わりに接続リセットになることがある。
 - **アップロードの上限**: `client_max_body_size 512m;`（現状）。アプリの上限 `0`（無制限）にしても nginx のこの値が実質の上限になる。nginx が返す 413 は HTML なので、クライアントは JSON でない 413 もサイズ超過として扱う（契約に記載済み）。
 - `/media/` を nginx が直接配信している場合、`/media/quick/images/*.webp` が `Content-Type: image/webp` で返ることを確認（OGP 画像に使う）。
@@ -92,7 +135,10 @@ gunzip -t ~/backup/clipeshare-*-pre-quickshare.sql.gz   # 壊れていないこ�
 8. **管理画面**: `$B/admin/api-tokens` でトークン値が表示されないこと、失効でき `操作ログ` に `api_token.revoke` が残ること。
 9. **OGP**: 下記「OGP の表示確認」を実施。
 10. **既存 Web の回帰**: `/qick` で匿名・ログイン中それぞれ画像を1枚アップロード → 従来どおりバナー付き・URL発行・削除できる。`/login` から通常ログインして `/` に戻る。
-11. **ダウンロードページ**: `$B/qick/download` が表示される（リリースが無い間はバージョン表記なしで GitHub のリリースページへリンク）。`$B/api/v1/client/latest` はリリース公開後に `200`。
+11. **ダウンロードページ / 更新情報**: `$B/qick/download` が表示される（配信できるリリースが無い間はバージョン表記なしで GitHub のリリースページへリンク）。
+    - クライアントのリリースに `SHA256SUMS`（セットアップ exe と MSIX の両方を記載）を添付して公開 → `curl -s $B/api/v1/client/latest | jq '.assets[] | {name, sha256}'` で2ファイルとも64桁の sha256 が返る（null は返らない）。
+    - `SHA256SUMS` が無い・壊れている場合は 503（または前のバージョン）になる。管理 › 連携トークン › 「配布ファイルの SHA-256」で判定理由を確認し、必要なら手動登録する。手元での計算: Windows `Get-FileHash -Algorithm SHA256 <file>`、Linux `sha256sum <file>`。
+    - 管理画面を保存した直後はキャッシュを捨てるので、次のリクエストで反映される。
 
 ## OGP の表示確認（Discord / X）
 公開URLでしか確認できないため、本番（またはインターネットから見えるステージング）で人が行う。
@@ -139,6 +185,9 @@ DROP TABLE `ApiAuthorization`;
 DROP TABLE `ApiToken`;
 ALTER TABLE `AccountLevel` DROP COLUMN `quickShareImageMaxBytes`, DROP COLUMN `quickShareVideoMaxBytes`;
 DELETE FROM `_prisma_migrations` WHERE `migration_name` = '20261121000000_add_quickshare_api_tokens';
+-- 2つ目のマイグレーション(手動登録した SHA-256)。先にこちらを戻してもよい
+DROP TABLE `QuickClientAssetChecksum`;
+DELETE FROM `_prisma_migrations` WHERE `migration_name` = '20261121010000_add_quick_client_asset_checksums';
 -- 任意: 画像上限を 20MB に戻す(マイグレーションで 50MB にした場合のみ)
 UPDATE `SiteSetting` SET `value` = '20000000' WHERE `key` = 'quick_share_max_image_bytes' AND `value` = '50000000';
 -- 任意: Clipshare Quick 用の設定を消す
@@ -153,5 +202,7 @@ DELETE FROM `SiteSetting` WHERE `key` LIKE 'quick\_api\_%' OR `key` LIKE 'quick\
   - `api_auth.repeated_failures`（同一IPからの認証失敗の連続）
   - `api_auth.code_reuse`（認可コードの再使用 = 漏えいの疑い）
   - `quick_client.release_fetch_failed`（GitHub API 失敗。前回結果で継続）
+  - `quick_client.release_not_servable` / `quick_client.sha256sums_unavailable` / `quick_client.sha256sums_fetch_failed`（SHA-256 が揃わず配信しないリリース。理由付き）
+  - `quick_client.no_servable_release`（新しく配信できるリリースが無い。前のバージョンを継続中か、配信なし＝503）
 - ログにトークン・Authorization・ファイル内容は出ない（`tests/api-log.test.ts` 等で検査）。
 - 受信途中の一時ファイルは `npm run cleanup:quick-share`（既存の systemd timer）が24時間後に削除する。
