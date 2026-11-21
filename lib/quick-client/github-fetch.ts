@@ -67,7 +67,7 @@ export async function fetchFromGithub(url: string, options: GithubFetchOptions):
       if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
         throw new GithubFetchError("timeout", safeHost(current));
       }
-      throw new GithubFetchError("network", error instanceof Error ? error.name : "unknown");
+      throw new GithubFetchError("network", describeNetworkError(error));
     }
 
     if (response.status >= 300 && response.status < 400) {
@@ -127,6 +127,18 @@ async function readLimited(response: Response, maxBytes: number, url: string) {
   }
 
   return Buffer.concat(chunks);
+}
+
+/** ログ用: 例外名・メッセージの1行目・原因コード(ECONNRESET など)。URL は含めない */
+function describeNetworkError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return "unknown";
+  }
+
+  const cause = (error as { cause?: unknown }).cause;
+  const causeCode = typeof cause === "object" && cause !== null && typeof (cause as { code?: unknown }).code === "string" ? (cause as { code: string }).code : null;
+  const message = (error.message.split(/\r?\n/)[0] ?? "").replace(/https?:\/\/\S+/g, "<url>").slice(0, 120);
+  return [error.name, message, causeCode].filter(Boolean).join(" ");
 }
 
 /** ログ用: ホスト名だけ(署名付き URL のクエリは出さない) */
