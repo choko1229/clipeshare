@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import sharp from "sharp";
@@ -277,13 +277,58 @@ describe("streaming multipart receiver", () => {
     expect(error.code).toBe("INVALID_REQUEST");
   });
 
-  it("receives a large file without holding it in memory (streams to disk)", async () => {
-    const big = fakeMp4(30 * 1024 * 1024);
-    const before = process.memoryUsage().arrayBuffers;
-    const received = await receive(multipartRequest(url, { file: { bytes: big, name: "big.mp4" } }), { imageMaxBytes: 0, videoMaxBytes: 0 });
-    expect(received.sizeBytes).toBe(big.length);
-    // リクエスト本体(30MB)とは別に、受信側でさらに全体を保持していないこと
-    expect(process.memoryUsage().arrayBuffers - before).toBeLessThan(60 * 1024 * 1024);
+  it("writes to disk while the upload is still arriving (does not buffer the whole body)", async () => {
+    const boundary = "----clipshare-test-boundary";
+    const chunk = Buffer.alloc(1024 * 1024);
+    const half = 20;
+    let sent = 0;
+    let resumeUpload: () => void = () => undefined;
+    const upload: { promise: ReturnType<typeof receive> | null } = { promise: null };
+    const pausedHalfway = new Promise<void>((resolveHalfway) => {
+      const body = new ReadableStream<Uint8Array>({
+        async pull(controller) {
+          if (sent === 0) {
+            const head = Buffer.from(
+              [`--${boundary}`, 'Content-Disposition: form-data; name="file"; filename="big.mp4"', "Content-Type: video/mp4", "", ""].join("\r\n"),
+            );
+            controller.enqueue(new Uint8Array(Buffer.concat([head, fakeMp4(chunk.length)])));
+          } else if (sent < half * 2) {
+            if (sent === half) {
+              resolveHalfway();
+              await new Promise<void>((resolveResume) => {
+                resumeUpload = resolveResume;
+              });
+            }
+            controller.enqueue(new Uint8Array(chunk));
+          } else {
+            controller.enqueue(new Uint8Array(Buffer.from(["", `--${boundary}--`, ""].join("\r\n"))));
+            controller.close();
+          }
+          sent += 1;
+        },
+      });
+      const request = new Request(url, {
+        method: "POST",
+        headers: { "content-type": `multipart/form-data; boundary=${boundary}` },
+        body,
+        duplex: "half",
+      } as RequestInit & { duplex: "half" });
+      upload.promise = receive(request, { imageMaxBytes: 0, videoMaxBytes: 0 });
+    });
+
+    await pausedHalfway;
+    // 書き込みが追いつくのを少し待つ
+    await new Promise((resolveWait) => setTimeout(resolveWait, 100));
+    const files = await incomingFiles();
+    expect(files).toHaveLength(1);
+    const { size } = await stat(path.join(incoming, files[0]));
+    // 送信途中(20MB 分)で、すでにほぼ全量がディスクにある = メモリに溜めていない
+    expect(size).toBeGreaterThan((half - 2) * chunk.length);
+
+    resumeUpload();
+    if (!upload.promise) throw new Error("upload did not start");
+    const received = await upload.promise;
+    expect(received.sizeBytes).toBe(half * 2 * chunk.length);
     await rm(received.tempPath, { force: true });
   });
 });
