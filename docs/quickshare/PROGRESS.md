@@ -43,3 +43,33 @@
 - [x] (2026-11-21) `typecheck`/`lint`/`build`/テスト全通過（175件）
 - [x] (2026-11-21) `REPORT.md`（完了報告。契約の変更点、未検証項目の結果、人が行う作業）
 - [x] (2026-11-21) 作業ブランチをpush、PR作成（マージはしない）
+
+## 追加作業（2026-11-21 オーナー回答の反映）
+決定事項は `QUESTIONS.md`「オーナー回答（2026-11-21）の反映メモ」を参照。
+
+### A. `/api/v1/client/latest` の sha256 を必ず返す（API 契約 v1.2）
+- [x] null になる経路の洗い出し（v1.1 時点）: ① GitHub の asset に `digest` が無い → `sha256: null`、② DB に残した前回結果（v1.1 形式）が null を含む → そのまま返る、③ `.appinstaller` など配布物以外の asset も null のまま返していた
+- [x] `SHA256SUMS` を GitHub Releases から取得・解析（`lib/quick-client/checksums.ts`）→ 手動登録（`QuickClientAssetChecksum`、管理画面「連携トークン › 配布ファイルの SHA-256」）→ 揃わないリリースは配信しない（直近3件まで遡る → 前回配信分 → 503）。GitHub の digest は照合のみ（Q-021）
+- [x] 取得先は GitHub の許可ホストの https のみ（リダイレクト先も毎回検査、最大3回）、サイズ上限（一覧 2MB / SHA256SUMS 64KB）、タイムアウト 5秒、キャッシュ（TTL は管理画面設定、失敗時1分バックオフ、DB 永続）、詳細ログ（`quick_client.*`）（`lib/quick-client/github-fetch.ts`、`releases.ts`）
+- [x] マイグレーション `20261121010000_add_quick_client_asset_checksums`（追加のみ）
+- [x] API_CONTRACT v1.2（sha256 は常に非 null、503 の条件、リリースワークフローへの要件）
+- [x] vitest（正常・SHA256SUMS 欠落・形式不正・一部欠落・取得失敗・手動登録・SSRF 拒否・リダイレクト先拒否・サイズ上限・タイムアウト・digest 不一致・旧形式キャッシュの無視・キャッシュ・下書き/プレリリース除外）`tests/quick-client-releases.test.ts`
+
+### B. nginx の X-Forwarded-For 上書き
+- [x] `docs/DEPLOY_QUICKSHARE.md` §4 に変更内容・理由（CDN なし）・変更前後の挙動・反映手順・確認コマンド・ロールバックを記載。新規構築用テンプレート `scripts/install-ubuntu-24.sh` も変更
+- [x] アプリ側の点検結果と改善案を `QUESTIONS.md` Q-025 に記録
+- [ ] **本番 nginx への適用（オーナー）**
+
+### C. 403（BAN）の案内先
+- [x] **403案内先URL: `https://clipshare.link/contact`**（`app/contact/page.tsx`。ログイン不要・BAN ユーザーも送信可）。API_CONTRACT の 403 行に明記。BAN 用の種別は無い（Q-024）
+
+### D. ダウンロードページ（`/qick/download`）の拡張 — **デザイン更新待ち**
+デザイン01（`design/01-web-download-page.dc.html`）には該当区画が無い。キャンバス更新後に画面を実装する。今回はデータの準備まで（`lib/quick-client/download-page-data.ts` の `getDownloadPageData()`。現在の画面もこれを使うが表示は変えていない）。
+- [ ] 自己署名証明書の信頼手順（ステップ形式） — デザイン更新待ち
+  - 必要な要素: 見出し、手順（番号・短い見出し・必要なら1文）の並び、証明書のフィンガープリント（SHA-256、`AB:CD:…`）、配布ファイルの SHA-256（照合用）
+  - データ: `certFingerprint`（管理画面「Clipshare Quick 連携の設定 › 署名証明書のフィンガープリント」で設定、未設定なら null）、`release.installerName` / `installerSha256`。手順の文言はデザインで確定してから入れる
+- [ ] 更新履歴（リリース一覧） — デザイン更新待ち
+  - 必要な要素: 見出し、各リリースのバージョン・公開日・リリースノート・GitHub のリリースページへのリンク
+  - データ: `history`（GitHub Releases の公開リリース最大10件、新しい順。下書き・プレリリース除外。`/api/v1/client/latest` と同じキャッシュ。失敗時は前回の結果を DB から）
+  - 未定事項: リリースノートの表示形式（GitHub の本文は Markdown。プレーンテキストで出すか描画するか）、表示件数
+- [x] ダウンロードボタンはセットアップ exe を優先に変更済み（Q-022。見た目は不変）
