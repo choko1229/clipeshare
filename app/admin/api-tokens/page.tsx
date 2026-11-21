@@ -1,10 +1,11 @@
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
-import { revokeApiTokenByAdmin, updateQuickApiSettings } from "@/app/admin/quick-share-actions";
+import { deleteClientAssetChecksum, registerClientAssetChecksum, revokeApiTokenByAdmin, updateQuickApiSettings } from "@/app/admin/quick-share-actions";
 import { Button } from "@/components/ui/button";
 import { requireAdmin } from "@/lib/admin/auth";
 import { prisma } from "@/lib/db/prisma";
 import { formatRelativeTimeJa } from "@/lib/format/relative-time";
+import { getClientReleaseStatuses } from "@/lib/quick-client/releases";
 import { getQuickApiSettings } from "@/lib/quick-share/api-settings";
 
 export const dynamic = "force-dynamic";
@@ -59,6 +60,14 @@ export default async function AdminApiTokensPage({ searchParams }: AdminApiToken
       },
     }),
     getQuickApiSettings(),
+  ]);
+  const [releaseStatus, manualChecksums] = await Promise.all([
+    getClientReleaseStatuses(),
+    prisma.quickClientAssetChecksum.findMany({
+      where: { repo: settings.clientGithubRepo },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    }),
   ]);
   const now = new Date();
 
@@ -148,6 +157,73 @@ export default async function AdminApiTokensPage({ searchParams }: AdminApiToken
 
       <section className="rounded-md border border-border bg-card">
         <div className="border-b border-border p-4">
+          <h2 className="text-lg font-semibold">配布ファイルの SHA-256</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            配信中: {releaseStatus.servedVersion ? `v${releaseStatus.servedVersion}` : "なし"}（{releaseStatus.repo}）
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead className="bg-muted text-xs text-muted-foreground">
+              <tr>
+                <th className="px-4 py-2 font-medium">リリース</th>
+                <th className="px-4 py-2 font-medium">ファイル</th>
+                <th className="px-4 py-2 font-medium">取得元</th>
+                <th className="px-4 py-2 font-medium">SHA-256</th>
+                <th className="px-4 py-2 font-medium">判定</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {releaseStatus.statuses.flatMap((release) =>
+                (release.assets.length > 0 ? release.assets : [null]).map((asset, index) => (
+                  <tr key={`${release.tag}-${asset?.name ?? "none"}`}>
+                    <td className="px-4 py-2">{index === 0 ? release.tag : ""}</td>
+                    <td className="px-4 py-2 break-all">{asset?.name ?? "—"}</td>
+                    <td className="px-4 py-2 text-muted-foreground">{asset?.source ?? "—"}</td>
+                    <td className="px-4 py-2 font-mono text-xs">{asset?.sha256 ? `${asset.sha256.slice(0, 16)}…` : "—"}</td>
+                    <td className="px-4 py-2">
+                      {index === 0 ? (
+                        release.servable ? (
+                          <span className="font-semibold text-primary">配信可</span>
+                        ) : (
+                          <span className="text-destructive">配信不可（{release.reason}）</span>
+                        )
+                      ) : null}
+                    </td>
+                  </tr>
+                )),
+              )}
+            </tbody>
+          </table>
+        </div>
+        <form action={registerClientAssetChecksum} className="grid gap-3 border-t border-border p-4 md:grid-cols-[160px_1fr_2fr_auto]">
+          <input className="h-10 rounded-md border border-input bg-background px-3 text-sm" name="tag" placeholder="タグ（例 v1.2.3）" required />
+          <input className="h-10 rounded-md border border-input bg-background px-3 text-sm" name="assetName" placeholder="ファイル名" required />
+          <input className="h-10 rounded-md border border-input bg-background px-3 font-mono text-xs" name="sha256" placeholder="SHA-256（64桁）" required />
+          <Button type="submit" variant="outline">
+            登録
+          </Button>
+        </form>
+        {manualChecksums.length > 0 ? (
+          <div className="divide-y divide-border border-t border-border">
+            {manualChecksums.map((entry) => (
+              <form action={deleteClientAssetChecksum} className="flex flex-wrap items-center gap-3 px-4 py-2 text-sm" key={entry.id}>
+                <input name="checksumId" type="hidden" value={entry.id} />
+                <span>{entry.tag}</span>
+                <span className="break-all">{entry.assetName}</span>
+                <span className="font-mono text-xs text-muted-foreground">{entry.sha256.slice(0, 16)}…</span>
+                <span className="text-xs text-muted-foreground">手動 · {entry.createdAt.toLocaleDateString("ja-JP")}</span>
+                <Button className="ml-auto h-8" type="submit" variant="ghost">
+                  削除
+                </Button>
+              </form>
+            ))}
+          </div>
+        ) : null}
+      </section>
+
+      <section className="rounded-md border border-border bg-card">
+        <div className="border-b border-border p-4">
           <h2 className="text-lg font-semibold">Clipshare Quick 連携の設定</h2>
         </div>
         <form action={updateQuickApiSettings} className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
@@ -162,6 +238,13 @@ export default async function AdminApiTokensPage({ searchParams }: AdminApiToken
           <SettingInput defaultValue={settings.clientMinSupportedVersion ?? ""} label="最小対応バージョン" name="clientMinSupportedVersion" required={false} type="text" />
           <SettingInput defaultValue={settings.clientReleaseCacheSeconds} label="リリース情報のキャッシュ（秒）" min={60} name="clientReleaseCacheSeconds" />
           <SettingInput defaultValue={settings.clientSupportedOs} label="対応OS" name="clientSupportedOs" type="text" />
+          <SettingInput
+            defaultValue={settings.clientCertFingerprint ?? ""}
+            label="署名証明書のフィンガープリント（SHA-256）"
+            name="clientCertFingerprint"
+            required={false}
+            type="text"
+          />
           <div>
             <Button type="submit">保存</Button>
           </div>

@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { CloudUpload, Download, Glasses, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getQuickApiSettings } from "@/lib/quick-share/api-settings";
-import { getQuickShareSettings } from "@/lib/quick-share/settings";
-import { getLatestClientRelease, pickInstallerAsset } from "@/lib/quick-client/releases";
+import { getDownloadPageData } from "@/lib/quick-client/download-page-data";
 import { formatBytes } from "@/lib/uploads/account-limits";
 
 export const dynamic = "force-dynamic";
@@ -26,18 +24,17 @@ const features = [
 ];
 
 export default async function QuickDownloadPage() {
-  const [release, apiSettings, quickShareSettings] = await Promise.all([getLatestClientRelease(), getQuickApiSettings(), getQuickShareSettings()]);
-  const installer = pickInstallerAsset(release);
-  const downloadUrl = installer?.url ?? release?.htmlUrl ?? `https://github.com/${apiSettings.clientGithubRepo}/releases/latest`;
-  const os = apiSettings.clientSupportedOs;
-  const meta = release && installer ? [`v${release.version}`, formatBytes(installer.sizeBytes), os].join(" · ") : null;
+  const data = await getDownloadPageData();
+  const downloadUrl = data.release?.downloadUrl ?? data.releasesPageUrl;
+  const os = data.supportedOs;
+  const meta = data.release ? [`v${data.release.version}`, formatBytes(data.release.installerSizeBytes), os].join(" · ") : null;
 
   const faqs = [
-    { question: "写真はどのくらい保存されますか？", answer: `${quickShareSettings.retentionHours}時間で自動的に削除されます。` },
+    { question: "写真はどのくらい保存されますか？", answer: `${data.retentionHours}時間で自動的に削除されます。` },
     { question: "誰でも見られますか？", answer: "URLを知っている人だけが見られます。検索やサイト内の一覧には表示されません。" },
     {
       question: "ログインしなくても使えますか？",
-      answer: `使えます。未ログインの場合は、画像にバナーが付き、1日${quickShareSettings.anonymousDailyLimit}件までです。`,
+      answer: `使えます。未ログインの場合は、画像にバナーが付き、1日${data.anonymousDailyLimit}件までです。`,
     },
     { question: "やめたいときは？", answer: "Windowsの設定からアプリを削除してください。連携は「設定 › 連携アプリ」で解除できます。" },
   ];

@@ -809,3 +809,17 @@ model ContactMessage {
   @@index([status, createdAt])
   @@index([ipHash, createdAt])
 }
+
+// Clipshare Quick の配布ファイルの SHA-256(SHA256SUMS が取得できないときに管理者が手動で登録する)
+model QuickClientAssetChecksum {
+  id               String   @id @default(cuid())
+  repo             String   @db.VarChar(140)
+  tag              String   @db.VarChar(100)
+  assetName        String   @db.VarChar(255)
+  sha256           String   @db.Char(64)
+  createdByAdminId String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([repo, tag, assetName])
+}
