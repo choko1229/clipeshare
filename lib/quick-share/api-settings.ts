@@ -44,8 +44,33 @@ export const semverPattern = /^\d{1,5}\.\d{1,5}\.\d{1,5}$/;
 
 /** "AB:CD:…" / "abcd…" / 空白区切りを受け付け、"AB:CD:…"(32組)に正規化する。不正なら null */
 export function normalizeCertFingerprint(value: string) {
-  const hex = value.replace(/[\s:]/g, "").toUpperCase();
-  return /^[0-9A-F]{64}$/.test(hex) ? (hex.match(/.{2}/g) ?? []).join(":") : null;
+  const result = parseCertFingerprint(value);
+  return result.ok ? result.value : null;
+}
+
+export type CertFingerprintParseResult = { ok: true; value: string } | { ok: false; reason: "sha1" | "format" };
+
+/**
+ * 自己署名証明書(Publisher `CN=choko1229`)の SHA-256 フィンガープリントの入力を検証する。
+ * 受け付けるのは2形式だけ: 64桁の16進(区切りなし。PowerShell の GetCertHashString(SHA256) / certutil の出力)
+ * または 2桁ずつコロン区切りの32組(openssl x509 -fingerprint -sha256 の出力)。大文字小文字は問わない。
+ * Windows の証明書画面が既定で出す「拇印」は SHA-1(40桁)なので、別の理由で拒否する。
+ */
+export function parseCertFingerprint(input: string): CertFingerprintParseResult {
+  const value = input.trim();
+  const plain = /^[0-9A-Fa-f]{64}$/.test(value);
+  const colon = /^[0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){31}$/.test(value);
+
+  if (plain || colon) {
+    const hex = value.replace(/:/g, "").toUpperCase();
+    return { ok: true, value: (hex.match(/.{2}/g) ?? []).join(":") };
+  }
+
+  if (/^[0-9A-Fa-f]{40}$/.test(value) || /^[0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){19}$/.test(value)) {
+    return { ok: false, reason: "sha1" };
+  }
+
+  return { ok: false, reason: "format" };
 }
 
 const CACHE_MS = 10_000;

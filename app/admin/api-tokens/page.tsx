@@ -242,6 +242,7 @@ export default async function AdminApiTokensPage({ searchParams }: AdminApiToken
             defaultValue={settings.clientCertFingerprint ?? ""}
             label="署名証明書のフィンガープリント（SHA-256）"
             name="clientCertFingerprint"
+            placeholder="AB:CD:EF:…:89"
             required={false}
             type="text"
           />
@@ -259,6 +260,7 @@ function SettingInput({
   label,
   min = 0,
   name,
+  placeholder,
   required = true,
   type = "number",
 }: {
@@ -266,6 +268,7 @@ function SettingInput({
   label: string;
   min?: number;
   name: string;
+  placeholder?: string;
   required?: boolean;
   type?: "number" | "text";
 }) {
@@ -277,6 +280,7 @@ function SettingInput({
         defaultValue={defaultValue}
         min={type === "number" ? min : undefined}
         name={name}
+        placeholder={placeholder}
         required={required}
         type={type}
       />
