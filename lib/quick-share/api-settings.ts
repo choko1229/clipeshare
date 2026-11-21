@@ -10,6 +10,7 @@ export const quickApiSettingKeys = {
   clientMinSupportedVersion: "quick_client_min_supported_version",
   clientReleaseCacheSeconds: "quick_client_release_cache_seconds",
   clientSupportedOs: "quick_client_supported_os",
+  clientCertFingerprint: "quick_client_cert_fingerprint",
 } as const;
 
 export const quickApiDefaults = {
@@ -21,6 +22,7 @@ export const quickApiDefaults = {
   clientMinSupportedVersion: null,
   clientReleaseCacheSeconds: 600,
   clientSupportedOs: "Windows 11",
+  clientCertFingerprint: null,
 } as const;
 
 export type QuickApiSettings = {
@@ -33,10 +35,18 @@ export type QuickApiSettings = {
   clientMinSupportedVersion: string | null;
   clientReleaseCacheSeconds: number;
   clientSupportedOs: string;
+  /** 自己署名証明書の SHA-256 フィンガープリント(大文字16進・コロン区切り)。DLページの信頼手順用 */
+  clientCertFingerprint: string | null;
 };
 
 export const githubRepoPattern = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/;
 export const semverPattern = /^\d{1,5}\.\d{1,5}\.\d{1,5}$/;
+
+/** "AB:CD:…" / "abcd…" / 空白区切りを受け付け、"AB:CD:…"(32組)に正規化する。不正なら null */
+export function normalizeCertFingerprint(value: string) {
+  const hex = value.replace(/[\s:]/g, "").toUpperCase();
+  return /^[0-9A-F]{64}$/.test(hex) ? (hex.match(/.{2}/g) ?? []).join(":") : null;
+}
 
 const CACHE_MS = 10_000;
 let cached: { value: QuickApiSettings; expiresAt: number } | null = null;
@@ -96,6 +106,7 @@ export function parseQuickApiSettings(settingMap: Map<string, string>): QuickApi
       86_400,
     ),
     clientSupportedOs: os ? os.slice(0, 64) : quickApiDefaults.clientSupportedOs,
+    clientCertFingerprint: normalizeCertFingerprint(settingMap.get(quickApiSettingKeys.clientCertFingerprint) ?? ""),
   };
 }
 

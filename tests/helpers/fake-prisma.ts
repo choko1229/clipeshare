@@ -124,6 +124,12 @@ export function matchesWhere(row: Row, where: Where | undefined): boolean {
       continue;
     }
 
+    // 複合ユニークキー(例 repo_tag_assetName: { repo, tag, assetName })
+    if (!(key in row) && key.includes("_") && typeof condition === "object" && condition !== null && !(condition instanceof Date)) {
+      if (!matchesWhere(row, condition as Where)) return false;
+      continue;
+    }
+
     if (!matchValue(row[key], condition)) {
       return false;
     }
@@ -136,7 +142,7 @@ export class FakePrisma {
   tables: Record<string, Map<string, Row>> = {};
 
   constructor() {
-    for (const model of ["apiAuthorization", "apiToken", "quickShare", "uploadJob", "user", "siteSetting", "accountLevel", "adminAuditLog"]) {
+    for (const model of ["apiAuthorization", "apiToken", "quickShare", "uploadJob", "user", "siteSetting", "accountLevel", "adminAuditLog", "quickClientAssetChecksum"]) {
       this.tables[model] = new Map();
     }
   }
@@ -273,6 +279,9 @@ export class FakePrisma {
   }
   get adminAuditLog() {
     return this.delegate("adminAuditLog");
+  }
+  get quickClientAssetChecksum() {
+    return this.delegate("quickClientAssetChecksum");
   }
 
   private transactionQueue: Promise<unknown> = Promise.resolve();

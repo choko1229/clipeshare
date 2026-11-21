@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakePrisma, resetFakePrisma } from "./helpers/fake-prisma";
 
@@ -5,124 +6,407 @@ vi.mock("@/lib/db/prisma", async () => {
   const helpers = await import("./helpers/fake-prisma");
   return { prisma: helpers.fakePrisma };
 });
+vi.mock("@/lib/admin/auth", () => ({
+  requireAdmin: vi.fn(async () => ({ id: "admin-1", role: "ADMIN" })),
+  requireModerator: vi.fn(async () => ({ id: "admin-1", role: "ADMIN" })),
+}));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-const { getLatestClientRelease, pickInstallerAsset, resetClientReleaseCache, toClientRelease } = await import("@/lib/quick-client/releases");
+const { getClientReleaseHistory, getClientReleaseStatuses, getLatestClientRelease, pickInstallerAsset, resetClientReleaseCache } = await import(
+  "@/lib/quick-client/releases"
+);
+const { parseSha256Sums } = await import("@/lib/quick-client/checksums");
+const { fetchFromGithub, isAllowedGithubUrl } = await import("@/lib/quick-client/github-fetch");
 const { clearQuickApiSettingsCache } = await import("@/lib/quick-share/api-settings");
+const { registerClientAssetChecksum } = await import("@/app/admin/quick-share-actions");
 const latestRoute = await import("@/app/api/v1/client/latest/route");
+const { getDownloadPageData } = await import("@/lib/quick-client/download-page-data");
 
-const githubRelease = {
-  tag_name: "v1.2.3",
-  published_at: "2026-11-20T12:00:00Z",
-  body: "- 初回リリース",
-  html_url: "https://github.com/choko1229/clipshare-qick/releases/tag/v1.2.3",
-  draft: false,
-  assets: [
-    {
-      name: "ClipshareQuick-1.2.3.msix",
-      browser_download_url: "https://github.com/choko1229/clipshare-qick/releases/download/v1.2.3/ClipshareQuick-1.2.3.msix",
-      size: 12_345_678,
-      digest: `sha256:${"ab".repeat(32)}`,
-    },
-    {
-      name: "ClipshareQuick.appinstaller",
-      browser_download_url: "https://github.com/choko1229/clipshare-qick/releases/download/v1.2.3/ClipshareQuick.appinstaller",
-      size: 900,
-      digest: null,
-    },
-    { name: "evil.msix", browser_download_url: "https://evil.example/evil.msix", size: 1 },
-  ],
-};
+const REPO = "choko1229/clipshare-qick";
+const LIST_URL = `https://api.github.com/repos/${REPO}/releases?per_page=10`;
+const hash = (seed: string) => crypto.createHash("sha256").update(seed).digest("hex");
 
-function okResponse(body: unknown) {
-  return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+type AssetSpec = { name: string; url?: string; size?: number; digest?: string | null };
+
+function release(tag: string, assets: AssetSpec[], extra: Record<string, unknown> = {}) {
+  return {
+    tag_name: tag,
+    published_at: "2026-11-20T12:00:00Z",
+    body: `${tag} notes`,
+    html_url: `https://github.com/${REPO}/releases/tag/${tag}`,
+    draft: false,
+    prerelease: false,
+    assets: assets.map((asset) => ({
+      name: asset.name,
+      browser_download_url: asset.url ?? `https://github.com/${REPO}/releases/download/${tag}/${asset.name}`,
+      size: asset.size ?? 1000,
+      digest: asset.digest ?? null,
+    })),
+    ...extra,
+  };
 }
 
-const fetchMock = vi.fn<typeof fetch>();
+function standardAssets(tag: string): AssetSpec[] {
+  return [
+    { name: `ClipshareQuickSetup-${tag}.exe` },
+    { name: `ClipshareQuick-${tag}.msix` },
+    { name: "ClipshareQuick.appinstaller" },
+    { name: "SHA256SUMS" },
+  ];
+}
+
+function sumsFor(tag: string) {
+  return [`${hash(`exe-${tag}`)}  ClipshareQuickSetup-${tag}.exe`, `${hash(`msix-${tag}`)} *ClipshareQuick-${tag}.msix`, ""].join("\n");
+}
+
+/** URL ごとの応答を返す fetch のモック。SHA256SUMS は github.com → release-assets へ 302 する(実物と同じ) */
+function installFetch(routes: Record<string, () => Response>) {
+  const calls: string[] = [];
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    calls.push(url);
+    const route = routes[url];
+    if (route) return route();
+    if (url.startsWith(`https://github.com/${REPO}/releases/download/`)) {
+      const file = url.split("/").slice(-2).join("/");
+      return new Response(null, { status: 302, headers: { location: `https://release-assets.githubusercontent.com/github-production-release-asset/${file}?sig=secret` } });
+    }
+    return new Response("not found", { status: 404 });
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return calls;
+}
+
+const json = (body: unknown) => () => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+const text = (body: string) => () => new Response(body, { status: 200 });
+const sumsUrl = (tag: string) => `https://release-assets.githubusercontent.com/github-production-release-asset/${tag}/SHA256SUMS?sig=secret`;
+
+let logged: string[] = [];
 
 beforeEach(() => {
   resetFakePrisma();
   clearQuickApiSettingsCache();
   resetClientReleaseCache();
-  fetchMock.mockReset();
-  vi.stubGlobal("fetch", fetchMock);
-  vi.spyOn(console, "warn").mockImplementation(() => undefined);
-  vi.spyOn(console, "info").mockImplementation(() => undefined);
+  logged = [];
+  for (const method of ["info", "warn", "error"] as const) {
+    vi.spyOn(console, method).mockImplementation((line: unknown) => {
+      logged.push(String(line));
+    });
+  }
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
-describe("GitHub release parsing", () => {
-  it("maps to the contract shape, strips the v prefix and drops non-GitHub URLs", () => {
-    const release = toClientRelease("choko1229/clipshare-qick", githubRelease);
-    expect(release).toMatchObject({ version: "1.2.3", publishedAt: "2026-11-20T12:00:00.000Z", notes: "- 初回リリース" });
-    expect(release?.assets.map((asset) => asset.name)).toEqual(["ClipshareQuick-1.2.3.msix", "ClipshareQuick.appinstaller"]);
-    expect(release?.assets[0].sha256).toBe("ab".repeat(32));
-    expect(release?.assets[1].sha256).toBeNull();
-    expect(pickInstallerAsset(release)?.name).toBe("ClipshareQuick-1.2.3.msix");
+async function callLatest() {
+  return latestRoute.GET(new Request("https://clipshare.link/api/v1/client/latest"), { params: Promise.resolve({}) });
+}
+
+describe("SHA256SUMS parsing", () => {
+  it("accepts sha256sum output (text and binary markers, ./ and dir prefixes, CRLF)", () => {
+    const parsed = parseSha256Sums(`${hash("a")}  ./dist/a.exe\r\n${hash("b")} *b.msix\r\n\r\n`);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.sums.get("a.exe")).toBe(hash("a"));
+      expect(parsed.sums.get("b.msix")).toBe(hash("b"));
+    }
   });
 
-  it("rejects drafts and malformed payloads", () => {
-    expect(toClientRelease("a/b", { ...githubRelease, draft: true })).toBeNull();
-    expect(toClientRelease("a/b", { message: "Not Found" })).toBeNull();
+  it("normalizes upper-case hashes", () => {
+    const parsed = parseSha256Sums(`${hash("a").toUpperCase()}  a.exe`);
+    expect(parsed.ok && parsed.sums.get("a.exe")).toBe(hash("a"));
+  });
+
+  it.each([
+    ["empty", ""],
+    ["short hash", `${hash("a").slice(1)}  a.exe`],
+    ["no separator", `${hash("a")}a.exe`],
+    ["garbage line", `${hash("a")}  a.exe\nhello world`],
+    ["conflicting duplicates", `${hash("a")}  a.exe\n${hash("b")}  a.exe`],
+    ["html error page", "<html><body>Not Found</body></html>"],
+  ])("rejects %s", (_label, input) => {
+    expect(parseSha256Sums(input).ok).toBe(false);
   });
 });
 
-describe("server-side release cache", () => {
-  it("caches within the TTL (one GitHub call for many requests)", async () => {
-    fetchMock.mockResolvedValue(okResponse(githubRelease));
-    const now = Date.now();
-    await getLatestClientRelease(now);
-    await getLatestClientRelease(now + 1000);
-    await getLatestClientRelease(now + 599_000);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(String(fetchMock.mock.calls[0][0])).toBe("https://api.github.com/repos/choko1229/clipshare-qick/releases/latest");
-
-    fetchMock.mockResolvedValue(okResponse({ ...githubRelease, tag_name: "v1.2.4" }));
-    expect((await getLatestClientRelease(now + 601_000))?.version).toBe("1.2.4");
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+describe("GitHub fetch (SSRF protection)", () => {
+  it.each([
+    "https://api.github.com/repos/a/b/releases",
+    "https://github.com/a/b/releases/download/v1/SHA256SUMS",
+    "https://objects.githubusercontent.com/x",
+    "https://release-assets.githubusercontent.com/x",
+  ])("allows %s", (url) => {
+    expect(isAllowedGithubUrl(url)).toBe(true);
   });
 
-  it("returns the last successful result when GitHub fails, and backs off for a minute", async () => {
-    fetchMock.mockResolvedValueOnce(okResponse(githubRelease));
-    const now = Date.now();
-    await getLatestClientRelease(now);
-
-    fetchMock.mockResolvedValue(new Response("rate limited", { status: 403 }));
-    expect((await getLatestClientRelease(now + 700_000))?.version).toBe("1.2.3");
-    expect((await getLatestClientRelease(now + 730_000))?.version).toBe("1.2.3");
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+  it.each([
+    "http://github.com/a",
+    "https://evil.example/a",
+    "https://github.com.evil.example/a",
+    "https://user:pass@github.com/a",
+    "https://github.com:8443/a",
+    "https://169.254.169.254/latest/meta-data",
+    "https://localhost/a",
+    "file:///etc/passwd",
+  ])("rejects %s", (url) => {
+    expect(isAllowedGithubUrl(url)).toBe(false);
   });
 
-  it("falls back to the result persisted in the DB after a restart", async () => {
-    fetchMock.mockResolvedValueOnce(okResponse(githubRelease));
-    await getLatestClientRelease();
-    expect(fakePrisma.rows("siteSetting").some((row) => row.key === "quick_client_release_cache")).toBe(true);
-
-    resetClientReleaseCache();
-    fetchMock.mockRejectedValue(new Error("network down"));
-    expect((await getLatestClientRelease())?.version).toBe("1.2.3");
+  it("never follows a redirect to a non-GitHub host", async () => {
+    const calls = installFetch({
+      "https://github.com/x/y/releases/download/v1/SHA256SUMS": () =>
+        new Response(null, { status: 302, headers: { location: "http://169.254.169.254/latest/meta-data" } }),
+    });
+    await expect(
+      fetchFromGithub("https://github.com/x/y/releases/download/v1/SHA256SUMS", { maxBytes: 1000, timeoutMs: 1000, accept: "*/*" }),
+    ).rejects.toMatchObject({ reason: "host_not_allowed" });
+    expect(calls).toEqual(["https://github.com/x/y/releases/download/v1/SHA256SUMS"]);
   });
 
-  it("returns 503 from /api/v1/client/latest when nothing was ever fetched", async () => {
-    fetchMock.mockRejectedValue(new Error("network down"));
-    const response = await latestRoute.GET(new Request("https://clipshare.link/api/v1/client/latest"), { params: Promise.resolve({}) });
+  it("stops at the size limit (declared and streamed)", async () => {
+    installFetch({
+      "https://github.com/declared": () => new Response("x", { status: 200, headers: { "content-length": "999999" } }),
+      "https://github.com/streamed": () => new Response("x".repeat(5000), { status: 200 }),
+    });
+    await expect(fetchFromGithub("https://github.com/declared", { maxBytes: 1000, timeoutMs: 1000, accept: "*/*" })).rejects.toMatchObject({ reason: "too_large" });
+    await expect(fetchFromGithub("https://github.com/streamed", { maxBytes: 1000, timeoutMs: 1000, accept: "*/*" })).rejects.toMatchObject({ reason: "too_large" });
+  });
+
+  it("limits redirect hops", async () => {
+    installFetch({
+      "https://github.com/loop": () => new Response(null, { status: 302, headers: { location: "https://github.com/loop" } }),
+    });
+    await expect(fetchFromGithub("https://github.com/loop", { maxBytes: 1000, timeoutMs: 1000, accept: "*/*" })).rejects.toMatchObject({
+      reason: "too_many_redirects",
+    });
+  });
+
+  it("times out", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (_input: RequestInfo | URL, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => reject(Object.assign(new Error("timed out"), { name: "TimeoutError" })));
+          }),
+      ),
+    );
+    await expect(fetchFromGithub("https://github.com/slow", { maxBytes: 1000, timeoutMs: 20, accept: "*/*" })).rejects.toMatchObject({ reason: "timeout" });
+  });
+});
+
+describe("GET /api/v1/client/latest always returns sha256", () => {
+  it("normal: serves exe + MSIX with SHA-256 from SHA256SUMS (no null, no other assets)", async () => {
+    installFetch({ [LIST_URL]: json([release("v1.2.3", standardAssets("v1.2.3"))]), [sumsUrl("v1.2.3")]: text(sumsFor("v1.2.3")) });
+    const response = await callLatest();
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { version: string; assets: Array<{ name: string; sha256: string }> };
+    expect(body.version).toBe("1.2.3");
+    expect(body.assets).toEqual([
+      expect.objectContaining({ name: "ClipshareQuickSetup-v1.2.3.exe", sha256: hash("exe-v1.2.3") }),
+      expect.objectContaining({ name: "ClipshareQuick-v1.2.3.msix", sha256: hash("msix-v1.2.3") }),
+    ]);
+    expect(logged.join("\n")).not.toContain("sig=secret");
+  });
+
+  it("SHA256SUMS missing on the newest release: keeps serving the newest verified older release", async () => {
+    installFetch({
+      [LIST_URL]: json([
+        release("v1.3.0", standardAssets("v1.3.0").filter((asset) => asset.name !== "SHA256SUMS")),
+        release("v1.2.3", standardAssets("v1.2.3")),
+      ]),
+      [sumsUrl("v1.2.3")]: text(sumsFor("v1.2.3")),
+    });
+    const body = (await (await callLatest()).json()) as { version: string };
+    expect(body.version).toBe("1.2.3");
+    const status = await getClientReleaseStatuses();
+    expect(status.statuses[0]).toMatchObject({ tag: "v1.3.0", servable: false });
+    expect(status.statuses[0].reason).toContain("sha256sums_missing");
+    expect(logged.some((line) => line.includes("quick_client.release_not_servable"))).toBe(true);
+  });
+
+  it("returns 503 (never null) when no release has checksums", async () => {
+    installFetch({ [LIST_URL]: json([release("v1.0.0", standardAssets("v1.0.0").filter((asset) => asset.name !== "SHA256SUMS"))]) });
+    const response = await callLatest();
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ error: { code: "SERVICE_UNAVAILABLE" } });
   });
 
-  it("serves the contract body from /api/v1/client/latest", async () => {
-    fetchMock.mockResolvedValue(okResponse(githubRelease));
-    fakePrisma.insert("siteSetting", { key: "quick_client_min_supported_version", value: "1.0.0" });
-    clearQuickApiSettingsCache();
-    const response = await latestRoute.GET(new Request("https://clipshare.link/api/v1/client/latest"), { params: Promise.resolve({}) });
-    expect(response.status).toBe(200);
-    const body = (await response.json()) as Record<string, unknown>;
-    expect(body).toMatchObject({ version: "1.2.3", minSupportedVersion: "1.0.0", notes: "- 初回リリース" });
-    expect(body.assets).toEqual([
-      expect.objectContaining({ name: "ClipshareQuick-1.2.3.msix", sizeBytes: 12_345_678, sha256: "ab".repeat(32) }),
-      expect.objectContaining({ name: "ClipshareQuick.appinstaller", sha256: null }),
+  it("malformed SHA256SUMS is not trusted at all", async () => {
+    installFetch({ [LIST_URL]: json([release("v1.2.3", standardAssets("v1.2.3"))]), [sumsUrl("v1.2.3")]: text(`${sumsFor("v1.2.3")}\nnot a checksum line`) });
+    expect((await callLatest()).status).toBe(503);
+    expect((await getClientReleaseStatuses()).statuses[0].reason).toContain("sha256sums_invalid");
+  });
+
+  it("SHA256SUMS that misses one installer makes the release not servable", async () => {
+    installFetch({
+      [LIST_URL]: json([release("v1.2.3", standardAssets("v1.2.3"))]),
+      [sumsUrl("v1.2.3")]: text(`${hash("exe-v1.2.3")}  ClipshareQuickSetup-v1.2.3.exe\n`),
+    });
+    expect((await callLatest()).status).toBe(503);
+    const status = (await getClientReleaseStatuses()).statuses[0];
+    expect(status.assets).toEqual([
+      { name: "ClipshareQuickSetup-v1.2.3.exe", sha256: hash("exe-v1.2.3"), source: "SHA256SUMS" },
+      { name: "ClipshareQuick-v1.2.3.msix", sha256: null, source: null },
     ]);
+  });
+
+  it("SHA256SUMS download failure: not servable, detailed log, no fallback to null", async () => {
+    installFetch({ [LIST_URL]: json([release("v1.2.3", standardAssets("v1.2.3"))]), [sumsUrl("v1.2.3")]: () => new Response("boom", { status: 500 }) });
+    expect((await callLatest()).status).toBe(503);
+    expect(logged.some((line) => line.includes("quick_client.sha256sums_fetch_failed") && line.includes("http_status"))).toBe(true);
+  });
+
+  it("refuses a SHA256SUMS asset hosted outside GitHub (SSRF) without requesting it", async () => {
+    const assets = standardAssets("v1.2.3").map((asset) =>
+      asset.name === "SHA256SUMS" ? { ...asset, url: "https://evil.example/SHA256SUMS" } : asset,
+    );
+    const calls = installFetch({ [LIST_URL]: json([release("v1.2.3", assets)]) });
+    expect((await callLatest()).status).toBe(503);
+    expect(calls.some((url) => url.includes("evil.example"))).toBe(false);
+    expect((await getClientReleaseStatuses()).statuses[0].reason).toContain("host_not_allowed");
+  });
+
+  it("does not serve when GitHub's own digest contradicts SHA256SUMS", async () => {
+    const assets = standardAssets("v1.2.3").map((asset) => (asset.name.endsWith(".exe") ? { ...asset, digest: `sha256:${hash("tampered")}` } : asset));
+    installFetch({ [LIST_URL]: json([release("v1.2.3", assets)]), [sumsUrl("v1.2.3")]: text(sumsFor("v1.2.3")) });
+    expect((await callLatest()).status).toBe(503);
+    expect((await getClientReleaseStatuses()).statuses[0].reason).toContain("digest_mismatch");
+  });
+
+  it("manual registration in the admin screen makes a release without SHA256SUMS servable", async () => {
+    installFetch({ [LIST_URL]: json([release("v1.2.3", standardAssets("v1.2.3").filter((asset) => asset.name !== "SHA256SUMS"))]) });
+    expect((await callLatest()).status).toBe(503);
+
+    for (const [name, seed] of [
+      ["ClipshareQuickSetup-v1.2.3.exe", "exe-v1.2.3"],
+      ["ClipshareQuick-v1.2.3.msix", "msix-v1.2.3"],
+    ] as const) {
+      const form = new FormData();
+      form.set("tag", "v1.2.3");
+      form.set("assetName", name);
+      form.set("sha256", hash(seed).toUpperCase());
+      await registerClientAssetChecksum(form);
+    }
+
+    const response = await callLatest();
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { assets: Array<{ sha256: string }> };
+    expect(body.assets.map((asset) => asset.sha256)).toEqual([hash("exe-v1.2.3"), hash("msix-v1.2.3")]);
+    expect((await getClientReleaseStatuses()).statuses[0].assets.map((asset) => asset.source)).toEqual(["MANUAL", "MANUAL"]);
+    expect(fakePrisma.rows("adminAuditLog").map((row) => row.action)).toEqual(["quick_client.checksum.create", "quick_client.checksum.create"]);
+  });
+
+  it("stops serving a release whose manual checksum was deleted (no stale fallback to the same release)", async () => {
+    installFetch({ [LIST_URL]: json([release("v1.2.3", standardAssets("v1.2.3").filter((asset) => asset.name !== "SHA256SUMS"))]) });
+
+    for (const [name, seed] of [
+      ["ClipshareQuickSetup-v1.2.3.exe", "exe-v1.2.3"],
+      ["ClipshareQuick-v1.2.3.msix", "msix-v1.2.3"],
+    ] as const) {
+      const form = new FormData();
+      form.set("tag", "v1.2.3");
+      form.set("assetName", name);
+      form.set("sha256", hash(seed));
+      await registerClientAssetChecksum(form);
+    }
+    expect((await callLatest()).status).toBe(200);
+
+    const { deleteClientAssetChecksum } = await import("@/app/admin/quick-share-actions");
+    const entry = fakePrisma.rows("quickClientAssetChecksum").find((row) => String(row.assetName).endsWith(".msix"));
+    const form = new FormData();
+    form.set("checksumId", String(entry?.id));
+    await deleteClientAssetChecksum(form);
+
+    // メモリ・DB に前回配信した v1.2.3 が残っていても、いま配信不可と判定したので返さない
+    expect((await callLatest()).status).toBe(503);
+  });
+
+  it("validates manual registrations", async () => {
+    const bad = (values: Record<string, string>) => {
+      const form = new FormData();
+      for (const [key, value] of Object.entries(values)) form.set(key, value);
+      return registerClientAssetChecksum(form);
+    };
+    await expect(bad({ tag: "v1", assetName: "a.exe", sha256: "xyz" })).rejects.toThrow();
+    await expect(bad({ tag: "v1", assetName: "notes.txt", sha256: hash("a") })).rejects.toThrow();
+    await expect(bad({ tag: "v1", assetName: "../a.exe", sha256: hash("a") })).rejects.toThrow();
+    await expect(bad({ tag: "v1", assetName: "..\\a.exe", sha256: hash("a") })).rejects.toThrow();
+    await expect(bad({ tag: "v 1", assetName: "a.exe", sha256: hash("a") })).rejects.toThrow();
+    expect(fakePrisma.rows("quickClientAssetChecksum")).toHaveLength(0);
+  });
+
+  it("list fetch failure: keeps the last served release (memory, then DB), else 503", async () => {
+    installFetch({ [LIST_URL]: json([release("v1.2.3", standardAssets("v1.2.3"))]), [sumsUrl("v1.2.3")]: text(sumsFor("v1.2.3")) });
+    const now = Date.now();
+    expect((await getLatestClientRelease(now))?.version).toBe("1.2.3");
+
+    installFetch({ [LIST_URL]: () => new Response("rate limited", { status: 403 }) });
+    expect((await getLatestClientRelease(now + 700_000))?.version).toBe("1.2.3");
+
+    resetClientReleaseCache();
+    expect((await getLatestClientRelease(now + 800_000))?.version).toBe("1.2.3");
+    expect(logged.some((line) => line.includes("quick_client.release_fetch_failed"))).toBe(true);
+  });
+
+  it("ignores a persisted v1.1-era cache that contains null sha256", async () => {
+    fakePrisma.insert("siteSetting", {
+      key: "quick_client_release_cache",
+      value: JSON.stringify({ repo: REPO, tag: "v1.0.0", version: "1.0.0", publishedAt: "x", notes: "", htmlUrl: "x", assets: [{ name: "a.msix", url: "x", sizeBytes: 1, sha256: null }] }),
+    });
+    installFetch({ [LIST_URL]: () => new Response("down", { status: 502 }) });
+    expect((await callLatest()).status).toBe(503);
+  });
+
+  it("caches within the TTL (one list call)", async () => {
+    const calls = installFetch({ [LIST_URL]: json([release("v1.2.3", standardAssets("v1.2.3"))]), [sumsUrl("v1.2.3")]: text(sumsFor("v1.2.3")) });
+    const now = Date.now();
+    await getLatestClientRelease(now);
+    await getLatestClientRelease(now + 599_000);
+    expect(calls.filter((url) => url === LIST_URL)).toHaveLength(1);
+  });
+
+  it("skips drafts and prereleases, and keeps the release history for the download page", async () => {
+    installFetch({
+      [LIST_URL]: json([
+        release("v2.0.0-beta", standardAssets("v2.0.0-beta"), { prerelease: true }),
+        release("v1.9.0", standardAssets("v1.9.0"), { draft: true }),
+        release("v1.2.3", standardAssets("v1.2.3")),
+        release("v1.2.2", standardAssets("v1.2.2")),
+      ]),
+      [sumsUrl("v1.2.3")]: text(sumsFor("v1.2.3")),
+    });
+    expect((await getLatestClientRelease())?.version).toBe("1.2.3");
+    expect((await getClientReleaseHistory()).map((entry) => entry.version)).toEqual(["1.2.3", "1.2.2"]);
+  });
+
+  it("prefers the setup exe for the download button", async () => {
+    installFetch({ [LIST_URL]: json([release("v1.2.3", standardAssets("v1.2.3"))]), [sumsUrl("v1.2.3")]: text(sumsFor("v1.2.3")) });
+    expect(pickInstallerAsset(await getLatestClientRelease())?.name).toBe("ClipshareQuickSetup-v1.2.3.exe");
+  });
+});
+
+describe("download page data (prepared for the design update)", () => {
+  it("exposes the installer with its SHA-256, the history and the certificate fingerprint", async () => {
+    installFetch({
+      [LIST_URL]: json([release("v1.2.3", standardAssets("v1.2.3")), release("v1.2.2", standardAssets("v1.2.2"))]),
+      [sumsUrl("v1.2.3")]: text(sumsFor("v1.2.3")),
+    });
+    fakePrisma.insert("siteSetting", { key: "quick_client_cert_fingerprint", value: "ab".repeat(32) });
+    clearQuickApiSettingsCache();
+
+    const data = await getDownloadPageData();
+    expect(data.release).toMatchObject({ version: "1.2.3", installerName: "ClipshareQuickSetup-v1.2.3.exe", installerSha256: hash("exe-v1.2.3") });
+    expect(data.history.map((entry) => entry.version)).toEqual(["1.2.3", "1.2.2"]);
+    expect(data.certFingerprint).toBe(Array(32).fill("AB").join(":"));
+  });
+
+  it("falls back to the releases page when nothing is servable", async () => {
+    installFetch({ [LIST_URL]: () => new Response("down", { status: 503 }) });
+    const data = await getDownloadPageData();
+    expect(data.release).toBeNull();
+    expect(data.releasesPageUrl).toBe(`https://github.com/${REPO}/releases`);
   });
 });

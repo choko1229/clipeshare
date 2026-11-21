@@ -7,7 +7,16 @@ import { writeAuditLog } from "@/lib/admin/audit";
 import { logApi } from "@/lib/api/log";
 import { prisma } from "@/lib/db/prisma";
 import { parseMegabytes } from "@/lib/format/megabytes";
-import { clearQuickApiSettingsCache, githubRepoPattern, quickApiSettingKeys, semverPattern } from "@/lib/quick-share/api-settings";
+import { isSha256Hex } from "@/lib/quick-client/checksums";
+import { isDistributableAssetName, resetClientReleaseCache } from "@/lib/quick-client/releases";
+import {
+  clearQuickApiSettingsCache,
+  getQuickApiSettings,
+  githubRepoPattern,
+  normalizeCertFingerprint,
+  quickApiSettingKeys,
+  semverPattern,
+} from "@/lib/quick-share/api-settings";
 
 const idSchema = z.string().min(1).max(64);
 /** 空欄 = NULL(サイト全体設定を使う)、0 = 無制限 */
@@ -133,6 +142,12 @@ export async function updateQuickApiSettings(formData: FormData) {
     .parse(formData.get("clientMinSupportedVersion") ?? "");
   const clientReleaseCacheSeconds = z.coerce.number().int().min(60).max(86_400).parse(formData.get("clientReleaseCacheSeconds"));
   const clientSupportedOs = z.string().trim().min(1).max(64).parse(formData.get("clientSupportedOs"));
+  const fingerprintInput = z.string().trim().max(200).parse(formData.get("clientCertFingerprint") ?? "");
+  const clientCertFingerprint = fingerprintInput === "" ? "" : normalizeCertFingerprint(fingerprintInput);
+
+  if (clientCertFingerprint === null) {
+    throw new Error("証明書のフィンガープリントは SHA-256(64桁の16進数)で入力してください。");
+  }
 
   const entries = [
     { key: quickApiSettingKeys.tokenIssuanceEnabled, value: tokenIssuanceEnabled ? "true" : "false" },
@@ -143,6 +158,7 @@ export async function updateQuickApiSettings(formData: FormData) {
     { key: quickApiSettingKeys.clientMinSupportedVersion, value: clientMinSupportedVersion },
     { key: quickApiSettingKeys.clientReleaseCacheSeconds, value: String(clientReleaseCacheSeconds) },
     { key: quickApiSettingKeys.clientSupportedOs, value: clientSupportedOs },
+    { key: quickApiSettingKeys.clientCertFingerprint, value: clientCertFingerprint },
   ];
 
   const before = await prisma.siteSetting.findMany({
@@ -160,6 +176,7 @@ export async function updateQuickApiSettings(formData: FormData) {
   );
 
   clearQuickApiSettingsCache();
+  resetClientReleaseCache();
 
   await writeAuditLog({
     adminId: admin.id,
@@ -170,6 +187,79 @@ export async function updateQuickApiSettings(formData: FormData) {
     afterData: after,
   });
 
+  revalidatePath("/admin/api-tokens");
+  revalidatePath("/qick/download");
+}
+
+const checksumTagSchema = z.string().trim().regex(/^[\x21-\x7e]{1,100}$/, "タグ名を入力してください。");
+const checksumAssetSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(255)
+  .refine((value) => isDistributableAssetName(value) && !/[\\/\u0000-\u001f]/.test(value), "配布ファイル名(.exe / .msix)を入力してください。");
+const checksumSha256Schema = z
+  .string()
+  .trim()
+  .transform((value) => value.toLowerCase())
+  .refine(isSha256Hex, "SHA-256 は64桁の16進数で入力してください。");
+
+/**
+ * 配布ファイルの SHA-256 を手動で登録する(リリースに SHA256SUMS が無い・壊れている場合のフォールバック)。
+ * 同じリポジトリ・タグ・ファイル名は上書き。監査ログに記録し、リリース情報のキャッシュを捨てる。
+ */
+export async function registerClientAssetChecksum(formData: FormData) {
+  const admin = await requireAdmin();
+  const settings = await getQuickApiSettings();
+  const tag = checksumTagSchema.parse(formData.get("tag") ?? "");
+  const assetName = checksumAssetSchema.parse(formData.get("assetName") ?? "");
+  const sha256 = checksumSha256Schema.parse(formData.get("sha256") ?? "");
+  const repo = settings.clientGithubRepo;
+
+  const before = await prisma.quickClientAssetChecksum.findUnique({
+    where: { repo_tag_assetName: { repo, tag, assetName } },
+  });
+  const after = await prisma.quickClientAssetChecksum.upsert({
+    where: { repo_tag_assetName: { repo, tag, assetName } },
+    update: { sha256, createdByAdminId: admin.id },
+    create: { repo, tag, assetName, sha256, createdByAdminId: admin.id },
+  });
+
+  await writeAuditLog({
+    adminId: admin.id,
+    action: before ? "quick_client.checksum.update" : "quick_client.checksum.create",
+    targetType: "quick_client_asset_checksum",
+    targetId: after.id,
+    beforeData: before ?? undefined,
+    afterData: after,
+  });
+  logApi("info", { event: "quick_client.checksum_registered", repo, reason: `${tag} ${assetName}` });
+
+  resetClientReleaseCache();
+  revalidatePath("/admin/api-tokens");
+  revalidatePath("/qick/download");
+}
+
+export async function deleteClientAssetChecksum(formData: FormData) {
+  const admin = await requireAdmin();
+  const id = idSchema.parse(formData.get("checksumId"));
+  const before = await prisma.quickClientAssetChecksum.findUnique({ where: { id } });
+
+  if (!before) {
+    revalidatePath("/admin/api-tokens");
+    return;
+  }
+
+  await prisma.quickClientAssetChecksum.deleteMany({ where: { id } });
+  await writeAuditLog({
+    adminId: admin.id,
+    action: "quick_client.checksum.delete",
+    targetType: "quick_client_asset_checksum",
+    targetId: id,
+    beforeData: before,
+  });
+
+  resetClientReleaseCache();
   revalidatePath("/admin/api-tokens");
   revalidatePath("/qick/download");
 }

@@ -27,3 +27,19 @@ describe("quick share API migration", () => {
     expect(statements).toMatch(/quick_share_max_video_bytes/);
   });
 });
+
+describe("quick client checksum migration", () => {
+  const sql = readFileSync(
+    path.join(process.cwd(), "prisma", "migrations", "20261121010000_add_quick_client_asset_checksums", "migration.sql"),
+    "utf8",
+  );
+
+  it("only creates a table", () => {
+    const statements = sql
+      .split(/\r?\n/)
+      .filter((line) => !line.trim().startsWith("--"))
+      .join("\n");
+    expect(statements).toMatch(/CREATE TABLE `QuickClientAssetChecksum`/);
+    expect(statements).not.toMatch(/\b(DROP|TRUNCATE|MODIFY|ALTER|DELETE|UPDATE)\b/i);
+  });
+});
