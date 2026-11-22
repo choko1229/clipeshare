@@ -6,6 +6,9 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/db/prisma";
 import { generateUniqueUsername } from "@/lib/users/username";
 
+/** Discord の認可サーバーの issuer(認可レスポンスの iss と完全一致で照合される) */
+export const DISCORD_ISSUER = "https://discord.com";
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   secret:
@@ -19,6 +22,10 @@ export const authOptions: NextAuthOptions = {
     DiscordProvider({
       clientId: process.env.DISCORD_CLIENT_ID ?? "",
       clientSecret: process.env.DISCORD_CLIENT_SECRET ?? "",
+      // Discord は認可レスポンスに iss(RFC 9207)を付ける。openid-client は issuer が未設定だと
+      // 「issuer must be configured on the issuer」で拒否するため、メタデータの issuer を指定する
+      // (https://discord.com/.well-known/oauth-authorization-server の issuer)
+      issuer: DISCORD_ISSUER,
     }),
     TwitterProvider({
       clientId: process.env.TWITTER_CLIENT_ID ?? "",
