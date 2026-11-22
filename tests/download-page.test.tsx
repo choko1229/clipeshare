@@ -17,7 +17,7 @@ vi.mock("@/lib/quick-client/releases", async (importOriginal) => {
   return { ...original, getLatestClientRelease: releaseMocks.latest, getClientReleaseHistory: releaseMocks.history };
 });
 
-const { DownloadButtons, ReleaseHistory, TrustSteps } = await import("@/components/quick-download/download-sections");
+const { DownloadButtons, ReleaseHistory, TrustSteps, UNAVAILABLE_DOWNLOAD_LABEL } = await import("@/components/quick-download/download-sections");
 const { buildHistory, getDownloadPageData } = await import("@/lib/quick-client/download-page-data");
 const { formatReleaseDate, formatReleaseNotes, RELEASE_HISTORY_MAX_ENTRIES, RELEASE_NOTE_ITEM_MAX_CHARS, RELEASE_NOTES_MAX_ITEMS } = await import(
   "@/lib/quick-client/release-notes"
@@ -171,10 +171,51 @@ describe("rendered sections", () => {
   it("download buttons without a verified release (503 case): disabled, no link, no MSIX, no version line", () => {
     const html = renderToStaticMarkup(<DownloadButtons release={null} supportedOs="Windows 11" />);
     expect(html).toMatch(/<button[^>]*disabled/);
-    expect(html).toContain("Windows 11 版をダウンロード");
     expect(html).not.toContain("href=");
     expect(html).not.toContain("MSIXをダウンロード");
     expect(html).not.toMatch(/v\d+\.\d+\.\d+/);
+  });
+
+  describe("Q-029 (confirmed 2026-11-22): 「準備中」 disabled state", () => {
+    it("labels the only button 「準備中」 instead of the download label", () => {
+      expect(UNAVAILABLE_DOWNLOAD_LABEL).toBe("準備中");
+      const html = renderToStaticMarkup(<DownloadButtons release={null} supportedOs="Windows 11" />);
+      expect(html).toContain("準備中");
+      expect(html).not.toContain("版をダウンロード");
+      expect(html.match(/<button/g)).toHaveLength(1);
+      expect(html.match(/<a[\s>]/g)).toBeNull();
+    });
+
+    it("the button cannot be activated: disabled attribute, type=button, no download URL", () => {
+      const html = renderToStaticMarkup(<DownloadButtons release={null} supportedOs="Windows 11" />);
+      expect(html).toMatch(/<button[^>]*\bdisabled=""/);
+      expect(html).toMatch(/<button[^>]*type="button"/);
+      expect(html).not.toMatch(/\.exe|\.msix|github\.com/);
+    });
+
+    it("no verified release: 「準備中」 with no MSIX button and no version line, even when the supported OS is set", () => {
+      const html = renderToStaticMarkup(<DownloadButtons release={null} supportedOs="Windows 10 / 11" />);
+      expect(html).toContain("準備中");
+      expect(html).not.toContain("Windows 10 / 11");
+      expect(html).not.toContain("MSIX");
+      expect(html).not.toContain(" · ");
+    });
+
+    it("a verified release never shows 「準備中」", () => {
+      const html = renderToStaticMarkup(
+        <DownloadButtons
+          release={{
+            version: "1.2.3",
+            installer: { name: "setup.exe", url: "https://github.com/x/y/releases/download/v1.2.3/setup.exe", sizeBytes: 12_000_000, sha256: sha("a") },
+            msix: null,
+          }}
+          supportedOs="Windows 11"
+        />,
+      );
+      expect(html).not.toContain("準備中");
+      expect(html).not.toContain('disabled=""');
+      expect(html).toContain("Windows 11 版をダウンロード");
+    });
   });
 
   it("hides the MSIX button when the release has no MSIX", () => {
