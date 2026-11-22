@@ -103,3 +103,10 @@
   - 差分あり → 修正: 色（実装はボタン既定の濃い主色を不透明度0.5で薄くしていた → デザインどおりカード背景・薄い文字色・枠線・不透明度0.7）、カーソル（既定は pointer-events なしでカーソルが変わらない → not-allowed）、`aria-disabled="true"` の追加
   - デザインの「状態：検証済みリリースなし」と点線の区切りはキャンバス上の状態名のため、画面には出さない
   - テスト1件追加（アイコン・aria-disabled・薄い表示のクラス・既定の濃い色/0.5が残らない・状態名が出ない）
+
+## 本番反映（2026-11-22）
+- [x] マージ前の確認: 作業ツリー clean、履歴に秘密情報・機密ファイル無し、マイグレーション2本は追加型（UPDATE 2つ）、main と競合無し、Secrets（`VPS_HOST` / `VPS_USER` / `VPS_SSH_PRIVATE_KEY`）と変数（`APP_DIR` / `APP_NAME`）は設定済み、過去のデプロイは成功続き
+- [x] 自動デプロイの発見: main への push で `deploy.yml` → `scripts/deploy-server.sh`（`prisma migrate deploy` と `prisma db seed` を自動実行）
+- [x] seed がデプロイのたびに管理画面の設定（アカウントレベル7件・既定のレベル・`original_video_retention_days`）を上書きしていたため、先に修正（#2、`prisma/seed-defaults.ts`、無いときだけ作る）。squash でマージ → デプロイ成功（main `15cc369`、seed は何も作成・変更せず）
+- [x] PR #1 を push（`2c97d86`）→ main（#2 込み）と合わせた状態で 272件＋seed 8件・typecheck・lint・build 成功 → オーナーがバックアップの最新を確認 → rebase merge（26コミット、ブランチは残す）→ デプロイ成功（main `7e38d19`、マイグレーション2本適用）
+- [ ] オーナー: スモークテスト（DEPLOY §6）、管理画面で証明書フィンガープリントを入力、nginx の `X-Forwarded-For` 変更（未実施なら）
