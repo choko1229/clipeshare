@@ -303,3 +303,23 @@ POST /api/v1/quick (Bearer csq_xxx) → 401 {"error":{"code":"UNAUTHORIZED","mes
 - **結果**: `npm.cmd run typecheck` 成功 / `npm.cmd run lint` 成功 / `npm.cmd run build` 成功 / `npm.cmd test` **271件すべて成功**（前回の267件＋今回4件）。ブラウザでの再確認は未実施（文言だけの変更で、描画はテストで確認）。
 - **変更ファイル**: `components/quick-download/download-sections.tsx`、`tests/download-page.test.tsx`、`docs/quickshare/{QUESTIONS,PROGRESS,REPORT}.md`。
 - **残り**: デザイン01の無効状態（オーナーが追記予定）を受け取ったら、取り込んで実装（文言「準備中」・アイコン・ボタンの見た目・周囲の要素）との差分を確認する。未解決の質問は無し（Q-001〜Q-026 のうち未確認のものは初回からの継続分）。
+
+---
+
+# 追加報告6: デザイン01の無効状態の取り込み（2026-11-22）
+**未 push**（ローカルコミットのみ）。正本: `docs/quickshare/design/01-web-download-page.dc.html`（オーナー更新版。本報告のコミットで取り込み。差分はヒーロー内に「状態：検証済みリリースなし」の見本を1つ追加したもののみ）。
+
+| 項目 | デザイン | 実装（修正前） | 対応 |
+|---|---|---|---|
+| 文言 | 準備中 | 準備中 | 一致 |
+| アイコン | ダウンロード（16px） | 同じ | 一致 |
+| 色 | カード背景・薄い文字色（`--mfg`）・枠線（`--bd`）・不透明度0.7 | 主色の背景・主色の文字を不透明度0.5 | **修正**（`bg-card text-muted-foreground` ＋ outline の枠線、`disabled:opacity-70`） |
+| カーソル | not-allowed | 既定（pointer-events なし） | **修正**（`disabled:pointer-events-auto disabled:cursor-not-allowed`。disabled のためクリックは発火しない。hover で色が変わらないよう `hover:bg-card`） |
+| アクセシビリティ | `disabled` ＋ `aria-disabled="true"` | `disabled` のみ | **修正** |
+| MSIX ボタン・バージョン行 | 無し | 無し | 一致 |
+| 「状態：検証済みリリースなし」・点線の区切り | キャンバス上の状態名 | — | 画面には出さない（説明文を足さない方針。テストで固定） |
+
+- **テスト**: `tests/download-page.test.tsx` に1件追加（アイコン、`aria-disabled`、薄い表示のクラス、既定の濃い色・不透明度0.5・pointer-events なしが残らない、状態名が出ない）。
+- **結果**: `npm.cmd run typecheck` 成功 / `npm.cmd run lint` 成功 / `npm.cmd test` **272件すべて成功**（前回の271件＋1件）。
+- **ブラウザ確認**: 未実施。この環境には Clipshare 用の DB が無く、ルートレイアウトが DB を読むためページ全体が 500 になる（ページ側の区画ごとの縮退は動作し、ログ `quick_download.section_failed` は出ていた）。見た目はクラス指定とテストで確認。
+- **変更ファイル**: `components/quick-download/download-sections.tsx`、`tests/download-page.test.tsx`、`docs/quickshare/design/01-web-download-page.dc.html`、`docs/quickshare/{PROGRESS,REPORT}.md`。
