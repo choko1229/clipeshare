@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { imageLocalPatterns } from "./lib/images/local-patterns";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
@@ -28,6 +29,7 @@ const nextConfig: NextConfig = {
     },
   },
   images: {
+    localPatterns: imageLocalPatterns,
     remotePatterns: [
       {
         protocol: "https",
