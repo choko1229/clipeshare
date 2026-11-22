@@ -193,6 +193,23 @@ describe("rendered sections", () => {
       expect(html).not.toMatch(/\.exe|\.msix|github\.com/);
     });
 
+    it("matches design 01 「状態：検証済みリリースなし」: download icon, aria-disabled, muted look (card background, muted text, border, opacity 0.7, not-allowed)", () => {
+      const html = renderToStaticMarkup(<DownloadButtons release={null} supportedOs="Windows 11" />);
+      expect(html).toMatch(/<button[^>]*aria-disabled="true"/);
+      expect(html).toMatch(/<svg[^>]*lucide-download/);
+      const classes = (html.match(/<button[^>]*class="([^"]*)"/)?.[1] ?? "").split(/\s+/);
+      expect(classes).toEqual(
+        expect.arrayContaining(["bg-card", "text-muted-foreground", "border", "border-border", "disabled:opacity-70", "disabled:cursor-not-allowed", "h-12", "font-bold"]),
+      );
+      // ボタン既定の濃い色・不透明度0.5は残さない
+      expect(classes).not.toEqual(expect.arrayContaining(["bg-primary"]));
+      expect(classes).not.toContain("text-primary-foreground");
+      expect(classes).not.toContain("disabled:opacity-50");
+      expect(classes).not.toContain("disabled:pointer-events-none");
+      // キャンバス上の状態名は画面に出さない
+      expect(html).not.toContain("状態");
+    });
+
     it("no verified release: 「準備中」 with no MSIX button and no version line, even when the supported OS is set", () => {
       const html = renderToStaticMarkup(<DownloadButtons release={null} supportedOs="Windows 10 / 11" />);
       expect(html).toContain("準備中");

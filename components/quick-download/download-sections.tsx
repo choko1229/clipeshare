@@ -14,13 +14,20 @@ const trustSteps = [
 /** 検証済みリリースが無いときのボタン文言(Q-029 確定) */
 export const UNAVAILABLE_DOWNLOAD_LABEL = "準備中";
 
+/**
+ * デザイン01「状態：検証済みリリースなし」のボタン: カード背景・薄い文字・枠線・不透明度0.7・not-allowed。
+ * ボタン既定の disabled(pointer-events なし・不透明度0.5)を上書きする。disabled のためクリックは発火しない
+ */
+const unavailableButtonClassName =
+  "h-12 bg-card text-[15px] font-bold text-muted-foreground hover:bg-card disabled:pointer-events-auto disabled:cursor-not-allowed disabled:opacity-70";
+
 export function DownloadButtons({ release, supportedOs }: Pick<DownloadPageData, "release" | "supportedOs">) {
   if (!release) {
     // SHA-256 検証済みのリリースが無い間はダウンロードさせない(/api/v1/client/latest の 503 と同じ扱い)。
-    // MSIX ボタンとバージョン行は出さない(Q-029)
+    // MSIX ボタンとバージョン行は出さない(Q-029)。デザインの「状態：…」はキャンバス上の状態名で、画面には出さない
     return (
       <div className="mt-[22px] flex flex-wrap items-center gap-4">
-        <Button className="h-12 text-[15px] font-bold" disabled type="button">
+        <Button aria-disabled="true" className={unavailableButtonClassName} disabled type="button" variant="outline">
           <Download aria-hidden="true" size={16} />
           {UNAVAILABLE_DOWNLOAD_LABEL}
         </Button>
