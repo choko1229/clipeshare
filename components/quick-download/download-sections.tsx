@@ -11,20 +11,24 @@ const trustSteps = [
   { title: "インストール", body: "信頼したあと、続けてインストールします。" },
 ];
 
-export function DownloadButtons({ release, supportedOs }: Pick<DownloadPageData, "release" | "supportedOs">) {
-  const label = `${supportedOs} 版をダウンロード`;
+/** 検証済みリリースが無いときのボタン文言(Q-029 確定) */
+export const UNAVAILABLE_DOWNLOAD_LABEL = "準備中";
 
+export function DownloadButtons({ release, supportedOs }: Pick<DownloadPageData, "release" | "supportedOs">) {
   if (!release) {
-    // SHA-256 検証済みのリリースが無い間はダウンロードさせない(/api/v1/client/latest の 503 と同じ扱い)
+    // SHA-256 検証済みのリリースが無い間はダウンロードさせない(/api/v1/client/latest の 503 と同じ扱い)。
+    // MSIX ボタンとバージョン行は出さない(Q-029)
     return (
       <div className="mt-[22px] flex flex-wrap items-center gap-4">
         <Button className="h-12 text-[15px] font-bold" disabled type="button">
           <Download aria-hidden="true" size={16} />
-          {label}
+          {UNAVAILABLE_DOWNLOAD_LABEL}
         </Button>
       </div>
     );
   }
+
+  const label = `${supportedOs} 版をダウンロード`;
 
   const meta = [`v${release.version}`, formatBytes(release.installer.sizeBytes), supportedOs].join(" · ");
 

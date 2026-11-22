@@ -291,3 +291,15 @@ POST /api/v1/quick (Bearer csq_xxx) → 401 {"error":{"code":"UNAUTHORIZED","mes
 - **結果**: `npm.cmd run typecheck` 成功 / `npm.cmd run lint` 成功 / `npm.cmd run build` 成功 / `npm.cmd test` **267件すべて成功**（既存243件を含む。前回の264件＋今回3件）。
 - **変更ファイル**: `lib/quick-client/releases.ts`（定数化のみ。挙動は不変）、`tests/quick-client-releases.test.ts`、`docs/DEPLOY_QUICKSHARE.md`、`docs/quickshare/{QUESTIONS,PROGRESS,REPORT}.md`。
 - **未解決の質問**: Q-028〜Q-031（ダウンロードページ。前回から継続）。
+
+---
+
+# 追加報告5: Q-028〜Q-031 確定の反映（2026-11-22）
+**未 push**（ローカルコミットのみ）。
+
+- **記録**: QUESTIONS の Q-028〜Q-031 を「確定（2026-11-22、オーナー）」に更新。いずれも暫定案どおり（Q-028: 3件・5項目・140文字・本文先頭60行・プレーンテキスト描画／Q-030: 配信中以前のみ、無い・取得失敗時は区画ごと非表示／Q-031: 「コピーしました」2秒、発行元 choko1229 固定）。これらは実装済みのため、コードの変更は Q-029 のみ。
+- **Q-029 の変更**: 検証済みリリースが無いときのメインボタンを「{対応OS} 版をダウンロード」から「準備中」に変更（無効・`type="button"`・リンクなし）。MSIX ボタンとバージョン行は従来どおり出さない。文言は `components/quick-download/download-sections.tsx` の定数 `UNAVAILABLE_DOWNLOAD_LABEL` 1か所。アイコン（ダウンロード）は通常時と同じものを残している（デザイン01の無効状態の取り込み時に合わせる）。
+- **テスト**: `tests/download-page.test.tsx` に「準備中」の無効状態を4件追加（文言が「準備中」で「版をダウンロード」が出ない・ボタンは1つでリンク無し／`disabled` 属性と `type="button"`、exe・msix・GitHub の URL が出ない／対応OS・MSIX・バージョン行が出ない／検証済みリリースがあるときは「準備中」も `disabled` も出ない）。文言を一時的に元に戻すと2件が失敗することを確認。
+- **結果**: `npm.cmd run typecheck` 成功 / `npm.cmd run lint` 成功 / `npm.cmd run build` 成功 / `npm.cmd test` **271件すべて成功**（前回の267件＋今回4件）。ブラウザでの再確認は未実施（文言だけの変更で、描画はテストで確認）。
+- **変更ファイル**: `components/quick-download/download-sections.tsx`、`tests/download-page.test.tsx`、`docs/quickshare/{QUESTIONS,PROGRESS,REPORT}.md`。
+- **残り**: デザイン01の無効状態（オーナーが追記予定）を受け取ったら、取り込んで実装（文言「準備中」・アイコン・ボタンの見た目・周囲の要素）との差分を確認する。未解決の質問は無し（Q-001〜Q-026 のうち未確認のものは初回からの継続分）。
