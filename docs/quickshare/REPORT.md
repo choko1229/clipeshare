@@ -323,3 +323,32 @@ POST /api/v1/quick (Bearer csq_xxx) → 401 {"error":{"code":"UNAUTHORIZED","mes
 - **結果**: `npm.cmd run typecheck` 成功 / `npm.cmd run lint` 成功 / `npm.cmd test` **272件すべて成功**（前回の271件＋1件）。
 - **ブラウザ確認**: 未実施。この環境には Clipshare 用の DB が無く、ルートレイアウトが DB を読むためページ全体が 500 になる（ページ側の区画ごとの縮退は動作し、ログ `quick_download.section_failed` は出ていた）。見た目はクラス指定とテストで確認。
 - **変更ファイル**: `components/quick-download/download-sections.tsx`、`tests/download-page.test.tsx`、`docs/quickshare/design/01-web-download-page.dc.html`、`docs/quickshare/{PROGRESS,REPORT}.md`。
+
+---
+
+# 追加報告7: 本番反映（2026-11-22）
+
+## マージ前の確認
+- 作業ツリー clean。`origin/main...HEAD` の差分と `git log -p` に、秘密鍵・トークン・接続文字列のパターン、`.env`・`.pfx`・`.pem`・ローカル DB 等のファイル無し。
+- マイグレーション2本は追加型（DROP・型変更・デフォルト無しの NOT NULL 無し）。既存データを書き換える UPDATE が2つ（画像上限の旧既定値 20MB→50MB、既存レベルへの現行上限のコピー）。
+- `deploy.yml`: main への push で VPS へ自動デプロイ（環境 `VPS`、Secrets `VPS_HOST` / `VPS_USER` / `VPS_SSH_PRIVATE_KEY`、変数 `APP_DIR=/var/www/clipeshare` / `APP_NAME=clipeshare`、いずれも設定済み）。直近8回のデプロイは成功。
+- `scripts/deploy-server.sh`: 別の作業ツリーで `npm ci` → `prisma generate` → **`prisma migrate deploy` → `prisma db seed`** → 型検査 → lint → build → 入れ替え → 再起動。途中で失敗しても稼働中の `current` は無傷。ただしマイグレーションと seed はビルドより前に走るため、後段で失敗すると「DB は新しい構造・コードは旧版」で動き続ける（今回は追加型なので問題なし）。
+- リポジトリに CI のワークフローは無く、main にブランチ保護も無い（オーナーの了承のうえ、ローカルの確認で代替）。
+
+## A. seed の修正（#2）
+- 問題: `prisma db seed` がデプロイのたびに、アカウントレベル7件の全項目を seed の値で書き直し、既定のレベルを Visitor に戻し、`original_video_retention_days` を 30 に戻していた（管理画面の変更が毎回消える）。
+- 修正: `prisma/seed-defaults.ts` に処理を分け、アカウントレベルと保存設定は無いときだけ作る。既定のレベルは1つも無いときだけ Visitor にする。旧版の `default` レベルは、Visitor が無いときだけ名前だけ Visitor に変える（値は保つ。Visitor があればどちらも触らない）。モデレーションのルールは変更なし。
+- 挙動の変化: seed の値を変えても既存の行には反映されない。
+- テスト: `node --import tsx --test prisma/seed-defaults.test.ts`（8件）。使い捨ての MySQL 8.4 でも、1回目で全件作成・2回目で変化なし・管理画面相当の変更が `prisma db seed` 再実行後も保持されることを確認。
+- squash でマージ → デプロイ成功（3分43秒、main `15cc369`）。本番では seed は何も作成・変更しなかった（ログに作成の記録なし）。
+
+## B. PR #1
+- `git push -u origin feature/quickshare-api-v1`（`7ca8a55..2c97d86`、force なし）。
+- main（#2 込み）と合わせた状態で vitest 272件・seed 8件・typecheck・lint・build 成功。PR 本文を最新化（変更の要点、マイグレーション2本と UPDATE 2つ、デプロイ時に migrate と seed が自動で走ること、テスト件数）。
+- オーナーがバックアップの最新を確認したうえで `gh pr merge 1 --rebase`（2026-11-22 09:49 UTC、26コミットを線形に取り込み、ブランチは残す）。
+- デプロイ成功（3分17秒）: `20261121000000_add_quickshare_api_tokens` と `20261121010000_add_quick_client_asset_checksums` を適用、seed 実行、型検査・lint・build、入れ替え・再起動まで完了。**main の先頭 `7e38d19`**。
+
+## オーナーが次にやること
+1. スモークテスト（`docs/DEPLOY_QUICKSHARE.md` §6）
+2. 管理画面で署名証明書の SHA-256 フィンガープリントを入力
+3. nginx の `X-Forwarded-For` を `$remote_addr` に（未実施の場合、DEPLOY §4）
